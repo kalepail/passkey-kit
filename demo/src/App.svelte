@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as PasskeyKit from "./passkey-kit";
 	import { Networks, Keypair } from "@stellar/stellar-sdk";
+	import { Buffer } from "buffer";
 
 	let keys: {
 		contractSalt: Buffer;

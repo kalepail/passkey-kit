@@ -1,10 +1,5 @@
-// Including multiple TS bindings increases bundle size significantly (Stellar SDK gets bundled multiple times)
-import { Client as PasskeyClient } from './passkey-kit-sdk/src/index.js' // 'passkey-kit-sdk'
-import {
-    Client as FactoryClient,
-    // Address, Networks, StrKey, hash, xdr, Transaction, Keypair, Horizon, FeeBumpTransaction
-} from './passkey-factory-sdk/src/index.js' // 'passkey-factory-sdk'
-// Including this along with the above SDKs increases the final bundle size significantly
+import { Client as PasskeyClient } from 'passkey-kit-sdk'
+import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, Networks, StrKey, hash, xdr, Transaction, Keypair, Horizon, FeeBumpTransaction } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import Base64URL from "base64url"
@@ -14,8 +9,6 @@ import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simp
 import { Buffer } from 'buffer'
 
 const { default: base64url } = Base64URL
-
-// TODO size is absolutely massive. Consider not using TS bindings
 
 export class PasskeyAccount {
     public wallet: PasskeyClient | undefined

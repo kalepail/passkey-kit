@@ -1,5 +1,5 @@
-import { Client as PasskeyClient } from './passkey-kit-sdk/src/index.js';
-import { Client as FactoryClient } from './passkey-factory-sdk/src/index.js';
+import { Client as PasskeyClient } from 'passkey-kit-sdk';
+import { Client as FactoryClient } from 'passkey-factory-sdk';
 import { Networks, Horizon } from '@stellar/stellar-sdk';
 import { Buffer } from 'buffer';
 export declare class PasskeyAccount {
