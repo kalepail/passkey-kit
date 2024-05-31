@@ -9,7 +9,7 @@ pnpm i
 To build:
 
 ```bash
-bun run build
+pnpm run build
 ```
 
 To check size inspect the demo/src/passkey-kit/index.js file.
