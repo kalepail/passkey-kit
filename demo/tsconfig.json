@@ -13,9 +13,10 @@
      */
     "allowJs": true,
     "checkJs": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    // "types": ["src/passkey-key"]
   },
-  "exclude": ["src/passkey-kit/**/*"],
+  // "exclude": ["src/passkey-kit/**/*"],
   "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

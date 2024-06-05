@@ -8,8 +8,10 @@ import { decode } from 'cbor-x/decode'
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
 import { Buffer } from 'buffer'
 
-// TODO clean up these params and the interface as a whole
-// might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+/* TODO 
+    - Clean up these params and the interface as a whole
+        Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+*/
 
 export class PasskeyAccount {
     public id: string | undefined
@@ -90,7 +92,7 @@ export class PasskeyAccount {
             this.id = startRegistrationResponse.id
 
             if (!this.sudo)
-                this.sudo = this.id
+                this.sudo = startRegistrationResponse.id
         }
 
         return this.getPublicKeys(startRegistrationResponse)
@@ -117,8 +119,10 @@ export class PasskeyAccount {
         return contractId
     }
 
-    // TODO add a getPasskeyInfo action to get info about a specific passkey
-    // Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
+    /* TODO 
+        - Add a getPasskeyInfo action to get info about a specific passkey
+            Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
+    */
 
     public async connectWallet() {
         const startAuthenticationResponse = await startAuthentication({
@@ -162,6 +166,9 @@ export class PasskeyAccount {
             rpcUrl: this.rpcUrl
         })
 
+        // get and set the sudo signer
+        await this.getWalletData()
+
         return {
             contractId,
             ...publicKeys,
@@ -169,13 +176,8 @@ export class PasskeyAccount {
     }
 
     public async sign(txn: Transaction, id?: string | 'sudo' | 'all') {
-        // TODO allow the ability to pass in a specific signer so if we need to require the sudo signer we can
-        // There will be cases where we sign into the wallet with a key that wasn't the sudo signer. In those cases we need to be able to specify signing with sudo
-        // Oof. We save the sha256 hash of the passkey id not the id itself which makes selecting it essentially impossible. If the id is guaranteed to be a specific length maybe we don't need to hash it?
-        // Looks like these are not of fixed length https://www.w3.org/TR/webauthn-2/#credential-id
-        // For now we'll allow passing nothing, which will default to `this.id`, a specific key, or null which will allow us to pick from a list
-
         // NOTE hard coded to sign only Soroban transactions and only and always the first auth
+
         txn = new Transaction(txn.toXDR(), this.networkPassphrase)
 
         const op = txn.operations[0] as Operation.InvokeHostFunction
@@ -197,17 +199,17 @@ export class PasskeyAccount {
                 ? {
                     challenge: base64url(authHash),
                     // rpId: undefined,
+                    userVerification: "discouraged",
+                }
+                : {
+                    challenge: base64url(authHash),
+                    // rpId: undefined,
                     allowCredentials: [
                         {
                             id: id === 'sudo' ? this.sudo! : id! || this.id!,
                             type: "public-key",
                         },
                     ],
-                    userVerification: "discouraged",
-                }
-                : {
-                    challenge: base64url(authHash),
-                    // rpId: undefined,
                     userVerification: "discouraged",
                 }
         );
@@ -235,7 +237,7 @@ export class PasskeyAccount {
             }),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('id'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(this.id!)),
+                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id)),
             }),
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('signature'),
@@ -298,7 +300,6 @@ export class PasskeyAccount {
                 );
             });
 
-        // TODO we're storing raw key ids now so we can preemptively look up the sudo signer
         this.sudo = base64url(data.get('sudo_sig'))
 
         return data
@@ -316,12 +317,6 @@ export class PasskeyAccount {
                 ...publicKeyObject.get('-3')!
             ])
         }
-
-        // NOTE included so if we register more keys but don't plan to deploy them we don't overwrite primary keys. 
-        // e.g. when adding new signers you probably don't want to begin signing with those keys, you just want to add it
-        // Ideally we should be a little smarter about this in case we _do_ want to override the main key
-        // if (!this.id)
-        //     this.id = value.id
 
         return {
             passKeyId: base64url.toBuffer(value.id),
