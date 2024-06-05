@@ -11,6 +11,9 @@ import { Buffer } from 'buffer'
 /* TODO 
     - Clean up these params and the interface as a whole
         Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+
+    - Do we need to do anything with sequence numbers here?
+        Probably not as they should be handled externally
 */
 
 export class PasskeyAccount {
@@ -107,6 +110,11 @@ export class PasskeyAccount {
         const contractId = result.unwrap()
         const txn = new Transaction(built!.toXDR(), this.networkPassphrase);
 
+        txn.sign(Keypair.fromSecret(secret))
+
+        // TODO might should move this to the client so we don't have to pass in a secret to the wallet interface
+        await this.send(txn)
+
         this.wallet = new PasskeyClient({
             publicKey: this.sequencePublicKey,
             contractId,
@@ -114,14 +122,13 @@ export class PasskeyAccount {
             rpcUrl: this.rpcUrl
         })
 
-        await this.send(txn, secret)
-
         return contractId
     }
 
     /* TODO 
         - Add a getPasskeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
+            @Later
     */
 
     public async connectWallet() {
@@ -175,6 +182,7 @@ export class PasskeyAccount {
         }
     }
 
+    // TODO Support `id` as a Uint8Array
     public async sign(txn: Transaction, id?: string | 'sudo' | 'all') {
         // NOTE hard coded to sign only Soroban transactions and only and always the first auth
 
@@ -252,15 +260,10 @@ export class PasskeyAccount {
             || SorobanRpc.Api.isSimulationRestore(sim)
         ) throw sim
 
-        return SorobanRpc.assembleTransaction(txn, sim)
-            .build()
+        return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
 
-    public async send(txn: Transaction, secret: string) {
-        const source = Keypair.fromSecret(secret)
-
-        txn.sign(source);
-
+    public async send(txn: Transaction) {
         const data = new FormData();
 
         data.set('xdr', txn.toXDR());

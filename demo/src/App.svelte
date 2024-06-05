@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { PasskeyAccount } from "../../passkey-kit";
-	import { Networks, Keypair } from "@stellar/stellar-sdk";
-    import base64url from "base64url";
+	import { Networks, Keypair, Transaction } from "@stellar/stellar-sdk";
+	import base64url from "base64url";
 	import { Buffer } from "buffer";
+	import { fund, getBalance, transfer } from "./lib/account";
+    import { keypair } from "./lib/common";
+	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
 	let contractId: string;
@@ -10,6 +13,7 @@
 		passKeyId: Buffer;
 		publicKey: Buffer | undefined;
 	};
+	let balance: string;
 
 	/* TODO 
 		- Review base fee of inner tx as related to the outer. 
@@ -24,11 +28,12 @@
 	const feeBumpJwt =
 		"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3MTJmM2FmNjA2MWQyNmFjNGM1NzMxNTFlMTE2NTQ3YTNiNThiMzY0ZmNmNWE2ZGY4ZjFhNTkxNmQ1NDBjYWUzIiwiZXhwIjoxNzMyODExOTU2LCJpYXQiOjE3MTcwODcxNTZ9.VfHVZOSleLvYVfH5nmdWFgDgHJ5Ddfa1m1e1WtlFTgA";
 
+	// TODO use env vars everywhere it makes sense
 	const account = new PasskeyAccount({
 		sequencePublicKey: sequenceKeypair.publicKey(),
-		networkPassphrase: Networks.TESTNET,
-		horizonUrl: "https://horizon-testnet.stellar.org",
-		rpcUrl: "https://soroban-testnet.stellar.org",
+		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
+		horizonUrl: import.meta.env.VITE_horizonUrl,
+		rpcUrl: import.meta.env.VITE_rpcUrl,
 		feeBumpUrl: "https://feebump.sdf-ecosystem.workers.dev",
 		feeBumpJwt,
 	});
@@ -59,6 +64,7 @@
 			- Add existing signer vs always creating a new one
 				Will require a lookup onchain for the existing passkey public key on an existing wallet
 				I also think this currently will require removing that signer from its current wallet in order to add it as a signer to an alternative wallet
+				@Later
 		*/
 
 		const user = prompt("Give this passkey a name");
@@ -73,8 +79,13 @@
 			pk: keys.publicKey!,
 		});
 
-		const txn = await account.sign(built!, "sudo");
-		const res = await account.send(txn, sequenceKeypair.secret());
+		// xdr to txn funk due to TypeError: XDR Write Error: [object Object] is not a DecoratedSignature
+		const xdr = await account.sign(built!, "sudo");
+		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+
+		txn.sign(sequenceKeypair);
+
+		const res = await account.send(txn);
 
 		console.log(res);
 	}
@@ -83,8 +94,12 @@
 			id: Buffer.from(signer),
 		});
 
-		const txn = await account.sign(built!, "sudo");
-		const res = await account.send(txn, sequenceKeypair.secret());
+		const xdr = await account.sign(built!, "sudo");
+		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+
+		txn.sign(sequenceKeypair);
+
+		const res = await account.send(txn);
 
 		console.log(res);
 	}
@@ -94,25 +109,40 @@
 			id,
 		});
 
-		const txn = await account.sign(built!, "sudo");
-		const res = await account.send(txn, sequenceKeypair.secret());
+		const xdr = await account.sign(built!, "sudo");
+		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+
+		txn.sign(sequenceKeypair);
+
+		const res = await account.send(txn);
 
 		console.log(res);
 
 		// update the sudo signer
-		account.sudo = base64url(id)
+		account.sudo = base64url(id);
 	}
 
-	// TODO
-	async function transfer(signer: Uint8Array) {
-		console.log(signer);
+	async function fundWallet() {
+		const res = await fund(contractId);
+		console.log(res);
 	}
-
-	function arraysEqual(arr1: Uint8Array, arr2: Uint8Array) {
-		return (
-			arr1?.length === arr2?.length &&
-			arr1.every((value, index) => value === arr2[index])
+	async function getWalletBalance() {
+		balance = await getBalance(contractId);
+	}
+	async function walletTransfer(signer: Uint8Array) {
+		const built = await transfer(
+			contractId,
+			account.factory.options.contractId,
 		);
+
+		const xdr = await account.sign(built, base64url(signer));
+		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+
+		txn.sign(keypair);
+
+		const res = await account.send(txn);
+
+		console.log(res);
 	}
 </script>
 
@@ -122,21 +152,30 @@
 
 	{#if contractId}
 		<p>{contractId}</p>
-		<button on:click={addSigner}>Add Signer</button>
+
+		{#if balance}
+			<p>{Math.floor(Number(balance) / 10_000_000)} XLM</p>
+		{/if}
+
+		<button on:click={fundWallet}>Add Funds</button>
+		<button on:click={getWalletBalance}>Get Balance</button>
 		<button on:click={getWalletData}>Get Wallet Data</button>
+		<button on:click={addSigner}>Add Signer</button>
 	{/if}
 
 	<ul>
 		{#each walletData.size ? walletData.get("sigs") : [] as signer}
 			<li>
 				{Buffer.from(signer).toString("base64")}
+
+				<button on:click={() => walletTransfer(signer)}>Transfer 1 XLM</button
+				>
+
 				{#if walletData.size && !arraysEqual(signer, walletData.get("sudo_sig"))}
 					<button on:click={() => resudo(signer)}>Make Sudo</button>
 					<button on:click={() => removeSigner(signer)}>Remove</button
 					>
 				{/if}
-				<!-- <button on:click={() => transfer(signer)}>Transfer 1 XLM</button
-				> -->
 			</li>
 		{/each}
 	</ul>

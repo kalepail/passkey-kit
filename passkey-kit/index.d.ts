@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk';
 import { Client as FactoryClient } from 'passkey-factory-sdk';
-import { Networks, Transaction, Horizon, SorobanRpc, Operation } from '@stellar/stellar-sdk';
+import { Networks, Transaction, Horizon, SorobanRpc } from '@stellar/stellar-sdk';
 import { Buffer } from 'buffer';
 export declare class PasskeyAccount {
     id: string | undefined;
@@ -35,8 +35,8 @@ export declare class PasskeyAccount {
         publicKey: Buffer | undefined;
         contractId: string;
     }>;
-    sign(txn: Transaction, id?: string | 'sudo' | 'all'): Promise<Transaction<import("passkey-kit-sdk").Memo<import("passkey-kit-sdk").MemoType>, Operation[]>>;
-    send(txn: Transaction, secret: string): Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+    sign(txn: Transaction, id?: string | 'sudo' | 'all'): Promise<string>;
+    send(txn: Transaction): Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
     getWalletData(): Promise<Map<string, any>>;
     private getPublicKeys;
     private getPublicKeyObject;
