@@ -11,7 +11,7 @@ const result = await build({
   outdir: 'demo/src/passkey-kit',
   entryPoints: ['index.ts'],
   minify: true,
-  // sourcemap: true,
+  sourcemap: true,
   logLevel: 'silent',
   resolveExtensions: ['.tsx', '.ts', '.jsx', '.mjs', '.js', '.json'],
   // mainFields: ['worker', 'browser', 'module', 'jsnext', 'main'],
