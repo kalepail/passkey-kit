@@ -6,7 +6,7 @@
 	let walletData: Map<string, any> = new Map();
 	let contractId: string;
 	let keys: {
-		contractSalt: Buffer;
+		passKeyId: Buffer;
 		publicKey: Buffer | undefined;
 	};
 
@@ -44,7 +44,7 @@
 
 		keys = await account.createWallet("Super Peach", user);
 		contractId = await account.deployWallet(
-			keys.contractSalt,
+			keys.passKeyId,
 			keys.publicKey!,
 			sequenceKeypair.secret(),
 		);
@@ -71,7 +71,7 @@
 		console.log(keys);
 
 		const { built } = await account.wallet!.add_sig({
-			id: keys.contractSalt,
+			id: keys.passKeyId,
 			pk: keys.publicKey!,
 		});
 

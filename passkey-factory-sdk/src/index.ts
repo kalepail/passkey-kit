@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CD4GWROXPFVZIWPU7GZHWX52NF7JIFT4MICZ23OPJJOKYQCOUPN4QHVK",
+    contractId: "CDSGG7BSWYWQMTY5KTZVDTC34ZESMZ75ZGSTTVHS4NIKCF4PM3GDJ4G3",
   }
 } as const
 
@@ -89,7 +89,7 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({salt, pk}: {salt: Buffer, pk: Buffer}, options?: {
+  deploy: ({id, pk}: {id: Buffer, pk: Buffer}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -109,7 +109,7 @@ export interface Client {
   /**
    * Construct and simulate a add_sig transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  add_sig: ({salt, contract}: {salt: Buffer, contract: string}, options?: {
+  add_sig: ({id, contract}: {id: Buffer, contract: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -129,7 +129,7 @@ export interface Client {
   /**
    * Construct and simulate a rm_sig transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  rm_sig: ({salt, contract}: {salt: Buffer, contract: string}, options?: {
+  rm_sig: ({id, contract}: {id: Buffer, contract: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -150,12 +150,12 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABQAAAAAAAAAJTm90SW5pdGVkAAAAAAAAAQAAAAAAAAANQWxyZWFkeUluaXRlZAAAAAAAAAIAAAAAAAAADUFscmVhZHlNYXBwZWQAAAAAAAADAAAAAAAAAAhOb3RGb3VuZAAAAAQAAAAAAAAADE5vdFBlcm1pdHRlZAAAAAU=",
+      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABQAAAAAAAAAJTm90SW5pdGVkAAAAAAAAAQAAAAAAAAAITm90Rm91bmQAAAACAAAAAAAAAAxOb3RQZXJtaXR0ZWQAAAADAAAAAAAAAA1BbHJlYWR5SW5pdGVkAAAAAAAABAAAAAAAAAANQWxyZWFkeU1hcHBlZAAAAAAAAAU=",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
-        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAACAAAAAAAAAARzYWx0AAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAATAAAAAw==",
-        "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAARzYWx0AAAADgAAAAAAAAAIY29udHJhY3QAAAATAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
-        "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAACAAAAAAAAAARzYWx0AAAADgAAAAAAAAAIY29udHJhY3QAAAATAAAAAQAAA+kAAAPtAAAAAAAAAAM=" ]),
+        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAATAAAAAw==",
+        "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAAIY29udHJhY3QAAAATAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
+        "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAAIY29udHJhY3QAAAATAAAAAQAAA+kAAAPtAAAAAAAAAAM=" ]),
       options
     )
   }

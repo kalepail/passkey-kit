@@ -26,12 +26,12 @@ export declare class PasskeyAccount {
         factoryContractId?: string;
     });
     createWallet(name: string, user: string): Promise<{
-        contractSalt: Buffer;
+        passKeyId: Buffer;
         publicKey: Buffer | undefined;
     }>;
-    deployWallet(contractSalt: Buffer, publicKey: Buffer, secret: string): Promise<string>;
+    deployWallet(passKeyId: Buffer, publicKey: Buffer, secret: string): Promise<any>;
     connectWallet(): Promise<{
-        contractSalt: Buffer;
+        passKeyId: Buffer;
         publicKey: Buffer | undefined;
         contractId: string;
     }>;

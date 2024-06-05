@@ -2,13 +2,11 @@ import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient, networks } from 'passkey-factory-sdk'
 import { Address, Networks, StrKey, hash, xdr, Transaction, Keypair, Horizon, FeeBumpTransaction, SorobanRpc, Operation, scValToNative } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
-import Base64URL from "base64url"
+import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
 import { Buffer } from 'buffer'
-
-const { default: base64url } = Base64URL
 
 // TODO clean up these params and the interface as a whole
 // might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
@@ -98,9 +96,9 @@ export class PasskeyAccount {
         return this.getPublicKeys(startRegistrationResponse)
     }
 
-    public async deployWallet(contractSalt: Buffer, publicKey: Buffer, secret: string) {
+    public async deployWallet(passKeyId: Buffer, publicKey: Buffer, secret: string) {
         const { result, built } = await this.factory.deploy({
-            salt: contractSalt,
+            id: passKeyId,
             pk: publicKey
         })
 
@@ -141,7 +139,7 @@ export class PasskeyAccount {
                 contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
                     new xdr.ContractIdPreimageFromAddress({
                         address: Address.fromString(this.factoryContractId).toScAddress(),
-                        salt: hash(publicKeys.contractSalt),
+                        salt: hash(publicKeys.passKeyId),
                     })
                 )
             })
@@ -153,7 +151,7 @@ export class PasskeyAccount {
         }
         // if that fails look up from the factory mapper
         catch {
-            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(publicKeys.contractSalt))
+            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(publicKeys.passKeyId))
             contractId = scValToNative(val.contractData().val())
         }
 
@@ -194,22 +192,28 @@ export class PasskeyAccount {
             ).toXDR()
         )
 
-        const authenticationResponse = await startAuthentication({
-            challenge: base64url(authHash),
-            // rpId: undefined,
-            allowCredentials: id === 'all' || (id === 'sudo' && !this.sudo)
-                ? undefined
-                : [
-                    {
-                        id: id === 'sudo' ? this.sudo : id || this.id,
-                        type: "public-key",
-                    },
-                ],
-            userVerification: "discouraged",
-        });
+        const authenticationResponse = await startAuthentication(
+            id === 'all' || (id === 'sudo' && !this.sudo)
+                ? {
+                    challenge: base64url(authHash),
+                    // rpId: undefined,
+                    allowCredentials: [
+                        {
+                            id: id === 'sudo' ? this.sudo! : id! || this.id!,
+                            type: "public-key",
+                        },
+                    ],
+                    userVerification: "discouraged",
+                }
+                : {
+                    challenge: base64url(authHash),
+                    // rpId: undefined,
+                    userVerification: "discouraged",
+                }
+        );
 
         // set sudo if this is a sudo request
-        if (id === 'sudo') 
+        if (id === 'sudo')
             this.sudo = authenticationResponse.id
 
         // reset this.id to be the most recently used passkey
@@ -301,8 +305,6 @@ export class PasskeyAccount {
     }
 
     private async getPublicKeys(value: RegistrationResponseJSON | AuthenticationResponseJSON) {
-        const contractSalt = base64url.toBuffer(value.id)
-
         let publicKey: Buffer | undefined
 
         if (isAuthentication(value)) {
@@ -322,7 +324,7 @@ export class PasskeyAccount {
         //     this.id = value.id
 
         return {
-            contractSalt,
+            passKeyId: base64url.toBuffer(value.id),
             publicKey
         }
     }
