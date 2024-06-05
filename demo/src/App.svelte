@@ -44,12 +44,20 @@
 		if (!user) return;
 
 		keys = await account.createWallet("Super Peach", user);
-		contractId = await account.deployWallet(
+		const { contractId: cid, xdr } = await account.deployWallet(
 			keys.passKeyId,
 			keys.publicKey!,
-			sequenceKeypair.secret(),
-		);
+		)
+		contractId = cid;
 		console.log(contractId);
+
+		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+
+		txn.sign(sequenceKeypair);
+
+		const res = await account.send(txn);
+
+		console.log(res);
 	}
 	async function signIn() {
 		const { contractId: cid } = await account.connectWallet();

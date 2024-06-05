@@ -29,7 +29,10 @@ export declare class PasskeyAccount {
         passKeyId: Buffer;
         publicKey: Buffer | undefined;
     }>;
-    deployWallet(passKeyId: Buffer, publicKey: Buffer, secret: string): Promise<any>;
+    deployWallet(passKeyId: Buffer, publicKey: Buffer): Promise<{
+        contractId: any;
+        xdr: any;
+    }>;
     connectWallet(): Promise<{
         passKeyId: Buffer;
         publicKey: Buffer | undefined;

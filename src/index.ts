@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient, networks } from 'passkey-factory-sdk'
-import { Address, Networks, StrKey, hash, xdr, Transaction, Keypair, Horizon, FeeBumpTransaction, SorobanRpc, Operation, scValToNative } from '@stellar/stellar-sdk'
+import { Address, Networks, StrKey, hash, xdr, Transaction, Horizon, FeeBumpTransaction, SorobanRpc, Operation, scValToNative } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
@@ -101,19 +101,13 @@ export class PasskeyAccount {
         return this.getPublicKeys(startRegistrationResponse)
     }
 
-    public async deployWallet(passKeyId: Buffer, publicKey: Buffer, secret: string) {
+    public async deployWallet(passKeyId: Buffer, publicKey: Buffer) {
         const { result, built } = await this.factory.deploy({
             id: passKeyId,
             pk: publicKey
         })
 
         const contractId = result.unwrap()
-        const txn = new Transaction(built!.toXDR(), this.networkPassphrase);
-
-        txn.sign(Keypair.fromSecret(secret))
-
-        // TODO might should move this to the client so we don't have to pass in a secret to the wallet interface
-        await this.send(txn)
 
         this.wallet = new PasskeyClient({
             publicKey: this.sequencePublicKey,
@@ -122,7 +116,10 @@ export class PasskeyAccount {
             rpcUrl: this.rpcUrl
         })
 
-        return contractId
+        return {
+            contractId,
+            xdr: built!.toXDR(),
+        }
     }
 
     /* TODO 
