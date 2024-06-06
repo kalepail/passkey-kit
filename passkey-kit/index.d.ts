@@ -26,22 +26,25 @@ export declare class PasskeyAccount {
         factoryContractId?: string;
     });
     createWallet(name: string, user: string): Promise<{
+        contractId: string;
+        xdr: string;
+    }>;
+    createKey(name: string, user: string): Promise<{
         passKeyId: Buffer;
         publicKey: Buffer | undefined;
-    }>;
-    deployWallet(passKeyId: Buffer, publicKey: Buffer): Promise<{
-        contractId: any;
-        xdr: any;
     }>;
     connectWallet(): Promise<{
         passKeyId: Buffer;
         publicKey: Buffer | undefined;
         contractId: string;
     }>;
-    sign(txn: Transaction, id?: string | 'sudo' | 'all'): Promise<string>;
-    send(txn: Transaction): Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
-    getWalletData(): Promise<Map<string, any>>;
-    private getPublicKeys;
+    sign(txn: Transaction | string, options?: {
+        id?: 'any' | 'sudo' | string | Uint8Array;
+        ttl?: number;
+    }): Promise<string>;
+    send(txn: Transaction, fee?: number): Promise<Horizon.HorizonApi.SubmitTransactionResponse>;
+    getData(): Promise<Map<string, any>>;
+    private getKey;
     private getPublicKeyObject;
     private convertEcdsaSignatureAsnToCompact;
 }

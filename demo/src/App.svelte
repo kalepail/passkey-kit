@@ -1,41 +1,23 @@
 <script lang="ts">
 	import { PasskeyAccount } from "../../passkey-kit";
-	import { Networks, Keypair, Transaction } from "@stellar/stellar-sdk";
+	import { Networks, Transaction } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { fund, getBalance, transfer } from "./lib/account";
-    import { keypair } from "./lib/common";
+    import { sequenceKeypair } from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
 	let contractId: string;
-	let keys: {
-		passKeyId: Buffer;
-		publicKey: Buffer | undefined;
-	};
 	let balance: string;
 
-	/* TODO 
-		- Review base fee of inner tx as related to the outer. 
-			Right now I'm passing a 10,000 hard code for both. 
-			Do I need the inner or is that already accounted for in simulation?
-	*/
-
-	const sequenceKeypair = Keypair.fromSecret(
-		// GDDRNRFPWBRJ6NNC2SDEPR7AXBVFWGIS3O66NKDZ7BUERB37H4P4GVIM
-		"SCQZ7CEQZ3R47SECW4XKMOMSA3QO5YPGKVPPWALXMDVWR5N2CLPGKDMP",
-	);
-	const feeBumpJwt =
-		"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiI3MTJmM2FmNjA2MWQyNmFjNGM1NzMxNTFlMTE2NTQ3YTNiNThiMzY0ZmNmNWE2ZGY4ZjFhNTkxNmQ1NDBjYWUzIiwiZXhwIjoxNzMyODExOTU2LCJpYXQiOjE3MTcwODcxNTZ9.VfHVZOSleLvYVfH5nmdWFgDgHJ5Ddfa1m1e1WtlFTgA";
-
-	// TODO use env vars everywhere it makes sense
 	const account = new PasskeyAccount({
 		sequencePublicKey: sequenceKeypair.publicKey(),
 		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
 		horizonUrl: import.meta.env.VITE_horizonUrl,
 		rpcUrl: import.meta.env.VITE_rpcUrl,
-		feeBumpUrl: "https://feebump.sdf-ecosystem.workers.dev",
-		feeBumpJwt,
+		feeBumpUrl: import.meta.env.VITE_feeBumpUrl,
+		feeBumpJwt: import.meta.env.VITE_feeBumpJwt,
 	});
 
 	async function register() {
@@ -43,11 +25,8 @@
 
 		if (!user) return;
 
-		keys = await account.createWallet("Super Peach", user);
-		const { contractId: cid, xdr } = await account.deployWallet(
-			keys.passKeyId,
-			keys.publicKey!,
-		)
+		const { contractId: cid, xdr } = await account.createWallet("Super Peach", user);
+		
 		contractId = cid;
 		console.log(contractId);
 
@@ -64,9 +43,6 @@
 		contractId = cid;
 		console.log(contractId);
 	}
-	async function getWalletData() {
-		walletData = await account.getWalletData();
-	}
 	async function addSigner() {
 		/* TODO 
 			- Add existing signer vs always creating a new one
@@ -79,16 +55,15 @@
 
 		if (!user) return;
 
-		keys = await account.createWallet("Super Peach", user);
-		console.log(keys);
+		const { passKeyId, publicKey } = await account.createKey("Super Peach", user);
 
 		const { built } = await account.wallet!.add_sig({
-			id: keys.passKeyId,
-			pk: keys.publicKey!,
+			id: passKeyId,
+			pk: publicKey!,
 		});
 
 		// xdr to txn funk due to TypeError: XDR Write Error: [object Object] is not a DecoratedSignature
-		const xdr = await account.sign(built!, "sudo");
+		const xdr = await account.sign(built!, { id: 'sudo' });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -102,7 +77,7 @@
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, "sudo");
+		const xdr = await account.sign(built!, { id: 'sudo' });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -112,12 +87,11 @@
 		console.log(res);
 	}
 	async function resudo(signer: Uint8Array) {
-		const id = Buffer.from(signer);
 		const { built } = await account.wallet!.resudo({
-			id,
+			id: Buffer.from(signer)
 		});
 
-		const xdr = await account.sign(built!, "sudo");
+		const xdr = await account.sign(built!, { id: "sudo" });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -127,15 +101,19 @@
 		console.log(res);
 
 		// update the sudo signer
-		account.sudo = base64url(id);
+		account.sudo = base64url(signer);
 	}
 
+	async function getWalletData() {
+		walletData = await account.getData();
+	}
 	async function fundWallet() {
 		const res = await fund(contractId);
 		console.log(res);
 	}
 	async function getWalletBalance() {
 		balance = await getBalance(contractId);
+		console.log(balance);
 	}
 	async function walletTransfer(signer: Uint8Array) {
 		const built = await transfer(
@@ -143,10 +121,10 @@
 			account.factory.options.contractId,
 		);
 
-		const xdr = await account.sign(built, base64url(signer));
+		const xdr = await account.sign(built, { id: signer });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
-		txn.sign(keypair);
+		txn.sign(sequenceKeypair);
 
 		const res = await account.send(txn);
 
@@ -162,7 +140,7 @@
 		<p>{contractId}</p>
 
 		{#if balance}
-			<p>{Math.floor(Number(balance) / 10_000_000)} XLM</p>
+			<p>{parseFloat((Number(balance) / 10_000_000).toFixed(7))} XLM</p>
 		{/if}
 
 		<button on:click={fundWallet}>Add Funds</button>
@@ -174,7 +152,7 @@
 	<ul>
 		{#each walletData.size ? walletData.get("sigs") : [] as signer}
 			<li>
-				{Buffer.from(signer).toString("base64")}
+				{base64url(signer)}
 
 				<button on:click={() => walletTransfer(signer)}>Transfer 1 XLM</button
 				>

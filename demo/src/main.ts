@@ -1,10 +1,10 @@
 import './app.css'
 import App from './App.svelte'
-import { publickey, rpc } from './lib/common'
+import { fundPubkey, rpc } from './lib/common'
 
 (async () => {
   try {
-    await rpc.requestAirdrop(publickey)
+    await rpc.requestAirdrop(fundPubkey)
   } catch {}
 })()
 

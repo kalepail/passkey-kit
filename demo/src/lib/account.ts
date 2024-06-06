@@ -1,8 +1,8 @@
 import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative } from '@stellar/stellar-sdk'
-import { horizon, keypair, publickey, rpc } from './common'
+import { rpc, horizon, fundKeypair, fundPubkey, sequencePubkey } from './common'
 
 export async function fund(to: string) {
-    const account = await rpc.getAccount(publickey).then((res) => new Account(res.accountId(), res.sequenceNumber()))
+    const account = await rpc.getAccount(fundPubkey).then((res) => new Account(res.accountId(), res.sequenceNumber()))
 
     const simTxn = new TransactionBuilder(account, {
         fee: (10_000_000).toString(),
@@ -12,7 +12,7 @@ export async function fund(to: string) {
             contract: import.meta.env.VITE_nativeContractId,
             function: 'transfer',
             args: [
-                nativeToScVal(publickey, { type: 'address' }),
+                nativeToScVal(fundPubkey, { type: 'address' }),
                 nativeToScVal(to, { type: 'address' }),
                 nativeToScVal(100 * 10_000_000, { type: 'i128' })
             ]
@@ -31,7 +31,7 @@ export async function fund(to: string) {
         .assembleTransaction(simTxn, sim)
         .build()
 
-    transaction.sign(keypair)
+    transaction.sign(fundKeypair)
 
     return horizon.submitTransaction(transaction)
 }
@@ -50,7 +50,7 @@ export async function getBalance(id: string) {
 }
 
 export async function transfer(from: string, to: string, amount: number = 10_000_000) {
-    const account = await rpc.getAccount(publickey).then((res) => new Account(res.accountId(), res.sequenceNumber()))
+    const account = await rpc.getAccount(sequencePubkey).then((res) => new Account(res.accountId(), res.sequenceNumber()))
 
     const simTxn = new TransactionBuilder(account, {
         fee: '0',
@@ -76,8 +76,6 @@ export async function transfer(from: string, to: string, amount: number = 10_000
     ) throw sim
 
     const authTxn = SorobanRpc.assembleTransaction(simTxn, sim).build()
-
-    // authTxn.sign(keypair)
 
     return authTxn
 }

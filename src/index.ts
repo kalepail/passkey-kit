@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient, networks } from 'passkey-factory-sdk'
-import { Address, Networks, StrKey, hash, xdr, Transaction, Horizon, FeeBumpTransaction, SorobanRpc, Operation, scValToNative } from '@stellar/stellar-sdk'
+import { Address, Networks, StrKey, hash, xdr, Transaction, Horizon, FeeBumpTransaction, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
@@ -11,9 +11,6 @@ import { Buffer } from 'buffer'
 /* TODO 
     - Clean up these params and the interface as a whole
         Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
-
-    - Do we need to do anything with sequence numbers here?
-        Probably not as they should be handled externally
 */
 
 export class PasskeyAccount {
@@ -71,6 +68,29 @@ export class PasskeyAccount {
     }
 
     public async createWallet(name: string, user: string) {
+        const { passKeyId, publicKey } = await this.createKey(name, user)
+
+        const { result, built } = await this.factory.deploy({
+            id: passKeyId,
+            pk: publicKey!
+        })
+
+        const contractId = result.unwrap() as string
+
+        this.wallet = new PasskeyClient({
+            publicKey: this.sequencePublicKey,
+            contractId,
+            networkPassphrase: this.networkPassphrase,
+            rpcUrl: this.rpcUrl
+        })
+
+        return {
+            contractId,
+            xdr: built!.toXDR() as string
+        }
+    }
+
+    public async createKey(name: string, user: string) {
         const startRegistrationResponse = await startRegistration({
             challenge: base64url("sorobanisbest"),
             rp: {
@@ -98,28 +118,7 @@ export class PasskeyAccount {
                 this.sudo = startRegistrationResponse.id
         }
 
-        return this.getPublicKeys(startRegistrationResponse)
-    }
-
-    public async deployWallet(passKeyId: Buffer, publicKey: Buffer) {
-        const { result, built } = await this.factory.deploy({
-            id: passKeyId,
-            pk: publicKey
-        })
-
-        const contractId = result.unwrap()
-
-        this.wallet = new PasskeyClient({
-            publicKey: this.sequencePublicKey,
-            contractId,
-            networkPassphrase: this.networkPassphrase,
-            rpcUrl: this.rpcUrl
-        })
-
-        return {
-            contractId,
-            xdr: built!.toXDR(),
-        }
+        return this.getKey(startRegistrationResponse)
     }
 
     /* TODO 
@@ -138,7 +137,7 @@ export class PasskeyAccount {
         if (!this.id)
             this.id = startAuthenticationResponse.id
 
-        const publicKeys = await this.getPublicKeys(startAuthenticationResponse)
+        const publicKeys = await this.getKey(startAuthenticationResponse)
 
         // NOTE might not need this for derivation as all signers are stored in the factory and we can use that lookup as both primary and secondary
         let contractId = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
@@ -171,7 +170,7 @@ export class PasskeyAccount {
         })
 
         // get and set the sudo signer
-        await this.getWalletData()
+        await this.getData()
 
         return {
             contractId,
@@ -179,12 +178,25 @@ export class PasskeyAccount {
         }
     }
 
-    // TODO Support `id` as a Uint8Array
-    public async sign(txn: Transaction, id?: string | 'sudo' | 'all') {
+    public async sign(
+        txn: Transaction | string,
+        options?: {
+            id?: 'any' | 'sudo' | string | Uint8Array
+            ttl?: number
+        }
+    ) {
+        // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
+        let { id, ttl = 60 } = options || {}
+
+        // hack to ensure we don't stack fees when simulating and assembling multiple times
+        txn = TransactionBuilder.cloneFrom(new Transaction(
+            typeof txn === 'string'
+                ? txn
+                : txn.toXDR(),
+            this.networkPassphrase
+        ), { fee: '0' }).build()
+
         // NOTE hard coded to sign only Soroban transactions and only and always the first auth
-
-        txn = new Transaction(txn.toXDR(), this.networkPassphrase)
-
         const op = txn.operations[0] as Operation.InvokeHostFunction
         const auth = op.auth![0]
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
@@ -193,14 +205,14 @@ export class PasskeyAccount {
                 new xdr.HashIdPreimageSorobanAuthorization({
                     networkId: hash(Buffer.from(this.networkPassphrase, 'utf-8')),
                     nonce: auth.credentials().address().nonce(),
-                    signatureExpirationLedger: lastLedger + 100,
+                    signatureExpirationLedger: lastLedger + ttl,
                     invocation: auth.rootInvocation()
                 })
             ).toXDR()
         )
 
         const authenticationResponse = await startAuthentication(
-            id === 'all' || (id === 'sudo' && !this.sudo)
+            id === 'any' || (id === 'sudo' && !this.sudo)
                 ? {
                     challenge: base64url(authHash),
                     // rpId: undefined,
@@ -211,7 +223,11 @@ export class PasskeyAccount {
                     // rpId: undefined,
                     allowCredentials: [
                         {
-                            id: id === 'sudo' ? this.sudo! : id! || this.id!,
+                            id: id === 'sudo'
+                                ? this.sudo!
+                                : id instanceof Uint8Array
+                                    ? base64url(id)
+                                    : id || this.id!,
                             type: "public-key",
                         },
                     ],
@@ -230,7 +246,7 @@ export class PasskeyAccount {
         const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
         const creds = auth.credentials().address();
 
-        creds.signatureExpirationLedger(lastLedger + 100) // TODO not sure I love hard coding this
+        creds.signatureExpirationLedger(lastLedger + ttl)
         creds.signature(xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('authenticator_data'),
@@ -254,17 +270,17 @@ export class PasskeyAccount {
 
         if (
             SorobanRpc.Api.isSimulationError(sim)
-            || SorobanRpc.Api.isSimulationRestore(sim)
+            || SorobanRpc.Api.isSimulationRestore(sim) // TODO handle restore flow
         ) throw sim
 
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
 
-    public async send(txn: Transaction) {
+    public async send(txn: Transaction, fee: number = 10_000) {
         const data = new FormData();
 
         data.set('xdr', txn.toXDR());
-        data.set('fee', (10_000_000).toString()); // TODO not sure I love hard coding this
+        data.set('fee', fee.toString());
 
         const bumptxn = await fetch(this.feeBumpUrl, {
             method: 'POST',
@@ -281,7 +297,7 @@ export class PasskeyAccount {
         return this.horizon.submitTransaction(new FeeBumpTransaction(bumptxn, this.networkPassphrase))
     }
 
-    public async getWalletData() {
+    public async getData() {
         const data: Map<string, any> = new Map()
 
         const { val } = await this.rpc.getContractData(
@@ -305,7 +321,7 @@ export class PasskeyAccount {
         return data
     }
 
-    private async getPublicKeys(value: RegistrationResponseJSON | AuthenticationResponseJSON) {
+    private async getKey(value: RegistrationResponseJSON | AuthenticationResponseJSON) {
         let publicKey: Buffer | undefined
 
         if (isAuthentication(value)) {
