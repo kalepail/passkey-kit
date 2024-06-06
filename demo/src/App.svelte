@@ -26,9 +26,6 @@
 		if (!user) return;
 
 		const { contractId: cid, xdr } = await account.createWallet("Super Peach", user);
-		
-		contractId = cid;
-		console.log(contractId);
 
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
@@ -36,6 +33,8 @@
 
 		const res = await account.send(txn);
 
+		contractId = cid;
+		console.log(contractId);
 		console.log(res);
 	}
 	async function signIn() {
