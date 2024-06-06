@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "./passkey-kit",
+    "outDir": "./lib",
 
     // Enable latest features
     "target": "ESNext",
@@ -26,5 +26,5 @@
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
   },
-  "exclude": ["./demo", "./src/passkey-*", "./passkey-kit"]
+  "exclude": ["./demo", "./packages", "./lib"]
 }

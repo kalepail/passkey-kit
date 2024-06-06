@@ -7,7 +7,7 @@ const result = await build({
   bundle: true,
   format: 'esm',
   charset: 'utf8',
-  outdir: 'passkey-kit',
+  outdir: 'lib',
   entryPoints: ['src/index.ts'],
   minify: true,
   sourcemap: true,

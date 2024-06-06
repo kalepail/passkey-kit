@@ -175,3 +175,5 @@ dist
 .DS_Store
 
 meta.json
+
+lib

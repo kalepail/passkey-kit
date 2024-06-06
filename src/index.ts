@@ -11,6 +11,7 @@ import { Buffer } from 'buffer'
 /* TODO 
     - Clean up these params and the interface as a whole
         Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+    - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
 
 export class PasskeyAccount {
@@ -131,7 +132,7 @@ export class PasskeyAccount {
         if (!this.id)
             this.id = startAuthenticationResponse.id
 
-        const { keyId, publicKey } = await this.getKey(startAuthenticationResponse)
+        const { keyId } = await this.getKey(startAuthenticationResponse)
 
         // NOTE might not need this for derivation as all signers are stored in the factory and we can use that lookup as both primary and secondary
         let contractId = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(

@@ -30,11 +30,11 @@ importers:
         specifier: ^1.5.9
         version: 1.5.9
       passkey-factory-sdk:
-        specifier: file:./passkey-factory-sdk
-        version: file:passkey-factory-sdk
+        specifier: workspace:*
+        version: link:packages/passkey-factory-sdk
       passkey-kit-sdk:
-        specifier: file:./passkey-kit-sdk
-        version: file:passkey-kit-sdk
+        specifier: workspace:*
+        version: link:packages/passkey-kit-sdk
     devDependencies:
       esbuild:
         specifier: ^0.21.4
@@ -45,6 +45,38 @@ importers:
       typescript:
         specifier: ^5.4.5
         version: 5.4.5
+
+  packages/passkey-factory-sdk:
+    dependencies:
+      '@stellar/freighter-api':
+        specifier: 2.0.0
+        version: 2.0.0
+      '@stellar/stellar-sdk':
+        specifier: 12.0.0-rc.3
+        version: 12.0.0-rc.3
+      buffer:
+        specifier: 6.0.3
+        version: 6.0.3
+    devDependencies:
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  packages/passkey-kit-sdk:
+    dependencies:
+      '@stellar/freighter-api':
+        specifier: 2.0.0
+        version: 2.0.0
+      '@stellar/stellar-sdk':
+        specifier: 12.0.0-rc.3
+        version: 12.0.0-rc.3
+      buffer:
+        specifier: 6.0.3
+        version: 6.0.3
+    devDependencies:
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
 
 packages:
 
@@ -337,12 +369,6 @@ packages:
     resolution: {integrity: sha512-OSs33Z9yWr148JZcbZd5WiAXhh/n9z8TxQcdMhIOlpN9AhWpLfvVFO73+m77bBABQMaY9XSvIa+qk0jlI7Gcaw==}
     hasBin: true
 
-  passkey-factory-sdk@file:passkey-factory-sdk:
-    resolution: {directory: passkey-factory-sdk, type: directory}
-
-  passkey-kit-sdk@file:passkey-kit-sdk:
-    resolution: {directory: passkey-kit-sdk, type: directory}
-
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
 
@@ -364,6 +390,11 @@ packages:
 
   tweetnacl@1.0.3:
     resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
+
+  typescript@5.3.3:
+    resolution: {integrity: sha512-pXWcraxM0uxAS+tN0AG/BF2TyqmHO014Z070UsJ+pFvYuRSq8KH8DmWpnbXe0pEPDHXZV3FcAbJkijJ5oNEnWw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
 
   typescript@5.4.5:
     resolution: {integrity: sha512-vcI4UpRgg81oIRUFwR0WSIHKt11nJ7SAVlYNIu+QpqeyXP+gpQJy/Z4+F0aGxSE4MqwjyXvW/TzgkLAx2AGHwQ==}
@@ -613,22 +644,6 @@ snapshots:
   node-gyp-build@4.8.1:
     optional: true
 
-  passkey-factory-sdk@file:passkey-factory-sdk:
-    dependencies:
-      '@stellar/freighter-api': 2.0.0
-      '@stellar/stellar-sdk': 12.0.0-rc.3
-      buffer: 6.0.3
-    transitivePeerDependencies:
-      - debug
-
-  passkey-kit-sdk@file:passkey-kit-sdk:
-    dependencies:
-      '@stellar/freighter-api': 2.0.0
-      '@stellar/stellar-sdk': 12.0.0-rc.3
-      buffer: 6.0.3
-    transitivePeerDependencies:
-      - debug
-
   proxy-from-env@1.1.0: {}
 
   randombytes@2.1.0:
@@ -650,6 +665,8 @@ snapshots:
   toml@3.0.0: {}
 
   tweetnacl@1.0.3: {}
+
+  typescript@5.3.3: {}
 
   typescript@5.4.5: {}
 

@@ -1,10 +1,14 @@
 {
   "name": "passkey-kit",
-  "version": "0.0.1",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "version": "0.0.6",
   "type": "module",
   "scripts": {
     "build:demo": "cd demo && pnpm i && pnpm run build",
-    "build": "npx tsc && node esbuild.js"
+    "prepare": "pnpm build",
+    "build": "npx tsc && node esbuild.js",
+    "publish": "pnpm run build && npm publish --workspaces"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^10.0.0",
@@ -14,12 +18,19 @@
     "bigint-conversion": "^2.4.3",
     "buffer": "^6.0.3",
     "cbor-x": "^1.5.9",
-    "passkey-factory-sdk": "file:./src/passkey-factory-sdk",
-    "passkey-kit-sdk": "file:./src/passkey-kit-sdk"
+    "passkey-factory-sdk": "workspace:*",
+    "passkey-kit-sdk": "workspace:*"
   },
   "devDependencies": {
     "esbuild": "^0.21.4",
     "esbuild-plugin-polyfill-node": "^0.3.0",
     "typescript": "^5.4.5"
-  }
+  },
+  "files": [
+    "lib/**/*", 
+    "packages/**/*"
+  ],
+  "workspaces": [
+    "packages/*"
+  ]
 }

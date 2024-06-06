@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PasskeyAccount } from "../../passkey-kit";
+	import { PasskeyAccount } from "passkey-kit";
 	import { Networks, Transaction } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
