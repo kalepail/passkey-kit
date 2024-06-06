@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "build:demo": "cd demo && pnpm run build",
     "build": "npx tsc && node esbuild.js"
   },
   "dependencies": {
