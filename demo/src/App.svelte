@@ -39,8 +39,7 @@
 		console.log(res);
 	}
 	async function signIn() {
-		const { contractId: cid } = await account.connectWallet();
-		contractId = cid;
+		contractId = await account.connectWallet();
 		console.log(contractId);
 	}
 	async function addSigner() {
@@ -55,10 +54,10 @@
 
 		if (!user) return;
 
-		const { passKeyId, publicKey } = await account.createKey("Super Peach", user);
+		const { keyId, publicKey } = await account.createKey("Super Peach", user);
 
 		const { built } = await account.wallet!.add_sig({
-			id: passKeyId,
+			id: keyId,
 			pk: publicKey!,
 		});
 

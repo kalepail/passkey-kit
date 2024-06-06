@@ -68,10 +68,10 @@ export class PasskeyAccount {
     }
 
     public async createWallet(name: string, user: string) {
-        const { passKeyId, publicKey } = await this.createKey(name, user)
+        const { keyId, publicKey } = await this.createKey(name, user)
 
         const { result, built } = await this.factory.deploy({
-            id: passKeyId,
+            id: keyId,
             pk: publicKey!
         })
 
@@ -121,12 +121,6 @@ export class PasskeyAccount {
         return this.getKey(startRegistrationResponse)
     }
 
-    /* TODO 
-        - Add a getPasskeyInfo action to get info about a specific passkey
-            Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
-            @Later
-    */
-
     public async connectWallet() {
         const startAuthenticationResponse = await startAuthentication({
             challenge: base64url("sorobanisbest"),
@@ -137,7 +131,7 @@ export class PasskeyAccount {
         if (!this.id)
             this.id = startAuthenticationResponse.id
 
-        const publicKeys = await this.getKey(startAuthenticationResponse)
+        const { keyId, publicKey } = await this.getKey(startAuthenticationResponse)
 
         // NOTE might not need this for derivation as all signers are stored in the factory and we can use that lookup as both primary and secondary
         let contractId = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
@@ -146,7 +140,7 @@ export class PasskeyAccount {
                 contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
                     new xdr.ContractIdPreimageFromAddress({
                         address: Address.fromString(this.factoryContractId).toScAddress(),
-                        salt: hash(publicKeys.passKeyId),
+                        salt: hash(keyId),
                     })
                 )
             })
@@ -158,7 +152,7 @@ export class PasskeyAccount {
         }
         // if that fails look up from the factory mapper
         catch {
-            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(publicKeys.passKeyId))
+            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyId))
             contractId = scValToNative(val.contractData().val())
         }
 
@@ -172,10 +166,7 @@ export class PasskeyAccount {
         // get and set the sudo signer
         await this.getData()
 
-        return {
-            contractId,
-            ...publicKeys,
-        }
+        return contractId
     }
 
     public async sign(
@@ -321,6 +312,12 @@ export class PasskeyAccount {
         return data
     }
 
+    /* TODO 
+        - Add a getKeyInfo action to get info about a specific passkey
+            Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
+            @Later
+    */
+
     private async getKey(value: RegistrationResponseJSON | AuthenticationResponseJSON) {
         let publicKey: Buffer | undefined
 
@@ -335,7 +332,7 @@ export class PasskeyAccount {
         }
 
         return {
-            passKeyId: base64url.toBuffer(value.id),
+            keyId: base64url.toBuffer(value.id),
             publicKey
         }
     }

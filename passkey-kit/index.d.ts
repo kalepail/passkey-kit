@@ -30,14 +30,10 @@ export declare class PasskeyAccount {
         xdr: string;
     }>;
     createKey(name: string, user: string): Promise<{
-        passKeyId: Buffer;
+        keyId: Buffer;
         publicKey: Buffer | undefined;
     }>;
-    connectWallet(): Promise<{
-        passKeyId: Buffer;
-        publicKey: Buffer | undefined;
-        contractId: string;
-    }>;
+    connectWallet(): Promise<string>;
     sign(txn: Transaction | string, options?: {
         id?: 'any' | 'sudo' | string | Uint8Array;
         ttl?: number;
