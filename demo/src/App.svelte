@@ -140,7 +140,7 @@
 			amount: 100 * 10_000_000,
 		});
 
-		txn.sign(fundKeypair);
+		txn.sign(await fundKeypair);
 
 		const res = await account.send(txn);
 
