@@ -33,12 +33,15 @@
 
 		const res = await account.send(txn);
 
-		contractId = cid;
-		console.log(contractId);
 		console.log(res);
+
+		contractId = cid;
+		console.log(cid);
 	}
 	async function connect() {
 		const { contractId: cid } = await account.connectWallet();
+		
+		contractId = cid;
 		console.log(cid);
 	}
 	async function addSigner() {
