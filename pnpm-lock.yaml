@@ -15,8 +15,8 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       '@stellar/stellar-sdk':
-        specifier: 12.0.0-rc.3
-        version: 12.0.0-rc.3
+        specifier: 12.0.1
+        version: 12.0.1
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -43,8 +43,8 @@ importers:
   packages/passkey-factory-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 12.0.0-rc.3
-        version: 12.0.0-rc.3
+        specifier: 12.0.1
+        version: 12.0.1
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -56,8 +56,8 @@ importers:
   packages/passkey-kit-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 12.0.0-rc.3
-        version: 12.0.0-rc.3
+        specifier: 12.0.1
+        version: 12.0.1
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -113,8 +113,8 @@ packages:
   '@stellar/stellar-base@12.0.0':
     resolution: {integrity: sha512-uGpahDFFXbE39myOmBnEZSjVys4yUkQ/ASNuYENGyS8MNdfA0TS7DPWkiO6t17P+rW+FRV1zmumJtjRHwxxMdw==}
 
-  '@stellar/stellar-sdk@12.0.0-rc.3':
-    resolution: {integrity: sha512-FYO+F8VokXjP3Mu+OQtK0GrJWWvwf1+DL3n3aOi6M5H6EwJ6bp/yAOtfnClx6vqzzvpMbWveYABn8U9QNpcHww==}
+  '@stellar/stellar-sdk@12.0.1':
+    resolution: {integrity: sha512-0+YXUTS2LpZ+Of383hSYVpsRl9BJ3X9lHcj05ouS3VkVL9BH7w+Par8RHPkiHS6lLYn3gWRgaJauTebkamY/Jw==}
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
@@ -271,7 +271,7 @@ snapshots:
     optionalDependencies:
       sodium-native: 4.1.1
 
-  '@stellar/stellar-sdk@12.0.0-rc.3':
+  '@stellar/stellar-sdk@12.0.1':
     dependencies:
       '@stellar/stellar-base': 12.0.0
       axios: 1.7.2
