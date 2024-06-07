@@ -1,6 +1,0 @@
-{
-    "rust-analyzer.linkedProjects": [
-        "./contract-webauthn-factory/Cargo.toml",
-        "./contract-webauthn-secp256r1/Cargo.toml",
-    ]
-}

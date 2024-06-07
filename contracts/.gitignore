@@ -1,4 +1,3 @@
 target/
 out/
-Makefile
 test_snapshots/
