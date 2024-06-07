@@ -15,6 +15,7 @@ use soroban_sdk::{
     - It is tough to know what contract signer maps to what passkey though frfr
         We could maybe store unhashed passkey ids as Strings or unbound Bytes arrays
         @Done
+    - Add an upgrade function so wallets can upgrade their underlying wallet wasm
 */
 
 mod base64_url;
@@ -75,6 +76,11 @@ impl Contract {
 
         Ok(())
     }
+    // pub fn upgrade(env: Env, hash: BytesN<32>) {
+    //     let owner = read_owner_address(&env);
+    //     owner.require_auth();
+    //     env.deployer().update_current_contract_wasm(hash);
+    // }
     pub fn resudo(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 

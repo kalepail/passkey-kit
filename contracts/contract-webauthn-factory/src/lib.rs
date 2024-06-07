@@ -18,6 +18,18 @@ pub enum Error {
 
 const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
 
+/* NOTE
+    - We don't have an upgrade function here because if we want to make a new wallet printer we should just deploy an entirely new one
+        This ensures some safety so a factory can't sneaky update the wallets it's printing
+        One downside is if a factory turns out to be printing bugged wallets there's no way to shut the printer down 
+*/
+
+/* TODO
+    - For the first NOTE reason above we should consider a self destruct method where a contract can break itself such that it cannot deploy any more wallets
+        This is important in the case a bug is found in the underlying smart wallet contract code
+        Could be a simple instance variable or maybe an upgrade to a wasm that's entirely empty and thus always fails
+*/
+
 #[contractimpl]
 impl Contract {
     pub fn extend_ttl(env: &Env) {
