@@ -178,4 +178,5 @@ meta.json
 
 package
 
-demo
+demo/
+contracts/

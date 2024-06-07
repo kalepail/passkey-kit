@@ -4,7 +4,12 @@
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
-    import { fundKeypair, fundPubkey, sequenceKeypair, sequencePubkey } from "./lib/common";
+	import {
+		fundKeypair,
+		fundPubkey,
+		sequenceKeypair,
+		sequencePubkey,
+	} from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
@@ -25,9 +30,15 @@
 
 		if (!user) return;
 
-		const { contractId: cid, xdr } = await account.createWallet("Super Peach", user);
+		const { contractId: cid, xdr } = await account.createWallet(
+			"Super Peach",
+			user,
+		);
 
-		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+		const txn = new Transaction(
+			xdr,
+			import.meta.env.VITE_networkPassphrase,
+		);
 
 		txn.sign(sequenceKeypair);
 
@@ -40,7 +51,7 @@
 	}
 	async function connect() {
 		const { contractId: cid } = await account.connectWallet();
-		
+
 		contractId = cid;
 		console.log(cid);
 	}
@@ -56,7 +67,10 @@
 
 		if (!user) return;
 
-		const { keyId, publicKey } = await account.createKey("Super Peach", user);
+		const { keyId, publicKey } = await account.createKey(
+			"Super Peach",
+			user,
+		);
 
 		const { built } = await account.wallet!.add_sig({
 			id: keyId,
@@ -64,8 +78,11 @@
 		});
 
 		// xdr to txn funk due to TypeError: XDR Write Error: [object Object] is not a DecoratedSignature
-		const xdr = await account.sign(built!, { keyId: 'sudo' });
-		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const txn = new Transaction(
+			xdr,
+			import.meta.env.VITE_networkPassphrase,
+		);
 
 		txn.sign(sequenceKeypair);
 
@@ -78,8 +95,11 @@
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: 'sudo' });
-		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const txn = new Transaction(
+			xdr,
+			import.meta.env.VITE_networkPassphrase,
+		);
 
 		txn.sign(sequenceKeypair);
 
@@ -89,11 +109,14 @@
 	}
 	async function resudo(signer: Uint8Array) {
 		const { built } = await account.wallet!.resudo({
-			id: Buffer.from(signer)
+			id: Buffer.from(signer),
 		});
 
 		const xdr = await account.sign(built!, { keyId: "sudo" });
-		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+		const txn = new Transaction(
+			xdr,
+			import.meta.env.VITE_networkPassphrase,
+		);
 
 		txn.sign(sequenceKeypair);
 
@@ -111,10 +134,10 @@
 	async function fundWallet() {
 		const txn = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
-			source: fundPubkey, 
-			from: fundPubkey, 
-			to: contractId, 
-			amount: 100 * 10_000_000
+			source: fundPubkey,
+			from: fundPubkey,
+			to: contractId,
+			amount: 100 * 10_000_000,
 		});
 
 		txn.sign(fundKeypair);
@@ -133,11 +156,14 @@
 			source: sequencePubkey,
 			from: contractId,
 			to: account.factory.options.contractId,
-			amount: 10_000_000
+			amount: 10_000_000,
 		});
 
 		const xdr = await account.sign(built, { keyId: signer });
-		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
+		const txn = new Transaction(
+			xdr,
+			import.meta.env.VITE_networkPassphrase,
+		);
 
 		txn.sign(sequenceKeypair);
 
@@ -169,7 +195,8 @@
 			<li>
 				{base64url(signer)}
 
-				<button on:click={() => walletTransfer(signer)}>Transfer 1 XLM</button
+				<button on:click={() => walletTransfer(signer)}
+					>Transfer 1 XLM</button
 				>
 
 				{#if walletData.size && !arraysEqual(signer, walletData.get("sudo_sig"))}

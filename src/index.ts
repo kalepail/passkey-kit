@@ -11,6 +11,7 @@ import { Buffer } from 'buffer'
 /* TODO 
     - Clean up these params and the interface as a whole
         Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
 
@@ -31,7 +32,7 @@ export class PasskeyAccount {
 
     /* TODO 
         - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
-            If just a keyId call connectWallet in order to get the contractId
+            If just a keyId call `connectWallet` in order to get the contractId
             If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the sudoKeyId in that case)
     */
     constructor(options: {
@@ -41,7 +42,12 @@ export class PasskeyAccount {
         rpcUrl: string,
         feeBumpUrl: string,
         feeBumpJwt: string,
-        factoryContractId?: string,
+        /* TODO 
+            - Maybe remove this? The factory should likely be baked in a bit more tightly
+                On the other hand once we have a standard interface the factory interface only uses the `deploy` method right now inside the interface
+                @Later
+        */
+        factoryContractId?: string, 
     }) {
         const {
             sequencePublicKey,
@@ -145,6 +151,7 @@ export class PasskeyAccount {
             - Support passing in a contractId as well as a keyId
                 Maybe not as we wouldn't have a keyId which could have interesting consequences
                 Also not sure what the use case would be for this where keyId wouldn't also be possible and better
+                @No
         */
         
         // @ts-ignore 
