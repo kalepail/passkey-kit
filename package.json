@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "types": "types/index.d.ts",
   "scripts": {
-    "build:demo": "cd demo && pnpm i && pnpm run build",
+    "build:demo": "cd demo && pnpm --ignore-workspace install && pnpm run build",
     "prepublishOnly": "pnpm run build",
     "build:pfs": "pnpm --filter ./packages/passkey-factory-sdk run build",
     "build:pks": "pnpm --filter ./packages/passkey-kit-sdk run build",
@@ -20,7 +20,6 @@
     "buffer": "^6.0.3",
     "cbor-x": "^1.5.9",
     "passkey-factory-sdk": "workspace:*",
-    "passkey-kit": "^0.0.20",
     "passkey-kit-sdk": "workspace:*"
   },
   "devDependencies": {

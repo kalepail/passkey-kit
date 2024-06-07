@@ -32,9 +32,6 @@ importers:
       passkey-factory-sdk:
         specifier: workspace:*
         version: link:packages/passkey-factory-sdk
-      passkey-kit:
-        specifier: ^0.0.20
-        version: 0.0.20
       passkey-kit-sdk:
         specifier: workspace:*
         version: link:packages/passkey-kit-sdk
@@ -203,15 +200,6 @@ packages:
     resolution: {integrity: sha512-OSs33Z9yWr148JZcbZd5WiAXhh/n9z8TxQcdMhIOlpN9AhWpLfvVFO73+m77bBABQMaY9XSvIa+qk0jlI7Gcaw==}
     hasBin: true
 
-  passkey-factory-sdk@0.0.4:
-    resolution: {integrity: sha512-2kSxTnE9qnmBqXapzRuAcPgGX+Q8ISJqnpKERF4YIiCCE0yrxmJHkQIUHyIGUjpk9EjsbQoah3LVqP5uDzuktg==}
-
-  passkey-kit-sdk@0.0.4:
-    resolution: {integrity: sha512-T/IxwnxwWf1yQI6MzsrWPxNxrkVRtWEHcs97yhC4xDJM+76lBAHPBblKPweBa1btujh9VvHcyH+IBmMHbPhziw==}
-
-  passkey-kit@0.0.20:
-    resolution: {integrity: sha512-ltulo5qnE7mfdohjS/5MRNmi2dRUSeic7z98rslyVJdzleqF4jAiray2EIcj7cN1JDKp5ZwvcHi/LIFtYPWeXA==}
-
   proxy-from-env@1.1.0:
     resolution: {integrity: sha512-D+zkORCbA9f1tdWRK0RaCR3GPv50cMxcrz4X8k5LTSUD1Dkw47mKJEZQNunItRTkWwgtaUSo1RVFRIG9ZXiFYg==}
 
@@ -374,34 +362,6 @@ snapshots:
 
   node-gyp-build@4.8.1:
     optional: true
-
-  passkey-factory-sdk@0.0.4:
-    dependencies:
-      '@stellar/stellar-sdk': 12.0.0-rc.3
-      buffer: 6.0.3
-    transitivePeerDependencies:
-      - debug
-
-  passkey-kit-sdk@0.0.4:
-    dependencies:
-      '@stellar/stellar-sdk': 12.0.0-rc.3
-      buffer: 6.0.3
-    transitivePeerDependencies:
-      - debug
-
-  passkey-kit@0.0.20:
-    dependencies:
-      '@simplewebauthn/browser': 10.0.0
-      '@simplewebauthn/types': 10.0.0
-      '@stellar/stellar-sdk': 12.0.0-rc.3
-      base64url: 3.0.1
-      bigint-conversion: 2.4.3
-      buffer: 6.0.3
-      cbor-x: 1.5.9
-      passkey-factory-sdk: 0.0.4
-      passkey-kit-sdk: 0.0.4
-    transitivePeerDependencies:
-      - debug
 
   proxy-from-env@1.1.0: {}
 
