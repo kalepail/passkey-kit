@@ -1,6 +1,6 @@
 {
   "name": "passkey-kit",
-  "version": "0.0.24",
+  "version": "0.0.28",
   "type": "module",
   "main": "src/index.ts",
   "types": "types/index.d.ts",

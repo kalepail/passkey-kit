@@ -3,8 +3,8 @@
 	import { Networks, Transaction } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { fund, getBalance, transfer } from "./lib/account";
-    import { sequenceKeypair } from "./lib/common";
+	import { getBalance, transferSAC } from "./lib/account";
+    import { fundKeypair, fundPubkey, sequenceKeypair, sequencePubkey } from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
@@ -37,9 +37,9 @@
 		console.log(contractId);
 		console.log(res);
 	}
-	async function signIn() {
-		contractId = await account.connectWallet();
-		console.log(contractId);
+	async function connect() {
+		const { contractId: cid } = await account.connectWallet();
+		console.log(cid);
 	}
 	async function addSigner() {
 		/* TODO 
@@ -61,7 +61,7 @@
 		});
 
 		// xdr to txn funk due to TypeError: XDR Write Error: [object Object] is not a DecoratedSignature
-		const xdr = await account.sign(built!, { id: 'sudo' });
+		const xdr = await account.sign(built!, { keyId: 'sudo' });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -75,7 +75,7 @@
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { id: 'sudo' });
+		const xdr = await account.sign(built!, { keyId: 'sudo' });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -89,7 +89,7 @@
 			id: Buffer.from(signer)
 		});
 
-		const xdr = await account.sign(built!, { id: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "sudo" });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -99,14 +99,25 @@
 		console.log(res);
 
 		// update the sudo signer
-		account.sudo = base64url(signer);
+		account.sudoKeyId = base64url(signer);
 	}
 
 	async function getWalletData() {
 		walletData = await account.getData();
 	}
 	async function fundWallet() {
-		const res = await fund(contractId);
+		const txn = await transferSAC({
+			SAC: import.meta.env.VITE_nativeContractId,
+			source: fundPubkey, 
+			from: fundPubkey, 
+			to: contractId, 
+			amount: 100 * 10_000_000
+		});
+
+		txn.sign(fundKeypair);
+
+		const res = await account.send(txn);
+
 		console.log(res);
 	}
 	async function getWalletBalance() {
@@ -114,12 +125,15 @@
 		console.log(balance);
 	}
 	async function walletTransfer(signer: Uint8Array) {
-		const built = await transfer(
-			contractId,
-			account.factory.options.contractId,
-		);
+		const built = await transferSAC({
+			SAC: import.meta.env.VITE_nativeContractId,
+			source: sequencePubkey,
+			from: contractId,
+			to: account.factory.options.contractId,
+			amount: 10_000_000
+		});
 
-		const xdr = await account.sign(built, { id: signer });
+		const xdr = await account.sign(built, { keyId: signer });
 		const txn = new Transaction(xdr, import.meta.env.VITE_networkPassphrase)
 
 		txn.sign(sequenceKeypair);
@@ -132,7 +146,7 @@
 
 <main>
 	<button on:click={register}>Register</button>
-	<button on:click={signIn}>Sign In</button>
+	<button on:click={connect}>Sign In</button>
 
 	{#if contractId}
 		<p>{contractId}</p>

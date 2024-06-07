@@ -1,17 +1,18 @@
 import { Buffer } from "buffer";
 import {
-  AssembledTransaction,
   Client as ContractClient,
+  Spec as ContractSpec,
+} from '@stellar/stellar-sdk/contract';
+import type {
+  AssembledTransaction,
   ClientOptions as ContractClientOptions,
   Result,
-  Spec as ContractSpec,
 } from '@stellar/stellar-sdk/contract';
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
-
 
 export const networks = {
   testnet: {

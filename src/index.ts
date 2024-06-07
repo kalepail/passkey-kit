@@ -5,7 +5,7 @@ import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
-import type { AuthenticationResponseJSON, RegistrationResponseJSON } from '@simplewebauthn/types';
+import type { RegistrationResponseJSON } from '@simplewebauthn/types';
 import { Buffer } from 'buffer'
 
 /* TODO 
@@ -15,8 +15,8 @@ import { Buffer } from 'buffer'
 */
 
 export class PasskeyAccount {
-    public id: string | undefined
-    public sudo: string | undefined
+    public keyId: string | undefined
+    public sudoKeyId: string | undefined
     public wallet: PasskeyClient | undefined
     public factory: FactoryClient
     public sequencePublicKey: string
@@ -29,6 +29,11 @@ export class PasskeyAccount {
     public feeBumpJwt: string
     public factoryContractId: string = networks.testnet.contractId
 
+    /* TODO 
+        - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
+            If just a keyId call connectWallet in order to get the contractId
+            If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the sudoKeyId in that case)
+    */
     constructor(options: {
         sequencePublicKey: string,
         networkPassphrase: Networks,
@@ -86,6 +91,7 @@ export class PasskeyAccount {
         })
 
         return {
+            keyId,
             contractId,
             xdr: built!.toXDR() as string
         }
@@ -112,27 +118,55 @@ export class PasskeyAccount {
             attestation: "none",
         });
 
-        if (!this.id) {
-            this.id = startRegistrationResponse.id
+        if (!this.keyId) {
+            this.keyId = startRegistrationResponse.id
 
-            if (!this.sudo)
-                this.sudo = startRegistrationResponse.id
+            // If there was no keyId we're likely about to deploy a new wallet so we should set the sudoKeyId 
+            if (!this.sudoKeyId)
+                this.sudoKeyId = startRegistrationResponse.id
         }
 
-        return this.getKey(startRegistrationResponse)
+        const { publicKeyObject } = this.getPublicKeyObject(startRegistrationResponse.response.attestationObject);
+
+        const publicKey = Buffer.from([
+            4, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+            ...publicKeyObject.get('-2')!,
+            ...publicKeyObject.get('-3')!
+        ])
+
+        return {
+            keyId: base64url.toBuffer(startRegistrationResponse.id),
+            publicKey
+        }
     }
 
-    public async connectWallet() {
-        const startAuthenticationResponse = await startAuthentication({
-            challenge: base64url("sorobanisbest"),
-            // rpId: undefined,
-            userVerification: "discouraged",
-        });
+    public async connectWallet(id?: string) {
+        /* TODO 
+            - Support passing in a contractId as well as a keyId
+                Maybe not as we wouldn't have a keyId which could have interesting consequences
+                Also not sure what the use case would be for this where keyId wouldn't also be possible and better
+        */
+        
+        // @ts-ignore 
+        // https://github.com/stellar/js-stellar-base/issues/750
+        // if (id && StrKey.isValidContract(id)) {
 
-        if (!this.id)
-            this.id = startAuthenticationResponse.id
+        // } else {
 
-        const { keyId } = await this.getKey(startAuthenticationResponse)
+        // }
+
+        const startAuthenticationResponse = id
+            ? { id }
+            : await startAuthentication({
+                challenge: base64url("sorobanisbest"),
+                // rpId: undefined,
+                userVerification: "discouraged",
+            });
+
+        if (!this.keyId)
+            this.keyId = startAuthenticationResponse.id
+
+        const keyIdBuffer = base64url.toBuffer(startAuthenticationResponse.id)
 
         // NOTE might not need this for derivation as all signers are stored in the factory and we can use that lookup as both primary and secondary
         let contractId = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
@@ -141,7 +175,7 @@ export class PasskeyAccount {
                 contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
                     new xdr.ContractIdPreimageFromAddress({
                         address: Address.fromString(this.factoryContractId).toScAddress(),
-                        salt: hash(keyId),
+                        salt: hash(keyIdBuffer),
                     })
                 )
             })
@@ -153,7 +187,7 @@ export class PasskeyAccount {
         }
         // if that fails look up from the factory mapper
         catch {
-            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyId))
+            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyIdBuffer))
             contractId = scValToNative(val.contractData().val())
         }
 
@@ -167,18 +201,21 @@ export class PasskeyAccount {
         // get and set the sudo signer
         await this.getData()
 
-        return contractId
+        return {
+            keyId: keyIdBuffer,
+            contractId
+        }
     }
 
     public async sign(
         txn: Transaction | string,
         options?: {
-            id?: 'any' | 'sudo' | string | Uint8Array
-            ttl?: number
+            keyId?: 'any' | 'sudo' | string | Uint8Array
+            ledgersToLive?: number
         }
     ) {
         // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
-        let { id, ttl = 60 } = options || {}
+        let { keyId, ledgersToLive = 60 } = options || {}
 
         // hack to ensure we don't stack fees when simulating and assembling multiple times
         txn = TransactionBuilder.cloneFrom(new Transaction(
@@ -197,14 +234,14 @@ export class PasskeyAccount {
                 new xdr.HashIdPreimageSorobanAuthorization({
                     networkId: hash(Buffer.from(this.networkPassphrase, 'utf-8')),
                     nonce: auth.credentials().address().nonce(),
-                    signatureExpirationLedger: lastLedger + ttl,
+                    signatureExpirationLedger: lastLedger + ledgersToLive,
                     invocation: auth.rootInvocation()
                 })
             ).toXDR()
         )
 
         const authenticationResponse = await startAuthentication(
-            id === 'any' || (id === 'sudo' && !this.sudo)
+            keyId === 'any' || (keyId === 'sudo' && !this.sudoKeyId) || (!keyId && !this.keyId)
                 ? {
                     challenge: base64url(authHash),
                     // rpId: undefined,
@@ -215,11 +252,11 @@ export class PasskeyAccount {
                     // rpId: undefined,
                     allowCredentials: [
                         {
-                            id: id === 'sudo'
-                                ? this.sudo!
-                                : id instanceof Uint8Array
-                                    ? base64url(id)
-                                    : id || this.id!,
+                            id: keyId === 'sudo'
+                                ? this.sudoKeyId!
+                                : keyId instanceof Uint8Array
+                                    ? base64url(keyId)
+                                    : keyId || this.keyId!,
                             type: "public-key",
                         },
                     ],
@@ -228,17 +265,17 @@ export class PasskeyAccount {
         );
 
         // set sudo if this is a sudo request
-        if (id === 'sudo')
-            this.sudo = authenticationResponse.id
+        if (keyId === 'sudo')
+            this.sudoKeyId = authenticationResponse.id
 
-        // reset this.id to be the most recently used passkey
-        this.id = authenticationResponse.id
+        // reset this.keyId to be the most recently used passkey
+        this.keyId = authenticationResponse.id
 
         const signatureRaw = base64url.toBuffer(authenticationResponse.response.signature);
         const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
         const creds = auth.credentials().address();
 
-        creds.signatureExpirationLedger(lastLedger + ttl)
+        creds.signatureExpirationLedger(lastLedger + ledgersToLive)
         creds.signature(xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvSymbol('authenticator_data'),
@@ -308,7 +345,7 @@ export class PasskeyAccount {
                 );
             });
 
-        this.sudo = base64url(data.get('sudo_sig'))
+        this.sudoKeyId = base64url(data.get('sudo_sig'))
 
         return data
     }
@@ -318,25 +355,6 @@ export class PasskeyAccount {
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
             @Later
     */
-
-    private async getKey(value: RegistrationResponseJSON | AuthenticationResponseJSON) {
-        let publicKey: Buffer | undefined
-
-        if (isAuthentication(value)) {
-            const { publicKeyObject } = this.getPublicKeyObject(value.response.attestationObject);
-
-            publicKey = Buffer.from([
-                4, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
-                ...publicKeyObject.get('-2')!,
-                ...publicKeyObject.get('-3')!
-            ])
-        }
-
-        return {
-            keyId: base64url.toBuffer(value.id),
-            publicKey
-        }
-    }
 
     private getPublicKeyObject(attestationObject: string) {
         const { authData } = decode(base64url.toBuffer(attestationObject));
