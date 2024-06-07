@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "outDir": "./lib",
+    "outDir": "./types",
 
     // Enable latest features
     "target": "ESNext",
@@ -26,5 +26,5 @@
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
   },
-  "exclude": ["./demo", "./packages", "./lib"]
+  "exclude": ["./demo", "./packages", "./types"]
 }

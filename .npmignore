@@ -118,7 +118,7 @@ out
 # Nuxt.js build / generate output
 
 .nuxt
-# dist
+dist
 
 # Gatsby files
 
@@ -176,6 +176,6 @@ out
 
 meta.json
 
-types/
-package/
-lib/
+package
+
+demo
