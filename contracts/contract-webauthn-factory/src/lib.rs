@@ -21,7 +21,7 @@ const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
 /* NOTE
     - We don't have an upgrade function here because if we want to make a new wallet printer we should just deploy an entirely new one
         This ensures some safety so a factory can't sneaky update the wallets it's printing
-        One downside is if a factory turns out to be printing bugged wallets there's no way to shut the printer down 
+        One downside is if a factory turns out to be printing bugged wallets there's no way to shut the printer down
 */
 
 /* TODO

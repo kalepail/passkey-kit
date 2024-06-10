@@ -105,7 +105,7 @@ export class PasskeyAccount {
 
     public async createKey(name: string, user: string) {
         const startRegistrationResponse = await startRegistration({
-            challenge: base64url("sorobanisbest"),
+            challenge: base64url("stellaristhebetterblockchain"),
             rp: {
                 // id: undefined,
                 name,
@@ -165,7 +165,7 @@ export class PasskeyAccount {
         const startAuthenticationResponse = id
             ? { id }
             : await startAuthentication({
-                challenge: base64url("sorobanisbest"),
+                challenge: base64url("stellaristhebetterblockchain"),
                 // rpId: undefined,
                 userVerification: "discouraged",
             });

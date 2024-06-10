@@ -12,10 +12,7 @@ use soroban_sdk::{
         It's a little oof as it increases size and there's nothing stopping a user from changing the name outside the contract thereby causing confusion
         If we track the key ids vs hashes of key ids we could always have a client lookup key info client side
         @No
-    - It is tough to know what contract signer maps to what passkey though frfr
-        We could maybe store unhashed passkey ids as Strings or unbound Bytes arrays
-        @Done
-    - Add an upgrade function so wallets can upgrade their underlying wallet wasm
+    - Add the ability to add additional sudo signers. Currently too much rides on one single key
 */
 
 mod base64_url;
@@ -76,11 +73,15 @@ impl Contract {
 
         Ok(())
     }
-    // pub fn upgrade(env: Env, hash: BytesN<32>) {
-    //     let owner = read_owner_address(&env);
-    //     owner.require_auth();
-    //     env.deployer().update_current_contract_wasm(hash);
-    // }
+    pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        env.deployer().update_current_contract_wasm(hash);
+
+        Self::extend_ttl(&env);
+
+        Ok(())
+    }
     pub fn resudo(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
@@ -150,13 +151,6 @@ impl Contract {
         Ok(())
     }
     pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        /* TODO
-            - Should we be verifying a signature of the new key here to ensure the new signer is actually owned?
-                Not really concerned about this as I don't see what the impact significance of this is or what ensuring ownership would protect against
-                @No
-            - Add the ability to add additional sudo signers. Currently too much rides on one single key
-        */
-
         if !env.storage().instance().has(&SUDO_SIGNER) {
             return Err(Error::NotInited);
         }
@@ -225,21 +219,22 @@ impl CustomAccountInterface for Contract {
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // Only the sudo signer can `add_sig`, `rm_sig` and `resudo`
+        // Only the sudo signer can `add_sig`, `rm_sig`, `resudo` and `upgrade`
         for context in auth_contexts.iter() {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address()
                         && (c.fn_name == Symbol::new(&env, "add_sig")
                             || c.fn_name == Symbol::new(&env, "rm_sig")
-                            || c.fn_name == Symbol::new(&env, "resudo"))
+                            || c.fn_name == Symbol::new(&env, "resudo")
+                            || c.fn_name == Symbol::new(&env, "upgrade"))
                     {
-                        if signature.id
-                            != env
-                                .storage()
-                                .instance()
-                                .get::<Symbol, Bytes>(&SUDO_SIGNER)
-                                .ok_or(Error::NotFound)?
+                        if env
+                            .storage()
+                            .instance()
+                            .get::<Symbol, Bytes>(&SUDO_SIGNER)
+                            .ok_or(Error::NotFound)?
+                            != signature.id
                         {
                             return Err(Error::NotPermitted);
                         }
