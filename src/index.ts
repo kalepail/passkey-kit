@@ -11,6 +11,7 @@ import { Buffer } from 'buffer'
 /* TODO 
     - Clean up these params and the interface as a whole
         Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
+        @Later
 
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
@@ -34,6 +35,8 @@ export class PasskeyAccount {
         - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
             If just a keyId call `connectWallet` in order to get the contractId
             If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the sudoKeyId in that case)
+            We don't stictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
+            @Later
     */
     constructor(options: {
         sequencePublicKey: string,
