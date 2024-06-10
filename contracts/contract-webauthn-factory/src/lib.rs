@@ -128,11 +128,6 @@ impl Contract {
             Some sort of protection here is important though otherwise nefarious folks could add contracts to passkeys that aren't actually connected
                 Maybe this isn't dangerous, just dumb
         */
-        /* TODO
-            - Ideally this method could only be called by the `deploy` method and contracts deployed by this deployer, not any random external Address
-                Likely too much work for little to no real benefit, just ensure the require_auth is actually appropriately protecting the additions and removals
-                @No
-        */
 
         if env.storage().persistent().has(id) {
             return Err(Error::AlreadyMapped);
