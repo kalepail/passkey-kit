@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PasskeyAccount } from "passkey-kit";
+	import { PasskeyKit } from "passkey-kit";
 	import { Networks, Transaction } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
@@ -16,7 +16,7 @@
 	let contractId: string;
 	let balance: string;
 
-	const account = new PasskeyAccount({
+	const account = new PasskeyKit({
 		sequencePublicKey: sequenceKeypair.publicKey(),
 		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
 		horizonUrl: import.meta.env.VITE_horizonUrl,
