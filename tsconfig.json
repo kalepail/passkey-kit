@@ -26,5 +26,5 @@
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
   },
-  "exclude": ["./demo", "./packages", "./types"]
+  "exclude": ["./demo", "./packages", "./types", "./contracts"]
 }

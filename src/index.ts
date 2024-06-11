@@ -14,6 +14,8 @@ import { Buffer } from 'buffer'
         @Later
 
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
+
+    - It's finally time to make a server and a client version of this package
 */
 
 export class PasskeyAccount {
@@ -27,8 +29,8 @@ export class PasskeyAccount {
     public horizon: Horizon.Server
     public rpcUrl: string
     public rpc: SorobanRpc.Server
-    public feeBumpUrl: string
-    public feeBumpJwt: string
+    public feeBumpUrl: string | undefined
+    public feeBumpJwt: string | undefined
     public factoryContractId: string = networks.testnet.contractId
 
     /* TODO 
@@ -43,8 +45,8 @@ export class PasskeyAccount {
         networkPassphrase: Networks,
         horizonUrl: string,
         rpcUrl: string,
-        feeBumpUrl: string,
-        feeBumpJwt: string,
+        feeBumpUrl?: string,
+        feeBumpJwt?: string,
         /* TODO 
             - Maybe remove this? The factory should likely be baked in a bit more tightly
                 On the other hand once we have a standard interface the factory interface only uses the `deploy` method right now inside the interface
@@ -68,8 +70,12 @@ export class PasskeyAccount {
         this.horizon = new Horizon.Server(horizonUrl)
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
-        this.feeBumpUrl = feeBumpUrl
-        this.feeBumpJwt = feeBumpJwt
+
+        if (feeBumpUrl)
+            this.feeBumpUrl = feeBumpUrl
+
+        if (feeBumpJwt)
+            this.feeBumpJwt = feeBumpJwt
 
         if (factoryContractId)
             this.factoryContractId = factoryContractId
@@ -236,6 +242,7 @@ export class PasskeyAccount {
         ), { fee: '0' }).build()
 
         // NOTE hard coded to sign only Soroban transactions and only and always the first auth
+        // TODO switch to support signing multiple and specific auth entries. Possibly pass in auth entry vs the entire txn
         const op = txn.operations[0] as Operation.InvokeHostFunction
         const auth = op.auth![0]
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
@@ -321,7 +328,7 @@ export class PasskeyAccount {
         data.set('xdr', txn.toXDR());
         data.set('fee', fee.toString());
 
-        const bumptxn = await fetch(this.feeBumpUrl, {
+        const bumptxn = await fetch(this.feeBumpUrl!, {
             method: 'POST',
             headers: {
                 authorization: `Bearer ${this.feeBumpJwt}`,
