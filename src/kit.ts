@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient, networks } from 'passkey-factory-sdk'
-import { Address, Networks, StrKey, hash, xdr, Transaction, Horizon, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
+import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
@@ -25,14 +25,9 @@ export class PasskeyKit extends PasskeyBase {
     public sudoKeyId: string | undefined
     public wallet: PasskeyClient | undefined
     public factory: FactoryClient
-    public sequencePublicKey: string
-    // public networkPassphrase: Networks
-    // public horizonUrl: string
-    public horizon: Horizon.Server
+    public networkPassphrase: Networks
     public rpcUrl: string
     public rpc: SorobanRpc.Server
-    // public feeBumpUrl: string | undefined
-    // public feeBumpJwt: string | undefined
     public factoryContractId: string = networks.testnet.contractId
 
     /* TODO 
@@ -42,13 +37,12 @@ export class PasskeyKit extends PasskeyBase {
             We don't stictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
             @Later
     */
+
     constructor(options: {
-        sequencePublicKey: string,
         networkPassphrase: Networks,
-        horizonUrl: string,
         rpcUrl: string,
-        feeBumpUrl?: string,
-        feeBumpJwt?: string,
+        launchtubeUrl?: string,
+        launchtubeJwt?: string,
         /* TODO 
             - Maybe remove this? The factory should likely be baked in a bit more tightly
                 On the other hand once we have a standard interface the factory interface only uses the `deploy` method right now inside the interface
@@ -57,25 +51,19 @@ export class PasskeyKit extends PasskeyBase {
         factoryContractId?: string, 
     }) {
         const {
-            sequencePublicKey,
             networkPassphrase,
-            horizonUrl,
             rpcUrl,
-            feeBumpUrl,
-            feeBumpJwt,
+            launchtubeUrl,
+            launchtubeJwt,
             factoryContractId
         } = options
 
         super({
-            networkPassphrase,
-            horizonUrl,
-            feeBumpUrl,
-            feeBumpJwt,
+            launchtubeUrl,
+            launchtubeJwt,
         })
-
-        this.sequencePublicKey = sequencePublicKey
         
-        this.horizon = new Horizon.Server(horizonUrl)
+        this.networkPassphrase = networkPassphrase
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
 
@@ -83,7 +71,6 @@ export class PasskeyKit extends PasskeyBase {
             this.factoryContractId = factoryContractId
 
         this.factory = new FactoryClient({
-            publicKey: sequencePublicKey,
             contractId: this.factoryContractId,
             networkPassphrase,
             rpcUrl
@@ -101,7 +88,6 @@ export class PasskeyKit extends PasskeyBase {
         const contractId = result.unwrap() as string
 
         this.wallet = new PasskeyClient({
-            publicKey: this.sequencePublicKey,
             contractId,
             networkPassphrase: this.networkPassphrase,
             rpcUrl: this.rpcUrl
@@ -210,7 +196,6 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         this.wallet = new PasskeyClient({
-            publicKey: this.sequencePublicKey,
             contractId,
             networkPassphrase: this.networkPassphrase,
             rpcUrl: this.rpcUrl

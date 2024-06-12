@@ -1,54 +1,42 @@
-import { Networks, Transaction, Horizon, FeeBumpTransaction } from '@stellar/stellar-sdk'
-
 export class PasskeyBase {
-    public networkPassphrase: Networks
-    public horizonUrl: string
-    public horizon: Horizon.Server
-    public feeBumpUrl: string | undefined
-    public feeBumpJwt: string | undefined
+    public launchtubeUrl: string | undefined
+    public launchtubeJwt: string | undefined
 
     constructor(options: {
-        networkPassphrase: Networks,
-        horizonUrl: string,
-        feeBumpUrl?: string,
-        feeBumpJwt?: string,
+        launchtubeUrl?: string,
+        launchtubeJwt?: string,
     }) {
         const {
-            networkPassphrase,
-            horizonUrl,
-            feeBumpUrl,
-            feeBumpJwt,
+            launchtubeUrl,
+            launchtubeJwt,
         } = options
 
-        this.networkPassphrase = networkPassphrase
-        this.horizonUrl = horizonUrl
-        this.horizon = new Horizon.Server(horizonUrl)
+        if (launchtubeUrl)
+            this.launchtubeUrl = launchtubeUrl
 
-        if (feeBumpUrl)
-            this.feeBumpUrl = feeBumpUrl
-
-        if (feeBumpJwt)
-            this.feeBumpJwt = feeBumpJwt
+        if (launchtubeJwt)
+            this.launchtubeJwt = launchtubeJwt
     }
 
-    public async send(txn: Transaction, fee: number = 10_000) {
+    public async send(xdr: string, fee: number = 10_000) {
+        if (!this.launchtubeUrl || !this.launchtubeJwt)
+            throw new Error('Launchtube service not configured')
+
         const data = new FormData();
 
-        data.set('xdr', txn.toXDR());
+        data.set('xdr', xdr);
         data.set('fee', fee.toString());
 
-        const bumptxn = await fetch(this.feeBumpUrl!, {
+        return fetch(this.launchtubeUrl, {
             method: 'POST',
             headers: {
-                authorization: `Bearer ${this.feeBumpJwt}`,
+                authorization: `Bearer ${this.launchtubeJwt}`,
             },
             body: data
         }).then(async (res) => {
             if (res.ok)
-                return res.text()
+                return res.json()
             else throw await res.json()
         })
-
-        return this.horizon.submitTransaction(new FeeBumpTransaction(bumptxn, this.networkPassphrase))
     }
 }

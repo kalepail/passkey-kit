@@ -3,8 +3,8 @@
 export SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 export SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 export SOROBAN_ACCOUNT=default
-export WEBAUTHN_FACTORY=CDSGG7BSWYWQMTY5KTZVDTC34ZESMZ75ZGSTTVHS4NIKCF4PM3GDJ4G3
-export WEBAUTHN_WASM=d4b364c93fa899746c025358d0de670dd48a13b45a654313e414f07dc85e1fcf
+export WEBAUTHN_FACTORY=CBXQAM53YVVPKAPS2NCSOCXTOK6HOXA3JLURVLD6VFQUHJPKFVBJIBHQ
+export WEBAUTHN_WASM=38f3fe72fb3e12ab54f148fa18b5dafa8d046a24787a74a448333661359a3c6a
 
 build:
 	@cd contract-webauthn-factory && soroban contract build --out-dir ../out
@@ -30,5 +30,6 @@ fmt:
 	@cd contract-webauthn-secp256r1 && cargo fmt --all
 
 clean:
+	rm -rf out/
 	@cd contract-webauthn-factory && cargo clean
 	@cd contract-webauthn-secp256r1 && cargo clean

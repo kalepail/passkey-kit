@@ -1,11 +1,7 @@
-import { Horizon, Keypair, SorobanRpc } from "@stellar/stellar-sdk"
+import { Keypair, SorobanRpc } from "@stellar/stellar-sdk"
 import { Buffer } from "buffer";
 
 export const rpc = new SorobanRpc.Server(import.meta.env.VITE_rpcUrl);
-export const horizon = new Horizon.Server(import.meta.env.VITE_horizonUrl)
-
-export const sequenceKeypair = Keypair.fromSecret(import.meta.env.VITE_sequenceSecret);
-export const sequencePubkey = sequenceKeypair.publicKey()
 
 export const fundKeypair = new Promise<Keypair>(async (resolve) => {
     const now = new Date();

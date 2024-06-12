@@ -1,14 +1,12 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Networks, Transaction } from "@stellar/stellar-sdk";
+	import { Networks, Operation, Transaction, authorizeEntry, authorizeInvocation } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
 	import {
 		fundKeypair,
 		fundPubkey,
-		sequenceKeypair,
-		sequencePubkey,
 	} from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
@@ -17,12 +15,10 @@
 	let balance: string;
 
 	const account = new PasskeyKit({
-		sequencePublicKey: sequenceKeypair.publicKey(),
 		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
-		horizonUrl: import.meta.env.VITE_horizonUrl,
 		rpcUrl: import.meta.env.VITE_rpcUrl,
-		feeBumpUrl: import.meta.env.VITE_feeBumpUrl,
-		feeBumpJwt: import.meta.env.VITE_feeBumpJwt,
+		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
+		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 	});
 
 	async function register() {
@@ -30,19 +26,8 @@
 
 		if (!user) return;
 
-		const { contractId: cid, xdr } = await account.createWallet(
-			"Super Peach",
-			user,
-		);
-
-		const txn = new Transaction(
-			xdr,
-			import.meta.env.VITE_networkPassphrase,
-		);
-
-		txn.sign(sequenceKeypair);
-
-		const res = await account.send(txn);
+		const { contractId: cid, xdr } = await account.createWallet("Super Peach", user);
+		const res = await account.send(xdr);
 
 		console.log(res);
 
@@ -77,16 +62,8 @@
 			pk: publicKey!,
 		});
 
-		// xdr to txn funk due to TypeError: XDR Write Error: [object Object] is not a DecoratedSignature
 		const xdr = await account.sign(built!, { keyId: "sudo" });
-		const txn = new Transaction(
-			xdr,
-			import.meta.env.VITE_networkPassphrase,
-		);
-
-		txn.sign(sequenceKeypair);
-
-		const res = await account.send(txn);
+		const res = await account.send(xdr);
 
 		console.log(res);
 	}
@@ -96,14 +73,7 @@
 		});
 
 		const xdr = await account.sign(built!, { keyId: "sudo" });
-		const txn = new Transaction(
-			xdr,
-			import.meta.env.VITE_networkPassphrase,
-		);
-
-		txn.sign(sequenceKeypair);
-
-		const res = await account.send(txn);
+		const res = await account.send(xdr);
 
 		console.log(res);
 	}
@@ -113,14 +83,7 @@
 		});
 
 		const xdr = await account.sign(built!, { keyId: "sudo" });
-		const txn = new Transaction(
-			xdr,
-			import.meta.env.VITE_networkPassphrase,
-		);
-
-		txn.sign(sequenceKeypair);
-
-		const res = await account.send(txn);
+		const res = await account.send(xdr);
 
 		console.log(res);
 
@@ -132,17 +95,27 @@
 		walletData = await account.getData();
 	}
 	async function fundWallet() {
-		const txn = await transferSAC({
+		const { txn, sim } = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
-			source: fundPubkey,
 			from: fundPubkey,
 			to: contractId,
 			amount: 100 * 10_000_000,
 		});
 
-		txn.sign(await fundKeypair);
+		const op = txn.operations[0] as Operation.InvokeHostFunction
 
-		const res = await account.send(txn);
+		for (const auth of sim.result?.auth || []) {
+			const signEntry = await authorizeEntry(
+				auth, 
+				await fundKeypair, 
+				sim.latestLedger + 60, 
+				import.meta.env.VITE_networkPassphrase
+			)
+			
+			op.auth!.push(signEntry)
+		}
+
+		const res = await account.send(txn.toXDR());
 
 		console.log(res);
 	}
@@ -151,23 +124,15 @@
 		console.log(balance);
 	}
 	async function walletTransfer(signer: Uint8Array) {
-		const built = await transferSAC({
+		const { built } = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
-			source: sequencePubkey,
 			from: contractId,
 			to: account.factory.options.contractId,
 			amount: 10_000_000,
 		});
 
 		const xdr = await account.sign(built, { keyId: signer });
-		const txn = new Transaction(
-			xdr,
-			import.meta.env.VITE_networkPassphrase,
-		);
-
-		txn.sign(sequenceKeypair);
-
-		const res = await account.send(txn);
+		const res = await account.send(xdr);
 
 		console.log(res);
 	}
