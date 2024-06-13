@@ -43,7 +43,6 @@
 		console.log(cid);
 
 		await fundWallet();
-		await getWalletBalance();
 		await getWalletData();
 	}
 	async function connect(keyId?: string) {
@@ -88,6 +87,8 @@
 		const res = await account.send(xdr);
 
 		console.log(res);
+
+		await getWalletData();
 	}
 	async function removeSigner(signer: Uint8Array) {
 		const { built } = await account.wallet!.rm_sig({
@@ -98,6 +99,8 @@
 		const res = await account.send(xdr);
 
 		console.log(res);
+
+		await getWalletData();
 	}
 	async function resudo(signer: Uint8Array) {
 		const { built } = await account.wallet!.resudo({
@@ -111,6 +114,8 @@
 
 		// update the sudo signer
 		account.sudoKeyId = base64url(signer);
+
+		await getWalletData();
 	}
 
 	async function getWalletBalance() {
@@ -145,6 +150,8 @@
 		const res = await account.send(txn.toXDR());
 
 		console.log(res);
+
+		await getWalletBalance();
 	}
 	async function walletTransfer(signer: Uint8Array) {
 		const { built } = await transferSAC({
@@ -158,6 +165,8 @@
 		const res = await account.send(xdr);
 
 		console.log(res);
+
+		await getWalletBalance();
 	}
 </script>
 
