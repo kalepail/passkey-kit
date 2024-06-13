@@ -339,6 +339,10 @@ export class PasskeyKit extends PasskeyBase {
     public async getData(contractData?: SorobanRpc.Api.LedgerEntryResult) {
         const data: Map<string, any> = new Map()
 
+        /* TODO 
+            - Pretty easy to get into a state where there is no contractId and this we error at `this.wallet!.options.contractId,`
+                We should have a better error or maybe just handle no-wallet scenarios more gracefully
+        */
         const { val } = contractData || await this.rpc.getContractData(
             this.wallet!.options.contractId,
             xdr.ScVal.scvLedgerKeyContractInstance(),
