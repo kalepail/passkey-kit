@@ -155,9 +155,6 @@
 		});
 
 		const xdr = await account.sign(built, { keyId: signer });
-
-		console.log(xdr);
-
 		const res = await account.send(xdr);
 
 		console.log(res);
