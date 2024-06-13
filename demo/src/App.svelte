@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Networks, Operation, Transaction, authorizeEntry, authorizeInvocation } from "@stellar/stellar-sdk";
+	import { Networks, Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
@@ -173,6 +173,3 @@
 		{/each}
 	</ul>
 </main>
-
-<style>
-</style>

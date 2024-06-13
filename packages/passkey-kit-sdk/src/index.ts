@@ -1,12 +1,10 @@
 import { Buffer } from "buffer";
 import {
-  Client as ContractClient,
-  Spec as ContractSpec,
-} from '@stellar/stellar-sdk/contract';
-import type {
   AssembledTransaction,
+  Client as ContractClient,
   ClientOptions as ContractClientOptions,
   Result,
+  Spec as ContractSpec,
 } from '@stellar/stellar-sdk/contract';
 
 if (typeof window !== 'undefined') {
@@ -66,6 +64,26 @@ export interface Client {
    * Construct and simulate a init transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   init: ({ id, pk, factory }: { id: Buffer, pk: Buffer, factory: string }, options?: {
+    /**
+     * The fee to pay for the transaction. Default: BASE_FEE
+     */
+    fee?: number;
+
+    /**
+     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
+     */
+    timeoutInSeconds?: number;
+
+    /**
+     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
+     */
+    simulate?: boolean;
+  }) => Promise<AssembledTransaction<Result<void>>>
+
+  /**
+   * Construct and simulate a upgrade transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  upgrade: ({ hash }: { hash: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -148,6 +166,7 @@ export class Client extends ContractClient {
       new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACgAAAAAAAAAJTm90SW5pdGVkAAAAAAAAAQAAAAAAAAAITm90Rm91bmQAAAACAAAAAAAAAAxOb3RQZXJtaXR0ZWQAAAADAAAAAAAAAA1BbHJlYWR5SW5pdGVkAAAAAAAABAAAAAAAAAAOSnNvblBhcnNlRXJyb3IAAAAAAAUAAAAAAAAADkludmFsaWRDb250ZXh0AAAAAAAGAAAAAAAAACBDbGllbnREYXRhSnNvbkNoYWxsZW5nZUluY29ycmVjdAAAAAcAAAAAAAAAF1NlY3AyNTZyMVB1YmxpY0tleVBhcnNlAAAAAAgAAAAAAAAAF1NlY3AyNTZyMVNpZ25hdHVyZVBhcnNlAAAAAAkAAAAAAAAAFVNlY3AyNTZyMVZlcmlmeUZhaWxlZAAAAAAAAAo=",
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAMAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAAAAAAAB2ZhY3RvcnkAAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAAD",
+        "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
         "AAAAAAAAAAAAAAAGcmVzdWRvAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
@@ -159,6 +178,7 @@ export class Client extends ContractClient {
   public readonly fromJSON = {
     extend_ttl: this.txFromJSON<null>,
     init: this.txFromJSON<Result<void>>,
+    upgrade: this.txFromJSON<Result<void>>,
     resudo: this.txFromJSON<Result<void>>,
     rm_sig: this.txFromJSON<Result<void>>,
     add_sig: this.txFromJSON<Result<void>>,

@@ -14,10 +14,6 @@ import { PasskeyBase } from './base'
         @Later
 
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
-
-    - It's finally time to make a server and a client version of this package
-        Maybe. I want to support passing "bad" secret values on the client. 
-            It's maybe only the server that could be smaller and cleaner by opting out out WebAuthN stuff
 */
 
 export class PasskeyKit extends PasskeyBase {
@@ -34,7 +30,7 @@ export class PasskeyKit extends PasskeyBase {
         - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
             If just a keyId call `connectWallet` in order to get the contractId
             If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the sudoKeyId in that case)
-            We don't stictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
+            We don't strictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
             @Later
     */
 
@@ -46,9 +42,9 @@ export class PasskeyKit extends PasskeyBase {
         /* TODO 
             - Maybe remove this? The factory should likely be baked in a bit more tightly
                 On the other hand once we have a standard interface the factory interface only uses the `deploy` method right now inside the interface
-                @Later
+                @No
         */
-        factoryContractId?: string, 
+        factoryContractId?: string,
     }) {
         const {
             networkPassphrase,
@@ -62,7 +58,7 @@ export class PasskeyKit extends PasskeyBase {
             launchtubeUrl,
             launchtubeJwt,
         })
-        
+
         this.networkPassphrase = networkPassphrase
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
@@ -150,7 +146,7 @@ export class PasskeyKit extends PasskeyBase {
                 Also not sure what the use case would be for this where keyId wouldn't also be possible and better
                 @No
         */
-        
+
         // @ts-ignore 
         // https://github.com/stellar/js-stellar-base/issues/750
         // if (id && StrKey.isValidContract(id)) {
@@ -210,7 +206,11 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    // TODO is there anything to be done with using the TS bindings `signAuthEntries` logic? Likely not but worth exploring 
+    /* TODO 
+        - Is there anything to be done with using the TS bindings `signAuthEntries` logic? Likely not but worth exploring 
+            Perhaps not but maybe the js-sdk's `authorizeEntry` or `authorizeInvocation`
+            https://stellar.github.io/js-stellar-sdk/global.html#authorizeInvocation
+    */
     public async sign(
         txn: Transaction | string,
         options?: {
@@ -221,7 +221,7 @@ export class PasskeyKit extends PasskeyBase {
         // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
         let { keyId, ledgersToLive = 60 } = options || {}
 
-        // hack to ensure we don't stack fees when simulating and assembling multiple times
+        // Hack to ensure we don't stack fees when simulating and assembling multiple times
         txn = TransactionBuilder.cloneFrom(new Transaction(
             typeof txn === 'string'
                 ? txn
@@ -230,7 +230,12 @@ export class PasskeyKit extends PasskeyBase {
         ), { fee: '0' }).build()
 
         // NOTE hard coded to sign only Soroban transactions and only and always the first auth
-        // TODO switch to support signing multiple and specific auth entries. Possibly pass in auth entry vs the entire txn
+        /* TODO !!!
+            - Switch to support signing multiple and specific auth entries
+                Possibly pass in auth entry vs the entire txn
+                    Probably a bad idea as it would add complexity to the user side to reassemble the signed entries
+                I think we can probably look at the list of auth entries and assume which ones we want to sign
+        */
         const op = txn.operations[0] as Operation.InvokeHostFunction
         const auth = op.auth![0]
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
@@ -246,7 +251,9 @@ export class PasskeyKit extends PasskeyBase {
         )
 
         const authenticationResponse = await startAuthentication(
-            keyId === 'any' || (keyId === 'sudo' && !this.sudoKeyId) || (!keyId && !this.keyId)
+            keyId === 'any'
+                || (keyId === 'sudo' && !this.sudoKeyId)
+                || (!keyId && !this.keyId)
                 ? {
                     challenge: base64url(authHash),
                     // rpId: undefined,
@@ -304,7 +311,7 @@ export class PasskeyKit extends PasskeyBase {
 
         if (
             SorobanRpc.Api.isSimulationError(sim)
-            || SorobanRpc.Api.isSimulationRestore(sim) // TODO handle restore flow
+            || SorobanRpc.Api.isSimulationRestore(sim) // TODO handle state archival
         ) throw sim
 
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
