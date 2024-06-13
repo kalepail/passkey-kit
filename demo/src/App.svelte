@@ -1,45 +1,67 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Networks, Operation, authorizeEntry } from "@stellar/stellar-sdk";
+	import { Address, Networks, Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
-	import {
-		fundKeypair,
-		fundPubkey,
-	} from "./lib/common";
+	import { fundKeypair, fundPubkey } from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
+	let keyId: string | undefined;
 	let contractId: string;
 	let balance: string;
 
 	const account = new PasskeyKit({
-		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
 		rpcUrl: import.meta.env.VITE_rpcUrl,
 		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
+		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
 	});
+
+	if (localStorage.hasOwnProperty("sp:keyId")) {
+		keyId = localStorage.getItem("sp:keyId")!
+		connect(keyId)
+	}
 
 	async function register() {
 		const user = prompt("Give this passkey a name");
 
 		if (!user) return;
 
-		const { contractId: cid, xdr } = await account.createWallet("Super Peach", user);
+		const { keyId, contractId: cid, xdr } = await account.createWallet(
+			"Super Peach",
+			user,
+		);
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		contractId = cid;
-		console.log(cid);
-	}
-	async function connect() {
-		const { contractId: cid } = await account.connectWallet();
+		localStorage.setItem('sp:keyId', base64url(keyId))
 
 		contractId = cid;
 		console.log(cid);
+
+		await fundWallet();
+		await getWalletBalance();
+		await getWalletData();
 	}
+	async function connect(keyId?: string) {
+		const { keyId: kid, contractId: cid } = await account.connectWallet(keyId);
+
+		localStorage.setItem('sp:keyId', base64url(kid))
+
+		contractId = cid;
+		console.log(cid);
+
+		await getWalletBalance();
+		await getWalletData();
+	}
+	async function reset() {
+		localStorage.removeItem('sp:keyId')
+		location.reload()
+	}
+
 	async function addSigner() {
 		/* TODO 
 			- Add existing signer vs always creating a new one
@@ -91,9 +113,14 @@
 		account.sudoKeyId = base64url(signer);
 	}
 
+	async function getWalletBalance() {
+		balance = await getBalance(contractId);
+		console.log(balance);
+	}
 	async function getWalletData() {
 		walletData = await account.getData();
 	}
+
 	async function fundWallet() {
 		const { txn, sim } = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
@@ -102,26 +129,22 @@
 			amount: 100 * 10_000_000,
 		});
 
-		const op = txn.operations[0] as Operation.InvokeHostFunction
+		const op = txn.operations[0] as Operation.InvokeHostFunction;
 
 		for (const auth of sim.result?.auth || []) {
 			const signEntry = await authorizeEntry(
-				auth, 
-				await fundKeypair, 
-				sim.latestLedger + 60, 
-				import.meta.env.VITE_networkPassphrase
-			)
-			
-			op.auth!.push(signEntry)
+				auth,
+				await fundKeypair,
+				sim.latestLedger + 60,
+				import.meta.env.VITE_networkPassphrase,
+			);
+
+			op.auth!.push(signEntry);
 		}
 
 		const res = await account.send(txn.toXDR());
 
 		console.log(res);
-	}
-	async function getWalletBalance() {
-		balance = await getBalance(contractId);
-		console.log(balance);
 	}
 	async function walletTransfer(signer: Uint8Array) {
 		const { built } = await transferSAC({
@@ -132,15 +155,19 @@
 		});
 
 		const xdr = await account.sign(built, { keyId: signer });
-		const res = await account.send(xdr);
 
-		console.log(res);
+		console.log(xdr);
+
+		// const res = await account.send(xdr);
+
+		// console.log(res);
 	}
 </script>
 
 <main>
 	<button on:click={register}>Register</button>
-	<button on:click={connect}>Sign In</button>
+	<button on:click={() => connect()}>Sign In</button>
+	<button on:click={reset}>Reset</button>
 
 	{#if contractId}
 		<p>{contractId}</p>
