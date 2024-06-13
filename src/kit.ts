@@ -295,7 +295,11 @@ export class PasskeyKit extends PasskeyBase {
             ledgersToLive?: number
         }
     ) {
-        // Hack to ensure we don't stack fees when simulating and assembling multiple times
+        /* NOTE 
+            - Hack to ensure we don't stack fees when simulating and assembling multiple times
+                AssembleTransaction always adds the resource fee onto the transaction fee. 
+                This is bad in cases where you need to simulate multiple times
+        */
         txn = TransactionBuilder.cloneFrom(new Transaction(
             typeof txn === 'string'
                 ? txn

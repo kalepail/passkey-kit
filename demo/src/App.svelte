@@ -158,9 +158,9 @@
 
 		console.log(xdr);
 
-		// const res = await account.send(xdr);
+		const res = await account.send(xdr);
 
-		// console.log(res);
+		console.log(res);
 	}
 </script>
 
