@@ -169,8 +169,8 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the factory mapper
         catch {
-            contractData = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyIdBuffer))
-            contractId = scValToNative(contractData.val.contractData().val())
+            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyIdBuffer))
+            contractId = scValToNative(val.contractData().val())
         }
 
         this.wallet = new PasskeyClient({
