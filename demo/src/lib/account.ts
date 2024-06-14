@@ -1,9 +1,8 @@
-import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, Keypair } from '@stellar/stellar-sdk'
+import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, StrKey } from '@stellar/stellar-sdk'
 import { rpc } from './common'
 import { Buffer } from 'buffer'
 
-export const mockKeypair = Keypair.fromRawEd25519Seed(Buffer.alloc(32)) // NOTE this isn't the actual zero address
-export const mockPubkey = mockKeypair.publicKey()
+export const mockPubkey = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
 export const mockSource = new Account(mockPubkey, '0')
 
 export async function getBalance(id: string) {
