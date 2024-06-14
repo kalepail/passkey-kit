@@ -38,7 +38,7 @@ export class PasskeyKit extends PasskeyBase {
         launchtubeUrl?: string,
         launchtubeJwt?: string,
         factoryContractId?: string,
-        networkPassphrase: Networks,
+        networkPassphrase: string,
     }) {
         const {
             rpcUrl,
@@ -58,7 +58,7 @@ export class PasskeyKit extends PasskeyBase {
 
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
-        this.networkPassphrase = networkPassphrase
+        this.networkPassphrase = networkPassphrase as Networks
         this.factory = new FactoryClient({
             contractId: this.factoryContractId,
             networkPassphrase,

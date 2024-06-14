@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Networks, Operation, authorizeEntry } from "@stellar/stellar-sdk";
+	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
@@ -16,7 +16,7 @@
 		rpcUrl: import.meta.env.VITE_rpcUrl,
 		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
-		networkPassphrase: import.meta.env.VITE_networkPassphrase as Networks,
+		networkPassphrase: import.meta.env.VITE_networkPassphrase,
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
