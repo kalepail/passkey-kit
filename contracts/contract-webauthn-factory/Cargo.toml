@@ -14,17 +14,7 @@ doctest = false
 testutils = ["soroban-sdk/testutils"]
 
 [dependencies]
-soroban-sdk = { version = "21.1.0-rc.1" }
+soroban-sdk = { workspace = true }
 
-[dev-dependencies]
-soroban-sdk = { version = "21.1.0-rc.1", features = ["testutils"] }
-
-[profile.release]
-opt-level = "z"
-overflow-checks = true
-debug = 0
-strip = "symbols"
-debug-assertions = false
-panic = "abort"
-codegen-units = 1
-lto = true
+[dev_dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }

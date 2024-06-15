@@ -7,8 +7,13 @@ export WEBAUTHN_FACTORY=CBXQAM53YVVPKAPS2NCSOCXTOK6HOXA3JLURVLD6VFQUHJPKFVBJIBHQ
 export WEBAUTHN_WASM=38f3fe72fb3e12ab54f148fa18b5dafa8d046a24787a74a448333661359a3c6a
 
 build:
+	rm -rf out/
+	
+	rm -rf contract-webauthn-factory/target/wasm32-unknown-unknown/
 	@cd contract-webauthn-factory && soroban contract build --out-dir ../out
 	soroban contract optimize --wasm ./out/webauthn_factory.wasm
+	
+	rm -rf contract-webauthn-secp256r1/target/wasm32-unknown-unknown/
 	@cd contract-webauthn-secp256r1 && soroban contract build --out-dir ../out
 	soroban contract optimize --wasm ./out/webauthn_secp256r1.wasm
 

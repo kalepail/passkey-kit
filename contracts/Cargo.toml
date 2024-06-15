@@ -1,0 +1,35 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "contract-webauthn-factory",
+    "contract-webauthn-secp256r1",
+]
+
+[workspace.dependencies.soroban-sdk]
+version = "21.1.0-rc.1"
+
+[workspace.dependencies.serde]
+version = "1"
+default-features = false
+
+[workspace.dependencies.serde-json-core]
+version = "0.5.1"
+default-features = false
+
+[workspace.dependencies.stellar-xdr]
+version = "21.1.0" 
+default-features = false
+
+[workspace.dependencies.sha256]
+version = "1.5.0"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true
