@@ -1422,7 +1422,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "webauthn-account-secp256r1"
+name = "webauthn-secp256r1"
 version = "0.1.0"
 dependencies = [
  "serde",
