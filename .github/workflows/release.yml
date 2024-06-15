@@ -27,7 +27,7 @@ jobs:
       release_token: ${{ secrets.GITHUB_TOKEN }}
 
   release-contract-webauthn-secp256r1:
-      uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+      uses: kalepail/soroban-build-workflow/.github/workflows/release.yml@main
       with:
         release_name: ${{ github.ref_name }}
         release_description: 'Release of the secp256r1 contract'
