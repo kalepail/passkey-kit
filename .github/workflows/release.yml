@@ -16,7 +16,7 @@ on:
 jobs:
 
   release-contract-webauthn-factory:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
+    uses: kalepail/soroban-build-workflow/.github/workflows/release.yml@main
     with:
       release_name: ${{ github.ref_name }}
       release_description: 'Release of the factory contract'
