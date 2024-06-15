@@ -20,7 +20,7 @@ jobs:
     with:
       release_name: ${{ github.ref_name }}
       release_description: 'Release of the factory contract'
-      relative_path: '["contracts/contract-webauthn-factory"]'
+      relative_path: '["./contracts/contract-webauthn-factory"]'
       # package: 'webauthn-factory'
       # make_target: 'build-dependencies'
     secrets:
@@ -31,7 +31,7 @@ jobs:
       with:
         release_name: ${{ github.ref_name }}
         release_description: 'Release of the secp256r1 contract'
-        relative_path: '["contracts/contract-webauthn-secp256r1"]'
+        relative_path: '["./contracts/contract-webauthn-secp256r1"]'
         # package: 'webauthn-secp256r1'
         # make_target: 'build-dependencies'
       secrets:
