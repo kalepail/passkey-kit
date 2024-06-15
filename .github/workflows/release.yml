@@ -8,11 +8,6 @@ on:
         required: true
         type: string
 
-# on:
-#   push:
-#     tags:
-#       - 'v*'
-
 jobs:
 
   release-contract-webauthn-factory:
@@ -22,7 +17,6 @@ jobs:
       release_description: 'Release of the factory contract'
       relative_path: 'contracts'
       package: 'webauthn-factory'
-      # make_target: 'build-dependencies'
     secrets:
       release_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -33,6 +27,5 @@ jobs:
         release_description: 'Release of the secp256r1 contract'
         relative_path: 'contracts'
         package: 'webauthn-secp256r1'
-        # make_target: 'build-dependencies'
       secrets:
         release_token: ${{ secrets.GITHUB_TOKEN }}

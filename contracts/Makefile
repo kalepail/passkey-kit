@@ -3,8 +3,8 @@
 export SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 export SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 export SOROBAN_ACCOUNT=default
-export WEBAUTHN_FACTORY=CBXQAM53YVVPKAPS2NCSOCXTOK6HOXA3JLURVLD6VFQUHJPKFVBJIBHQ
-export WEBAUTHN_WASM=38f3fe72fb3e12ab54f148fa18b5dafa8d046a24787a74a448333661359a3c6a
+export WEBAUTHN_FACTORY=CBICUOEF4GSO4QCHN2TSCJIJEBBB37S4OHC6B2L4OWIOUCSI5PTWP7VG
+export WEBAUTHN_WASM=d50e34db4fa24f40ebf4076062d5fc03d9c3f7f61952874edca95832e5c4b478
 
 build:
 	rm -rf out/
@@ -12,7 +12,7 @@ build:
 	rm -rf contract-webauthn-factory/target/wasm32-unknown-unknown/
 	@cd contract-webauthn-factory && soroban contract build --out-dir ../out
 	soroban contract optimize --wasm ./out/webauthn_factory.wasm
-	
+
 	rm -rf contract-webauthn-secp256r1/target/wasm32-unknown-unknown/
 	@cd contract-webauthn-secp256r1 && soroban contract build --out-dir ../out
 	soroban contract optimize --wasm ./out/webauthn_secp256r1.wasm
@@ -36,5 +36,7 @@ fmt:
 
 clean:
 	rm -rf out/
+	rm -rf contract-webauthn-factory/target/
+	rm -rf contract-webauthn-secp256r1/target/
 	@cd contract-webauthn-factory && cargo clean
 	@cd contract-webauthn-secp256r1 && cargo clean
