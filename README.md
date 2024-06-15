@@ -60,8 +60,8 @@ pnpm i
 pnpm run start
 ```
 
-[!IMPORTANT]
+> [!IMPORTANT]
 > If you fiddle with contracts in `./contracts` you'll need to run the make commands. Just remember to update the `WEBAUTHN_FACTORY` and `WEBAUTHN_WASM` values from the `make deploy` command before running `make init`.
 
-[!IMPORTANT]
+> [!IMPORTANT]
 > Keep in mind the bindings here in `./packages` have been _heavily_ modified. Be careful when rebuilding and updating. Likely you'll only want to update the `src/index.ts` files in each respective package vs swapping out entire directories.
