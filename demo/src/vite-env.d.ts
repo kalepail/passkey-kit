@@ -7,6 +7,7 @@ interface ImportMetaEnv {
     readonly VITE_rpcUrl: string;
     readonly VITE_launchtubeUrl: string;
     readonly VITE_launchtubeJwt: string;
+    readonly VITE_factoryContractId: string;
 }
 
 interface ImportMeta {

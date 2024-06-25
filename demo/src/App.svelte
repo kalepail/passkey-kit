@@ -17,6 +17,7 @@
 		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
+		factoryContractId: import.meta.env.VITE_factoryContractId,
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
