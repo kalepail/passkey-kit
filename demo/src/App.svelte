@@ -155,10 +155,15 @@
 		await getWalletBalance();
 	}
 	async function walletTransfer(signer: Uint8Array) {
+		const to = prompt("Address to transfer to");
+
+		if (!to) 
+			return;
+
 		const { built } = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
 			from: contractId,
-			to: account.factory.options.contractId,
+			to,
 			amount: 10_000_000,
 		});
 
