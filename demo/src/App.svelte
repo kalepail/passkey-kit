@@ -205,4 +205,8 @@
 			</li>
 		{/each}
 	</ul>
+
+	{#if contractId}
+		<iframe src="https://stellar.expert/explorer/testnet/contract/{contractId}" frameborder="0" width="1000" height="600"></iframe>
+	{/if}
 </main>
