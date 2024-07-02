@@ -240,7 +240,7 @@ impl CustomAccountInterface for Contract {
                         }
                     }
                 }
-                Context::CreateContractHostFn(_) => return Err(Error::InvalidContext),
+                _ => return Err(Error::InvalidContext),
             };
         }
 
