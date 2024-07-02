@@ -5,6 +5,47 @@ import { Buffer } from 'buffer'
 export const mockPubkey = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
 export const mockSource = new Account(mockPubkey, '0')
 
+export async function getEvents(contractId: string) {
+    const query = `
+        query {
+            eventByContractId(
+                searchedContractId: "${contractId}"
+            ) {
+                nodes {
+                    topic1
+                    topic2
+                    data
+                }
+            }
+        }
+    `;
+
+    const { data } = await fetch(import.meta.env.VITE_mercuryUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_mercuryJwt}`
+        },
+        body: JSON.stringify({ query })
+    })
+    .then(async (res) => {
+        if (res.ok)
+            return res.json()
+        
+        throw await res.json()
+    })
+
+    const nodes: {topic1: string, topic2: string, data: string}[] = data.eventByContractId.nodes
+
+    return nodes.map((node) => {
+        return {
+            topic1: scValToNative(xdr.ScVal.fromXDR(node.topic1, 'base64')),
+            topic2: scValToNative(xdr.ScVal.fromXDR(node.topic2, 'base64')),
+            data: scValToNative(xdr.ScVal.fromXDR(node.data, 'base64'))
+        }
+    })
+}
+
 export async function getBalance(id: string) {
     const val = xdr.ScVal.scvVec([
         nativeToScVal('Balance', { type: 'symbol' }),
@@ -20,8 +61,8 @@ export async function getBalance(id: string) {
 
 export async function transferSAC(args: {
     SAC: string,
-    from: string, 
-    to: string, 
+    from: string,
+    to: string,
     amount: number,
     fee?: number
 }) {

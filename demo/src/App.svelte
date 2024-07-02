@@ -1,11 +1,15 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Operation, authorizeEntry, scValToNative } from "@stellar/stellar-sdk";
+	import {
+		Operation,
+		authorizeEntry,
+		scValToNative,
+	} from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getBalance, transferSAC } from "./lib/account";
+	import { getBalance, getEvents, transferSAC } from "./lib/account";
 	import { fundKeypair, fundPubkey, rpc } from "./lib/common";
-    import { arraysEqual } from "./lib/utils";
+	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
 	let keyId: string | undefined;
@@ -21,8 +25,8 @@
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
-		keyId = localStorage.getItem("sp:keyId")!
-		connect(keyId)
+		keyId = localStorage.getItem("sp:keyId")!;
+		connect(keyId);
 	}
 
 	async function register() {
@@ -30,15 +34,16 @@
 
 		if (!user) return;
 
-		const { keyId, contractId: cid, xdr } = await account.createWallet(
-			"Super Peach",
-			user,
-		);
+		const {
+			keyId,
+			contractId: cid,
+			xdr,
+		} = await account.createWallet("Super Peach", user);
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		localStorage.setItem('sp:keyId', base64url(keyId))
+		localStorage.setItem("sp:keyId", base64url(keyId));
 
 		contractId = cid;
 		console.log(cid);
@@ -47,9 +52,10 @@
 		await getWalletData();
 	}
 	async function connect(keyId?: string) {
-		const { keyId: kid, contractId: cid } = await account.connectWallet(keyId);
+		const { keyId: kid, contractId: cid } =
+			await account.connectWallet(keyId);
 
-		localStorage.setItem('sp:keyId', base64url(kid))
+		localStorage.setItem("sp:keyId", base64url(kid));
 
 		contractId = cid;
 		console.log(cid);
@@ -58,8 +64,8 @@
 		await getWalletData();
 	}
 	async function reset() {
-		localStorage.removeItem('sp:keyId')
-		location.reload()
+		localStorage.removeItem("sp:keyId");
+		location.reload();
 	}
 
 	async function addSigner() {
@@ -124,34 +130,19 @@
 		console.log(balance);
 	}
 	async function getWalletData() {
-		await getWalletEvents()
 		walletData = await account.getData();
-	}
-	async function getWalletEvents() {
-		const { sequence } = await rpc.getLatestLedger() 
-		const { events } = await rpc.getEvents({
-			startLedger: sequence - (24 * 60 * 60 / 5) + 1,
-			filters: [{
-				type: "contract",
-				contractIds: [ contractId ],
-			}]
-		})
-		
-		events.forEach((event) => {
-			const name = scValToNative(event.topic[0])
-			const id = scValToNative(event.topic[1])
-			// const pk = scValToNative(event.value)
 
+		(await getEvents(contractId)).forEach(({ topic1, topic2 }) => {
 			if (
-				['init', 'add_sig'].includes(name) 
-				&& !signers.some(signer => arraysEqual(signer, id))
-			) signers.push(id);
+				["init", "add_sig"].includes(topic1) &&
+				!signers.some((signer) => arraysEqual(signer, topic2))
+			)
+				signers.push(topic2);
+			else if (topic1 === "rm_sig")
+				signers = signers.filter((signer) => !arraysEqual(signer, topic2));
+		});
 
-			else if (name === 'rm_sig') 
-				signers = signers.filter((signer) => !arraysEqual(signer, id))
-		})
-
-		signers = signers
+		signers = signers;
 	}
 
 	async function fundWallet() {
@@ -226,7 +217,9 @@
 				>
 
 				{#if walletData.size && !arraysEqual(signer, walletData.get("super"))}
-					<button on:click={() => updateSuper(signer)}>Make Super</button>
+					<button on:click={() => updateSuper(signer)}
+						>Make Super</button
+					>
 					<button on:click={() => removeSigner(signer)}>Remove</button
 					>
 				{/if}
@@ -235,6 +228,11 @@
 	</ul>
 
 	{#if contractId}
-		<iframe src="https://stellar.expert/explorer/testnet/contract/{contractId}" frameborder="0" width="1000" height="600"></iframe>
+		<iframe
+			src="https://stellar.expert/explorer/testnet/contract/{contractId}"
+			frameborder="0"
+			width="1000"
+			height="600"
+		></iframe>
 	{/if}
 </main>
