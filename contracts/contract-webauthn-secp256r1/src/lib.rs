@@ -12,7 +12,7 @@ use soroban_sdk::{
         It's a little oof as it increases size and there's nothing stopping a user from changing the name outside the contract thereby causing confusion
         If we track the key ids vs hashes of key ids we could always have a client lookup key info client side
         @No
-    - Add the ability to add additional sudo signers. Currently too much rides on one single key
+    - Add the ability to add additional super signers. Currently too much rides on one single key
 */
 
 mod base64_url;
@@ -37,9 +37,8 @@ pub enum Error {
     Secp256r1VerifyFailed = 10,
 }
 
-const SIGNERS: Symbol = symbol_short!("sigs");
 const FACTORY: Symbol = symbol_short!("factory");
-const SUDO_SIGNER: Symbol = symbol_short!("sudo_sig");
+const SUPER: Symbol = symbol_short!("super");
 
 #[contractimpl]
 impl Contract {
@@ -56,7 +55,7 @@ impl Contract {
             .extend_ttl_for_contract_instance(contract_address.clone(), max_ttl, max_ttl);
     }
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
-        if env.storage().instance().has(&SUDO_SIGNER) {
+        if env.storage().instance().has(&SUPER) {
             return Err(Error::AlreadyInited);
         }
 
@@ -65,11 +64,12 @@ impl Contract {
         env.storage().persistent().set(&id, &pk);
         env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
 
-        env.storage().instance().set(&SUDO_SIGNER, &id);
+        env.storage().instance().set(&SUPER, &id);
         env.storage().instance().set(&FACTORY, &factory);
-        env.storage().instance().set(&SIGNERS, &vec![&env, id]);
 
         Self::extend_ttl(&env);
+
+        env.events().publish((symbol_short!("init"), id), pk);
 
         Ok(())
     }
@@ -82,20 +82,14 @@ impl Contract {
 
         Ok(())
     }
-    pub fn resudo(env: Env, id: Bytes) -> Result<(), Error> {
+    pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        let sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .ok_or(Error::NotFound)?;
-
-        // Ensure the new proposed sudo signer exists
-        if sigs.contains(&id) {
+        // Ensure the new proposed super signer exists
+        if env.storage().persistent().has(&id) {
             let max_ttl = env.storage().max_ttl();
 
-            env.storage().instance().set(&SUDO_SIGNER, &id);
+            env.storage().instance().set(&SUPER, &id);
             env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
         } else {
             return Err(Error::NotFound);
@@ -103,14 +97,16 @@ impl Contract {
 
         Self::extend_ttl(&env);
 
+        env.events().publish((symbol_short!("re_super"), id), ());
+
         Ok(())
     }
     pub fn rm_sig(env: Env, id: Bytes) -> Result<(), Error> {
-        // Don't delete the sudo signer
+        // Don't delete the super signer
         if env
             .storage()
             .instance()
-            .get::<Symbol, Bytes>(&SUDO_SIGNER)
+            .get::<Symbol, Bytes>(&SUPER)
             .ok_or(Error::NotFound)?
             == id
         {
@@ -118,6 +114,12 @@ impl Contract {
         }
 
         env.current_contract_address().require_auth();
+
+        if env.storage().persistent().has(&id) {
+            env.storage().persistent().remove(&id);
+        } else {
+            return Err(Error::NotFound);
+        }
 
         let factory = env
             .storage()
@@ -131,27 +133,14 @@ impl Contract {
             vec![&env, id.to_val(), env.current_contract_address().to_val()],
         );
 
-        let mut sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .ok_or(Error::NotFound)?;
-
-        match sigs.binary_search(&id) {
-            Ok(i) => {
-                sigs.remove(i);
-                env.storage().instance().set(&SIGNERS, &sigs);
-                env.storage().persistent().remove(&id);
-            }
-            Err(_) => return Err(Error::NotFound),
-        };
-
         Self::extend_ttl(&env);
+
+        env.events().publish((symbol_short!("rm_sig"), id), ());
 
         Ok(())
     }
     pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        if !env.storage().instance().has(&SUDO_SIGNER) {
+        if !env.storage().instance().has(&SUPER) {
             return Err(Error::NotInited);
         }
 
@@ -174,21 +163,9 @@ impl Contract {
         env.storage().persistent().set(&id, &pk);
         env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
 
-        let mut sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .unwrap_or(Vec::new(&env));
-
-        match sigs.binary_search(&id) {
-            Ok(_) => return Err(Error::NotPermitted), // don't allow dupes
-            Err(i) => {
-                sigs.insert(i, id);
-                env.storage().instance().set(&SIGNERS, &sigs);
-            }
-        };
-
         Self::extend_ttl(&env);
+
+        env.events().publish((symbol_short!("add_sig"), id), pk);
 
         Ok(())
     }
@@ -219,20 +196,20 @@ impl CustomAccountInterface for Contract {
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // Only the sudo signer can `add_sig`, `rm_sig`, `resudo` and `upgrade`
+        // Only the super signer can `add_sig`, `rm_sig`, `re_super` and `upgrade`
         for context in auth_contexts.iter() {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address()
                         && (c.fn_name == Symbol::new(&env, "add_sig")
                             || c.fn_name == Symbol::new(&env, "rm_sig")
-                            || c.fn_name == Symbol::new(&env, "resudo")
+                            || c.fn_name == Symbol::new(&env, "re_super")
                             || c.fn_name == Symbol::new(&env, "upgrade"))
                     {
                         if env
                             .storage()
                             .instance()
-                            .get::<Symbol, Bytes>(&SUDO_SIGNER)
+                            .get::<Symbol, Bytes>(&SUPER)
                             .ok_or(Error::NotFound)?
                             != signature.id
                         {

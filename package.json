@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@simplewebauthn/browser": "^10.0.0",
-    "@stellar/stellar-sdk": "12.0.1",
+    "@stellar/stellar-sdk": "12.1.0",
     "base64url": "^3.0.1",
     "bigint-conversion": "^2.4.3",
     "buffer": "^6.0.3",
@@ -25,7 +25,7 @@
     "passkey-kit-sdk": "workspace:*"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^5.5.3"
   },
   "workspaces": [
     "packages/*"

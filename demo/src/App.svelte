@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
+	import { Operation, authorizeEntry, scValToNative } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
 	import { getBalance, transferSAC } from "./lib/account";
-	import { fundKeypair, fundPubkey } from "./lib/common";
-	import { arraysEqual } from "./lib/utils";
+	import { fundKeypair, fundPubkey, rpc } from "./lib/common";
+    import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
 	let keyId: string | undefined;
 	let contractId: string;
 	let balance: string;
+	let signers: Uint8Array[] = [];
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
@@ -83,7 +84,7 @@
 			pk: publicKey!,
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
@@ -95,25 +96,25 @@
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
 		await getWalletData();
 	}
-	async function resudo(signer: Uint8Array) {
-		const { built } = await account.wallet!.resudo({
+	async function updateSuper(signer: Uint8Array) {
+		const { built } = await account.wallet!.re_super({
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		// update the sudo signer
-		account.sudoKeyId = base64url(signer);
+		// update the super signer
+		account.superKeyId = base64url(signer);
 
 		await getWalletData();
 	}
@@ -123,7 +124,34 @@
 		console.log(balance);
 	}
 	async function getWalletData() {
+		await getWalletEvents()
 		walletData = await account.getData();
+	}
+	async function getWalletEvents() {
+		const { sequence } = await rpc.getLatestLedger() 
+		const { events } = await rpc.getEvents({
+			startLedger: sequence - (24 * 60 * 60 / 5) + 1,
+			filters: [{
+				type: "contract",
+				contractIds: [ contractId ],
+			}]
+		})
+		
+		events.forEach((event) => {
+			const name = scValToNative(event.topic[0])
+			const id = scValToNative(event.topic[1])
+			// const pk = scValToNative(event.value)
+
+			if (
+				['init', 'add_sig'].includes(name) 
+				&& !signers.some(signer => arraysEqual(signer, id))
+			) signers.push(id);
+
+			else if (name === 'rm_sig') 
+				signers = signers.filter((signer) => !arraysEqual(signer, id))
+		})
+
+		signers = signers
 	}
 
 	async function fundWallet() {
@@ -189,7 +217,7 @@
 	{/if}
 
 	<ul>
-		{#each walletData.size ? walletData.get("sigs") : [] as signer}
+		{#each signers as signer}
 			<li>
 				{base64url(signer)}
 
@@ -197,8 +225,8 @@
 					>Transfer 1 XLM</button
 				>
 
-				{#if walletData.size && !arraysEqual(signer, walletData.get("sudo_sig"))}
-					<button on:click={() => resudo(signer)}>Make Sudo</button>
+				{#if walletData.size && !arraysEqual(signer, walletData.get("super"))}
+					<button on:click={() => updateSuper(signer)}>Make Super</button>
 					<button on:click={() => removeSigner(signer)}>Remove</button
 					>
 				{/if}

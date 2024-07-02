@@ -121,7 +121,7 @@ impl Contract {
     }
 
     // This function allows reverse lookups. So given any passkey id you can find it's related contract address
-    // Especially useful after a resudo function call where you cannot rely on the initial passkey's id to derive the initial smart wallet's contract address
+    // Especially useful after a re_super function call where you cannot rely on the initial passkey's id to derive the initial smart wallet's contract address
     fn __add_sig(env: &Env, id: &Bytes, contract: &Address) -> Result<(), Error> {
         /* NOTE
             This requires that each passkey can only be added to one smart wallet
