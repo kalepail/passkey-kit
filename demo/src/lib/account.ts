@@ -1,9 +1,61 @@
-import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, StrKey } from '@stellar/stellar-sdk'
-import { rpc } from './common'
-import { Buffer } from 'buffer'
+import { xdr, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative } from '@stellar/stellar-sdk'
+import { mockSource, rpc } from './common'
 
-export const mockPubkey = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
-export const mockSource = new Account(mockPubkey, '0')
+export async function getSigners(contractId: string) {
+    const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_mercuryJwt}`
+        },
+        body: JSON.stringify({
+            mode: {
+                Function: {
+                    fname: "get_signers_by_address",
+                    arguments: JSON.stringify({
+                        address: contractId
+                    })
+                }
+            }
+        })
+    })
+        .then(async (res) => {
+            if (res.ok)
+                return res.json()
+
+            throw await res.json()
+        })
+
+    return res.map(({ id }: { id: number[] }) => new Uint8Array(id))
+}
+
+export async function getAddress(signer: Uint8Array) {
+    const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_mercuryJwt}`
+        },
+        body: JSON.stringify({
+            mode: {
+                Function: {
+                    fname: "get_address_by_signer",
+                    arguments: JSON.stringify({
+                        id: [...signer]
+                    })
+                }
+            }
+        })
+    })
+        .then(async (res) => {
+            if (res.ok)
+                return res.json()
+
+            throw await res.json()
+        })
+
+    return res[0].address
+}
 
 export async function getBalance(id: string) {
     const val = xdr.ScVal.scvVec([
@@ -20,8 +72,8 @@ export async function getBalance(id: string) {
 
 export async function transferSAC(args: {
     SAC: string,
-    from: string, 
-    to: string, 
+    from: string,
+    to: string,
     amount: number,
     fee?: number
 }) {

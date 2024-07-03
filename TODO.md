@@ -1,2 +1,1 @@
-- [ ] Signer list should be paginated
 - [ ] Attach some meaningful metadata to signers so you know which one belongs to which domain

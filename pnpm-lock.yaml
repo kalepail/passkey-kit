@@ -11,12 +11,9 @@ importers:
       '@simplewebauthn/browser':
         specifier: ^10.0.0
         version: 10.0.0
-      '@simplewebauthn/types':
-        specifier: ^10.0.0
-        version: 10.0.0
       '@stellar/stellar-sdk':
-        specifier: 12.0.1
-        version: 12.0.1
+        specifier: 12.1.0
+        version: 12.1.0
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -37,8 +34,8 @@ importers:
         version: link:packages/passkey-kit-sdk
     devDependencies:
       typescript:
-        specifier: ^5.4.5
-        version: 5.4.5
+        specifier: ^5.5.3
+        version: 5.5.3
 
   packages/passkey-factory-sdk:
     dependencies:
@@ -113,8 +110,14 @@ packages:
   '@stellar/stellar-base@12.0.0':
     resolution: {integrity: sha512-uGpahDFFXbE39myOmBnEZSjVys4yUkQ/ASNuYENGyS8MNdfA0TS7DPWkiO6t17P+rW+FRV1zmumJtjRHwxxMdw==}
 
+  '@stellar/stellar-base@12.0.1':
+    resolution: {integrity: sha512-g6c27MNsDgEdUmoNQJn7zCWoCY50WHt0OIIOq3PhWaJRtUaT++qs1Jpb8+1bny2GmhtfRGOfPUFSyQBuHT9Mvg==}
+
   '@stellar/stellar-sdk@12.0.1':
     resolution: {integrity: sha512-0+YXUTS2LpZ+Of383hSYVpsRl9BJ3X9lHcj05ouS3VkVL9BH7w+Par8RHPkiHS6lLYn3gWRgaJauTebkamY/Jw==}
+
+  '@stellar/stellar-sdk@12.1.0':
+    resolution: {integrity: sha512-Va0hu9SaPezmMbO5eMwL5D15Wrx1AGWRtxayUDRWV2Fr3ynY58mvCZS1vsgNQ4kE8MZe3nBVKv6T9Kzqwgx1PQ==}
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
@@ -227,6 +230,11 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  typescript@5.5.3:
+    resolution: {integrity: sha512-/hreyEujaB0w76zKo6717l3L0o/qEUtRgdvUBvlkhoWeOVMjMuHNHk0BRBzikzuGDqNmPQbg5ifMEqsHLiIUcQ==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
   urijs@1.19.11:
     resolution: {integrity: sha512-HXgFDgDommxn5/bIv0cnQZsPhHDA90NPHD6+c/v21U5+Sx5hoP8+dP9IZXBU1gIfvdRfhG8cel9QNPeionfcCQ==}
 
@@ -271,9 +279,32 @@ snapshots:
     optionalDependencies:
       sodium-native: 4.1.1
 
+  '@stellar/stellar-base@12.0.1':
+    dependencies:
+      '@stellar/js-xdr': 3.1.1
+      base32.js: 0.1.0
+      bignumber.js: 9.1.2
+      buffer: 6.0.3
+      sha.js: 2.4.11
+      tweetnacl: 1.0.3
+    optionalDependencies:
+      sodium-native: 4.1.1
+
   '@stellar/stellar-sdk@12.0.1':
     dependencies:
       '@stellar/stellar-base': 12.0.0
+      axios: 1.7.2
+      bignumber.js: 9.1.2
+      eventsource: 2.0.2
+      randombytes: 2.1.0
+      toml: 3.0.0
+      urijs: 1.19.11
+    transitivePeerDependencies:
+      - debug
+
+  '@stellar/stellar-sdk@12.1.0':
+    dependencies:
+      '@stellar/stellar-base': 12.0.1
       axios: 1.7.2
       bignumber.js: 9.1.2
       eventsource: 2.0.2
@@ -386,5 +417,7 @@ snapshots:
   tweetnacl@1.0.3: {}
 
   typescript@5.4.5: {}
+
+  typescript@5.5.3: {}
 
   urijs@1.19.11: {}

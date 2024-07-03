@@ -3,25 +3,27 @@
 	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getBalance, transferSAC } from "./lib/account";
-	import { fundKeypair, fundPubkey } from "./lib/common";
+	import { getAddress, getBalance, getSigners, transferSAC } from "./lib/account";
+	import { fundKeypair, fundPubkey, rpc } from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
 	let walletData: Map<string, any> = new Map();
 	let keyId: string | undefined;
 	let contractId: string;
 	let balance: string;
+	let signers: Uint8Array[] = [];
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
 		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
+		factoryContractId: import.meta.env.VITE_factoryContractId,
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
-		keyId = localStorage.getItem("sp:keyId")!
-		connect(keyId)
+		keyId = localStorage.getItem("sp:keyId")!;
+		connect(keyId);
 	}
 
 	async function register() {
@@ -29,36 +31,41 @@
 
 		if (!user) return;
 
-		const { keyId, contractId: cid, xdr } = await account.createWallet(
-			"Super Peach",
-			user,
-		);
+		const {
+			keyId,
+			contractId: cid,
+			xdr,
+		} = await account.createWallet("Super Peach", user);
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		localStorage.setItem('sp:keyId', base64url(keyId))
+		localStorage.setItem("sp:keyId", base64url(keyId));
 
 		contractId = cid;
-		console.log(cid);
+		console.log("register", cid);
 
 		await fundWallet();
 		await getWalletData();
 	}
 	async function connect(keyId?: string) {
-		const { keyId: kid, contractId: cid } = await account.connectWallet(keyId);
+		const { keyId: kid, contractId: cid } =
+			await account.connectWallet({ 
+				keyId,
+				getContractId: async (keyId) => getAddress(base64url.toBuffer(keyId))
+			});
 
-		localStorage.setItem('sp:keyId', base64url(kid))
+		localStorage.setItem("sp:keyId", base64url(kid));
 
 		contractId = cid;
-		console.log(cid);
+		console.log("connect", cid);
 
 		await getWalletBalance();
 		await getWalletData();
 	}
 	async function reset() {
-		localStorage.removeItem('sp:keyId')
-		location.reload()
+		localStorage.removeItem("sp:keyId");
+		location.reload();
 	}
 
 	async function addSigner() {
@@ -83,7 +90,7 @@
 			pk: publicKey!,
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
@@ -95,25 +102,25 @@
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
 		await getWalletData();
 	}
-	async function resudo(signer: Uint8Array) {
-		const { built } = await account.wallet!.resudo({
+	async function updateSuper(signer: Uint8Array) {
+		const { built } = await account.wallet!.re_super({
 			id: Buffer.from(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "sudo" });
+		const xdr = await account.sign(built!, { keyId: "super" });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		// update the sudo signer
-		account.sudoKeyId = base64url(signer);
+		// update the super signer
+		account.superKeyId = base64url(signer);
 
 		await getWalletData();
 	}
@@ -124,6 +131,7 @@
 	}
 	async function getWalletData() {
 		walletData = await account.getData();
+		signers = await getSigners(contractId);
 	}
 
 	async function fundWallet() {
@@ -189,7 +197,7 @@
 	{/if}
 
 	<ul>
-		{#each walletData.size ? walletData.get("sigs") : [] as signer}
+		{#each signers as signer}
 			<li>
 				{base64url(signer)}
 
@@ -197,8 +205,10 @@
 					>Transfer 1 XLM</button
 				>
 
-				{#if walletData.size && !arraysEqual(signer, walletData.get("sudo_sig"))}
-					<button on:click={() => resudo(signer)}>Make Sudo</button>
+				{#if walletData.size && !arraysEqual(signer, walletData.get("super"))}
+					<button on:click={() => updateSuper(signer)}
+						>Make Super</button
+					>
 					<button on:click={() => removeSigner(signer)}>Remove</button
 					>
 				{/if}
@@ -207,6 +217,11 @@
 	</ul>
 
 	{#if contractId}
-		<iframe src="https://stellar.expert/explorer/testnet/contract/{contractId}" frameborder="0" width="1000" height="600"></iframe>
+		<iframe
+			src="https://stellar.expert/explorer/testnet/contract/{contractId}"
+			frameborder="0"
+			width="1000"
+			height="600"
+		></iframe>
 	{/if}
 </main>

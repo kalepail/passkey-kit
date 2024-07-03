@@ -15,9 +15,11 @@ import { PasskeyBase } from './base'
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
 
+type GetContractIdFunction = (keyId: string) => Promise<string>;
+
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
-    public sudoKeyId: string | undefined
+    public superKeyId: string | undefined
     public wallet: PasskeyClient | undefined
     public factory: FactoryClient
     public networkPassphrase: Networks
@@ -28,7 +30,7 @@ export class PasskeyKit extends PasskeyBase {
     /* NOTE 
         - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
             If just a keyId call `connectWallet` in order to get the contractId
-            If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the sudoKeyId in that case)
+            If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the superKeyId in that case)
             We don't strictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
             `connectWallet` is async making it tricky to know when the wallet is "ready". Thus I think it's better for `connectWallet` to be called externally
             @No
@@ -113,9 +115,9 @@ export class PasskeyKit extends PasskeyBase {
         if (!this.keyId) {
             this.keyId = startRegistrationResponse.id
 
-            // If there was no keyId we're likely about to deploy a new wallet so we should set the sudoKeyId 
-            if (!this.sudoKeyId)
-                this.sudoKeyId = startRegistrationResponse.id
+            // If there was no keyId we're likely about to deploy a new wallet so we should set the superKeyId 
+            if (!this.superKeyId)
+                this.superKeyId = startRegistrationResponse.id
         }
 
         const { publicKeyObject } = this.getPublicKeyObject(startRegistrationResponse.response.attestationObject);
@@ -132,7 +134,12 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    public async connectWallet(keyId?: string) {
+    public async connectWallet(opts: {
+        keyId?: string,
+        getContractId?: GetContractIdFunction
+    }) {
+        let { keyId, getContractId } = opts
+
         if (!keyId) {
             const { id } = await startAuthentication({
                 challenge: base64url("stellaristhebetterblockchain"),
@@ -169,8 +176,13 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the factory mapper
         catch {
-            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyIdBuffer))
-            contractId = scValToNative(val.contractData().val())
+            if (getContractId)
+                contractId = await getContractId(keyId)
+            else
+                throw new Error('Please include a `getContractId(keyIdBuffer: Buffer)` function')
+            
+            if (!contractId)
+                throw new Error('No `contractId` was found')
         }
 
         this.wallet = new PasskeyClient({
@@ -179,7 +191,7 @@ export class PasskeyKit extends PasskeyBase {
             rpcUrl: this.rpcUrl
         })
 
-        // get and set the sudo signer (passing in `contractData` from the `getContractData` call above to avoid dupe requests)
+        // get and set the super signer (passing in `contractData` from the `getContractData` call above to avoid dupe requests)
         await this.getData(contractData)
 
         return {
@@ -191,7 +203,7 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
-            keyId?: 'any' | 'sudo' | string | Uint8Array
+            keyId?: 'any' | 'super' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
@@ -212,7 +224,7 @@ export class PasskeyKit extends PasskeyBase {
 
         const authenticationResponse = await startAuthentication(
             keyId === 'any'
-                || (keyId === 'sudo' && !this.sudoKeyId)
+                || (keyId === 'super' && !this.superKeyId)
                 || (!keyId && !this.keyId)
                 ? {
                     challenge: base64url(payload),
@@ -224,8 +236,8 @@ export class PasskeyKit extends PasskeyBase {
                     // rpId: undefined,
                     allowCredentials: [
                         {
-                            id: keyId === 'sudo'
-                                ? this.sudoKeyId!
+                            id: keyId === 'super'
+                                ? this.superKeyId!
                                 : keyId instanceof Uint8Array
                                     ? base64url(keyId)
                                     : keyId || this.keyId!,
@@ -264,7 +276,7 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntries(
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
-            keyId?: 'any' | 'sudo' | string | Uint8Array
+            keyId?: 'any' | 'super' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
@@ -291,7 +303,7 @@ export class PasskeyKit extends PasskeyBase {
     public async sign(
         txn: Transaction | string,
         options?: {
-            keyId?: 'any' | 'sudo' | string | Uint8Array
+            keyId?: 'any' | 'super' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
@@ -359,7 +371,7 @@ export class PasskeyKit extends PasskeyBase {
                 );
             });
 
-        this.sudoKeyId = base64url(data.get('sudo_sig'))
+        this.superKeyId = base64url(data.get('super'))
 
         return data
     }

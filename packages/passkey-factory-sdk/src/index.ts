@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBXQAM53YVVPKAPS2NCSOCXTOK6HOXA3JLURVLD6VFQUHJPKFVBJIBHQ",
+    contractId: "CA4JRRQ52GDJGWIWE7W6J4AUDGLYSEEUUYM4OXERVQ7AUFGS72YNIF65",
   }
 } as const
 
@@ -127,7 +127,6 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<Result<void>>>
-
 }
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {

@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBXQAM53YVVPKAPS2NCSOCXTOK6HOXA3JLURVLD6VFQUHJPKFVBJIBHQ",
+    contractId: "CA4JRRQ52GDJGWIWE7W6J4AUDGLYSEEUUYM4OXERVQ7AUFGS72YNIF65",
   }
 } as const
 
@@ -101,9 +101,9 @@ export interface Client {
   }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a resudo transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a re_super transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  resudo: ({ id }: { id: Buffer }, options?: {
+  re_super: ({ id }: { id: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -167,7 +167,7 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAMAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAAAAAAAB2ZhY3RvcnkAAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
-        "AAAAAAAAAAAAAAAGcmVzdWRvAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
+        "AAAAAAAAAAAAAAAIcmVfc3VwZXIAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAQAAAAAAAAAAAAAACVNpZ25hdHVyZQAAAAAAAAQAAAAAAAAAEmF1dGhlbnRpY2F0b3JfZGF0YQAAAAAADgAAAAAAAAAQY2xpZW50X2RhdGFfanNvbgAAAA4AAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAlzaWduYXR1cmUAAAAAAAPuAAAAQA==",
@@ -179,8 +179,8 @@ export class Client extends ContractClient {
     extend_ttl: this.txFromJSON<null>,
     init: this.txFromJSON<Result<void>>,
     upgrade: this.txFromJSON<Result<void>>,
-    resudo: this.txFromJSON<Result<void>>,
+    re_super: this.txFromJSON<Result<void>>,
     rm_sig: this.txFromJSON<Result<void>>,
-    add_sig: this.txFromJSON<Result<void>>,
+    add_sig: this.txFromJSON<Result<void>>
   }
 }

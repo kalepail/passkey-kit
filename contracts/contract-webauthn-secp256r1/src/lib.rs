@@ -4,7 +4,7 @@ use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contracterror, contractimpl, contracttype,
     crypto::Hash,
-    symbol_short, vec, Address, Bytes, BytesN, Env, Symbol, Vec,
+    symbol_short, Address, Bytes, BytesN, Env, Symbol, Vec,
 };
 
 /* TODO
@@ -12,7 +12,7 @@ use soroban_sdk::{
         It's a little oof as it increases size and there's nothing stopping a user from changing the name outside the contract thereby causing confusion
         If we track the key ids vs hashes of key ids we could always have a client lookup key info client side
         @No
-    - Add the ability to add additional sudo signers. Currently too much rides on one single key
+    - Add the ability to add additional super signers. Currently too much rides on one single key
 */
 
 mod base64_url;
@@ -25,10 +25,10 @@ pub struct Contract;
 #[contracterror]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Error {
-    NotInited = 1,
+    NotInitialized = 1,
     NotFound = 2,
     NotPermitted = 3,
-    AlreadyInited = 4,
+    AlreadyInitialized = 4,
     JsonParseError = 5,
     InvalidContext = 6,
     ClientDataJsonChallengeIncorrect = 7,
@@ -37,81 +37,107 @@ pub enum Error {
     Secp256r1VerifyFailed = 10,
 }
 
-const SIGNERS: Symbol = symbol_short!("sigs");
+const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
+const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
 const FACTORY: Symbol = symbol_short!("factory");
-const SUDO_SIGNER: Symbol = symbol_short!("sudo_sig");
+const SUPER: Symbol = symbol_short!("super");
 
 #[contractimpl]
 impl Contract {
-    pub fn extend_ttl(env: &Env) {
-        let max_ttl = env.storage().max_ttl();
+    pub fn extend_ttl(env: &Env, threshold: u32, extend_to: u32) {
         let contract_address = env.current_contract_address();
 
-        env.storage().instance().extend_ttl(max_ttl, max_ttl);
+        env.storage().instance().extend_ttl(threshold, extend_to);
         env.deployer()
-            .extend_ttl(contract_address.clone(), max_ttl, max_ttl);
+            .extend_ttl(contract_address.clone(), threshold, extend_to);
         env.deployer()
-            .extend_ttl_for_code(contract_address.clone(), max_ttl, max_ttl);
-        env.deployer()
-            .extend_ttl_for_contract_instance(contract_address.clone(), max_ttl, max_ttl);
+            .extend_ttl_for_code(contract_address.clone(), threshold, extend_to);
+        env.deployer().extend_ttl_for_contract_instance(
+            contract_address.clone(),
+            threshold,
+            extend_to,
+        );
     }
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
-        if env.storage().instance().has(&SUDO_SIGNER) {
-            return Err(Error::AlreadyInited);
+        if env.storage().instance().has(&SUPER) {
+            return Err(Error::AlreadyInitialized);
         }
 
         let max_ttl = env.storage().max_ttl();
 
         env.storage().persistent().set(&id, &pk);
-        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        env.storage().instance().set(&SUDO_SIGNER, &id);
+        env.storage().instance().set(&SUPER, &id);
         env.storage().instance().set(&FACTORY, &factory);
-        env.storage().instance().set(&SIGNERS, &vec![&env, id]);
 
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.events().publish(
+            (factory, symbol_short!("add_sig"), id, symbol_short!("init")),
+            pk,
+        );
 
         Ok(())
     }
     pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
+        /* TODO
+            - Currently we're not updating the FACTORY hash to point to a new factory. Should we?
+                It would break all the reverse lookups and I'm not sure what the benefit would be
+                @No?
+        */
+
         env.deployer().update_current_contract_wasm(hash);
 
-        Self::extend_ttl(&env);
+        let max_ttl = env.storage().max_ttl();
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
-    pub fn resudo(env: Env, id: Bytes) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
-        let sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .ok_or(Error::NotFound)?;
-
-        // Ensure the new proposed sudo signer exists
-        if sigs.contains(&id) {
-            let max_ttl = env.storage().max_ttl();
-
-            env.storage().instance().set(&SUDO_SIGNER, &id);
-            env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
-        } else {
-            return Err(Error::NotFound);
+    pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
+        if !env.storage().instance().has(&SUPER) {
+            return Err(Error::NotInitialized);
         }
 
-        Self::extend_ttl(&env);
+        /* TODO
+            - With storage simplified via events now may be the right time to revisit using temporary entries
+                Given we store the pk in the event we should be able to reuse the same keys via sign in vs always needing to sign up with new keys after an expiration
+                Just ensure we're properly toggling temporary vs persistent in the case of the super key, which should never be temporary
+        */
+
+        env.current_contract_address().require_auth();
+
+        let max_ttl = env.storage().max_ttl();
+
+        env.storage().persistent().set(&id, &pk);
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        let factory = env
+            .storage()
+            .instance()
+            .get::<Symbol, Address>(&FACTORY)
+            .ok_or(Error::NotInitialized)?;
+
+        env.events()
+            .publish((factory, symbol_short!("add_sig"), id), pk);
+
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
     pub fn rm_sig(env: Env, id: Bytes) -> Result<(), Error> {
-        // Don't delete the sudo signer
+        // Don't delete the super signer
         if env
             .storage()
             .instance()
-            .get::<Symbol, Bytes>(&SUDO_SIGNER)
-            .ok_or(Error::NotFound)?
+            .get::<Symbol, Bytes>(&SUPER)
+            .ok_or(Error::NotInitialized)?
             == id
         {
             return Err(Error::NotPermitted);
@@ -119,76 +145,43 @@ impl Contract {
 
         env.current_contract_address().require_auth();
 
+        if env.storage().persistent().has(&id) {
+            env.storage().persistent().remove(&id);
+        } else {
+            return Err(Error::NotFound);
+        }
+
         let factory = env
             .storage()
             .instance()
             .get::<Symbol, Address>(&FACTORY)
-            .ok_or(Error::NotInited)?;
+            .ok_or(Error::NotInitialized)?;
 
-        let () = env.invoke_contract(
-            &factory,
-            &symbol_short!("rm_sig"),
-            vec![&env, id.to_val(), env.current_contract_address().to_val()],
-        );
+        env.events()
+            .publish((factory, symbol_short!("rm_sig"), id), ());
 
-        let mut sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .ok_or(Error::NotFound)?;
-
-        match sigs.binary_search(&id) {
-            Ok(i) => {
-                sigs.remove(i);
-                env.storage().instance().set(&SIGNERS, &sigs);
-                env.storage().persistent().remove(&id);
-            }
-            Err(_) => return Err(Error::NotFound),
-        };
-
-        Self::extend_ttl(&env);
+        let max_ttl = env.storage().max_ttl();
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
-    pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        if !env.storage().instance().has(&SUDO_SIGNER) {
-            return Err(Error::NotInited);
-        }
-
+    pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        let factory = env
-            .storage()
-            .instance()
-            .get::<Symbol, Address>(&FACTORY)
-            .ok_or(Error::NotInited)?;
+        // Ensure the new proposed super signer exists
+        if env.storage().persistent().has(&id) {
+            let max_ttl = env.storage().max_ttl();
 
-        let () = env.invoke_contract(
-            &factory,
-            &symbol_short!("add_sig"),
-            vec![&env, id.to_val(), env.current_contract_address().to_val()],
-        );
+            env.storage().instance().set(&SUPER, &id);
+            env.storage()
+                .persistent()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        } else {
+            return Err(Error::NotFound);
+        }
 
         let max_ttl = env.storage().max_ttl();
-
-        env.storage().persistent().set(&id, &pk);
-        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
-
-        let mut sigs = env
-            .storage()
-            .instance()
-            .get::<Symbol, Vec<Bytes>>(&SIGNERS)
-            .unwrap_or(Vec::new(&env));
-
-        match sigs.binary_search(&id) {
-            Ok(_) => return Err(Error::NotPermitted), // don't allow dupes
-            Err(i) => {
-                sigs.insert(i, id);
-                env.storage().instance().set(&SIGNERS, &sigs);
-            }
-        };
-
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -219,28 +212,28 @@ impl CustomAccountInterface for Contract {
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // Only the sudo signer can `add_sig`, `rm_sig`, `resudo` and `upgrade`
+        // Only the super signer can `add_sig`, `rm_sig`, `re_super` and `upgrade`
         for context in auth_contexts.iter() {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address()
-                        && (c.fn_name == Symbol::new(&env, "add_sig")
-                            || c.fn_name == Symbol::new(&env, "rm_sig")
-                            || c.fn_name == Symbol::new(&env, "resudo")
-                            || c.fn_name == Symbol::new(&env, "upgrade"))
+                        && (c.fn_name == symbol_short!("upgrade")
+                            || c.fn_name == symbol_short!("add_sig")
+                            || c.fn_name == symbol_short!("rm_sig")
+                            || c.fn_name == symbol_short!("re_super"))
                     {
                         if env
                             .storage()
                             .instance()
-                            .get::<Symbol, Bytes>(&SUDO_SIGNER)
-                            .ok_or(Error::NotFound)?
+                            .get::<Symbol, Bytes>(&SUPER)
+                            .ok_or(Error::NotInitialized)?
                             != signature.id
                         {
                             return Err(Error::NotPermitted);
                         }
                     }
                 }
-                _ => return Err(Error::InvalidContext),
+                _ => {} // Don't block for example the deploying of new contracts from this contract
             };
         }
 
@@ -280,9 +273,9 @@ impl CustomAccountInterface for Contract {
         let max_ttl = env.storage().max_ttl();
         env.storage()
             .persistent()
-            .extend_ttl(&signature.id, max_ttl, max_ttl);
+            .extend_ttl(&signature.id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
