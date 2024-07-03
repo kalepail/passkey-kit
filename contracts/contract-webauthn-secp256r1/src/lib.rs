@@ -44,20 +44,6 @@ const SUPER: Symbol = symbol_short!("super");
 
 #[contractimpl]
 impl Contract {
-    pub fn extend_ttl(env: &Env, threshold: u32, extend_to: u32) {
-        let contract_address = env.current_contract_address();
-
-        env.storage().instance().extend_ttl(threshold, extend_to);
-        env.deployer()
-            .extend_ttl(contract_address.clone(), threshold, extend_to);
-        env.deployer()
-            .extend_ttl_for_code(contract_address.clone(), threshold, extend_to);
-        env.deployer().extend_ttl_for_contract_instance(
-            contract_address.clone(),
-            threshold,
-            extend_to,
-        );
-    }
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
         if env.storage().instance().has(&SUPER) {
             return Err(Error::AlreadyInitialized);
@@ -72,8 +58,9 @@ impl Contract {
 
         env.storage().instance().set(&SUPER, &id);
         env.storage().instance().set(&FACTORY, &factory);
-
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         env.events().publish(
             (factory, symbol_short!("add_sig"), id, symbol_short!("init")),
@@ -83,26 +70,25 @@ impl Contract {
         Ok(())
     }
     pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
         /* TODO
             - Currently we're not updating the FACTORY hash to point to a new factory. Should we?
                 It would break all the reverse lookups and I'm not sure what the benefit would be
                 @No?
         */
 
+        env.current_contract_address().require_auth();
+
         env.deployer().update_current_contract_wasm(hash);
 
         let max_ttl = env.storage().max_ttl();
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
     pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        if !env.storage().instance().has(&SUPER) {
-            return Err(Error::NotInitialized);
-        }
-
         /* TODO
             - With storage simplified via events now may be the right time to revisit using temporary entries
                 Given we store the pk in the event we should be able to reuse the same keys via sign in vs always needing to sign up with new keys after an expiration
@@ -112,26 +98,32 @@ impl Contract {
         env.current_contract_address().require_auth();
 
         let max_ttl = env.storage().max_ttl();
-
-        env.storage().persistent().set(&id, &pk);
-        env.storage()
-            .persistent()
-            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
         let factory = env
             .storage()
             .instance()
             .get::<Symbol, Address>(&FACTORY)
             .ok_or(Error::NotInitialized)?;
 
+        env.storage().persistent().set(&id, &pk);
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
         env.events()
             .publish((factory, symbol_short!("add_sig"), id), pk);
-
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
     pub fn rm_sig(env: Env, id: Bytes) -> Result<(), Error> {
+        // Ensure the signer exists
+        if !env.storage().persistent().has(&id) {
+            return Err(Error::NotFound);
+        }
+
         // Don't delete the super signer
         if env
             .storage()
@@ -145,43 +137,42 @@ impl Contract {
 
         env.current_contract_address().require_auth();
 
-        if env.storage().persistent().has(&id) {
-            env.storage().persistent().remove(&id);
-        } else {
-            return Err(Error::NotFound);
-        }
+        env.storage().persistent().remove(&id);
 
+        let max_ttl = env.storage().max_ttl();
         let factory = env
             .storage()
             .instance()
             .get::<Symbol, Address>(&FACTORY)
             .ok_or(Error::NotInitialized)?;
 
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
         env.events()
             .publish((factory, symbol_short!("rm_sig"), id), ());
-
-        let max_ttl = env.storage().max_ttl();
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
     pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
         // Ensure the new proposed super signer exists
-        if env.storage().persistent().has(&id) {
-            let max_ttl = env.storage().max_ttl();
-
-            env.storage().instance().set(&SUPER, &id);
-            env.storage()
-                .persistent()
-                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-        } else {
+        if !env.storage().persistent().has(&id) {
             return Err(Error::NotFound);
         }
 
+        env.current_contract_address().require_auth();
+
         let max_ttl = env.storage().max_ttl();
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.storage().instance().set(&SUPER, &id);
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -248,10 +239,9 @@ impl CustomAccountInterface for Contract {
 
         payload.append(&signature.authenticator_data);
         payload.extend_from_array(&env.crypto().sha256(&signature.client_data_json).to_array());
-        let payload = env.crypto().sha256(&payload);
 
         env.crypto()
-            .secp256r1_verify(&pk, &payload, &signature.signature);
+            .secp256r1_verify(&pk, &env.crypto().sha256(&payload), &signature.signature);
 
         // Parse the client data JSON, extracting the base64 url encoded
         // challenge.
@@ -271,11 +261,14 @@ impl CustomAccountInterface for Contract {
         }
 
         let max_ttl = env.storage().max_ttl();
+
         env.storage()
             .persistent()
             .extend_ttl(&signature.id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }

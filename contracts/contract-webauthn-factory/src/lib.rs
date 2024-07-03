@@ -32,32 +32,19 @@ const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
 
 #[contractimpl]
 impl Contract {
-    pub fn extend_ttl(env: &Env, threshold: u32, extend_to: u32) {
-        let contract_address = env.current_contract_address();
-
-        env.storage().instance().extend_ttl(threshold, extend_to);
-        env.deployer()
-            .extend_ttl(contract_address.clone(), threshold, extend_to);
-        env.deployer()
-            .extend_ttl_for_code(contract_address.clone(), threshold, extend_to);
-        env.deployer().extend_ttl_for_contract_instance(
-            contract_address.clone(),
-            threshold,
-            extend_to,
-        );
-    }
-
     pub fn init(env: Env, wasm_hash: BytesN<32>) -> Result<(), Error> {
         if env.storage().instance().has(&STORAGE_KEY_WASM_HASH) {
             return Err(Error::AlreadyInitialized);
         }
 
+        let max_ttl = env.storage().max_ttl();
+
         env.storage()
             .instance()
             .set(&STORAGE_KEY_WASM_HASH, &wasm_hash);
-
-        let max_ttl = env.storage().max_ttl();
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -85,7 +72,10 @@ impl Contract {
         );
 
         let max_ttl = env.storage().max_ttl();
-        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(address)
     }
