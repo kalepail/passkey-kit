@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use zephyr_sdk::{prelude::*, soroban_sdk::{xdr::{Hash, PublicKey, ScAddress, ScVal, ScVec, VecM}, Address, Bytes, BytesN, String as SorobanString, Symbol}, DatabaseDerive, EnvClient};
 
+const FACTORY_CONTRACT_ID: &str = "CD477X3QMZ76RZORYC6SLMXXRC5OBFGOUAQA7F6NUJMICHJ4DNRKY7ZQ";
+
 #[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("signers")]
 pub struct Signers {
@@ -86,8 +88,6 @@ fn find_val() {
     let scval = ScVal::Vec(Some(ScVec([ScVal::Vec(Some(ScVec([ScVal::Address(ScAddress::Contract(Hash([3; 32])))].try_into().unwrap())))].try_into().unwrap())));
     assert!(find_address_in_scval(&scval, [3; 32]));
     assert!(!find_address_in_scval(&scval, [2; 32]));
-
-    println!("{}", ScVal::Address(ScAddress::Contract(Hash(stellar_strkey::Contract::from_string("CBLWEW63G2KU7ZGVQTTFTJLGQSXAU5PU5ZXERQDDLL4LBA72D7ER6C75").unwrap().0))).to_xdr_base64(Limits::none()).unwrap());
 }
 
 fn bytes_to_vec(bytes: Bytes) -> Vec<u8> {
@@ -110,12 +110,11 @@ fn bytesn_to_vec(bytes: BytesN<65>) -> Vec<u8> {
     result
 }
 
-
 #[no_mangle]
 pub extern "C" fn on_close() {
     let env = EnvClient::new();
     let existing_addresses: Vec<String> = Signers::read_to_rows(&env, None).iter().map(|signer| signer.address.clone()).collect();
-    let factory_address = SorobanString::from_str(&env.soroban(), "CA4JRRQ52GDJGWIWE7W6J4AUDGLYSEEUUYM4OXERVQ7AUFGS72YNIF65");
+    let factory_address = SorobanString::from_str(&env.soroban(), FACTORY_CONTRACT_ID);
 
     for event in env.reader().pretty().soroban_events() {
         // if there are events where the address of the wallet is involved in, we track them.
@@ -143,20 +142,15 @@ pub extern "C" fn on_close() {
                     let event_type = env.try_from_scval::<Symbol>(&topic1);
                     if let Ok(etype) = event_type {
                         if factory.to_string() == factory_address {
-                            env.log().debug("Found factory", None);
-                            
                             if etype == Symbol::new(env.soroban(), "add_sig") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let pk: BytesN<65> = env.from_scval(&event.data);
-
-                                env.log().debug("creating signer", None);
                                 let signer = Signers {
                                     address: stellar_strkey::Contract(event.contract).to_string(),
                                     id: bytes_to_vec(id),
                                     pubkey: bytesn_to_vec(pk),
                                     active: 0
                                 };
-                                env.log().debug("created signer", None);
 
                                 env.put(&signer);
                             } if etype == Symbol::new(env.soroban(), "rm_sig") {

@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CA4JRRQ52GDJGWIWE7W6J4AUDGLYSEEUUYM4OXERVQ7AUFGS72YNIF65",
+    contractId: "CD477X3QMZ76RZORYC6SLMXXRC5OBFGOUAQA7F6NUJMICHJ4DNRKY7ZQ",
   }
 } as const
 
@@ -40,26 +40,6 @@ export interface Signature {
 }
 
 export interface Client {
-  /**
-   * Construct and simulate a extend_ttl transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
-   */
-  extend_ttl: (options?: {
-    /**
-     * The fee to pay for the transaction. Default: BASE_FEE
-     */
-    fee?: number;
-
-    /**
-     * The maximum amount of time to wait for the transaction to complete. Default: DEFAULT_TIMEOUT
-     */
-    timeoutInSeconds?: number;
-
-    /**
-     * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
-     */
-    simulate?: boolean;
-  }) => Promise<AssembledTransaction<null>>
-
   /**
    * Construct and simulate a init transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
@@ -101,9 +81,9 @@ export interface Client {
   }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a re_super transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a add_sig transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  re_super: ({ id }: { id: Buffer }, options?: {
+  add_sig: ({ id, pk }: { id: Buffer, pk: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -141,9 +121,9 @@ export interface Client {
   }) => Promise<AssembledTransaction<Result<void>>>
 
   /**
-   * Construct and simulate a add_sig transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   * Construct and simulate a re_super transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  add_sig: ({ id, pk }: { id: Buffer, pk: Buffer }, options?: {
+  re_super: ({ id }: { id: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -163,24 +143,22 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACgAAAAAAAAAJTm90SW5pdGVkAAAAAAAAAQAAAAAAAAAITm90Rm91bmQAAAACAAAAAAAAAAxOb3RQZXJtaXR0ZWQAAAADAAAAAAAAAA1BbHJlYWR5SW5pdGVkAAAAAAAABAAAAAAAAAAOSnNvblBhcnNlRXJyb3IAAAAAAAUAAAAAAAAADkludmFsaWRDb250ZXh0AAAAAAAGAAAAAAAAACBDbGllbnREYXRhSnNvbkNoYWxsZW5nZUluY29ycmVjdAAAAAcAAAAAAAAAF1NlY3AyNTZyMVB1YmxpY0tleVBhcnNlAAAAAAgAAAAAAAAAF1NlY3AyNTZyMVNpZ25hdHVyZVBhcnNlAAAAAAkAAAAAAAAAFVNlY3AyNTZyMVZlcmlmeUZhaWxlZAAAAAAAAAo=",
-        "AAAAAAAAAAAAAAAKZXh0ZW5kX3R0bAAAAAAAAAAAAAA=",
+      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAACE5vdEZvdW5kAAAAAgAAAAAAAAAMTm90UGVybWl0dGVkAAAAAwAAAAAAAAASQWxyZWFkeUluaXRpYWxpemVkAAAAAAAEAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABQAAAAAAAAAOSW52YWxpZENvbnRleHQAAAAAAAYAAAAAAAAAIENsaWVudERhdGFKc29uQ2hhbGxlbmdlSW5jb3JyZWN0AAAABwAAAAAAAAAXU2VjcDI1NnIxUHVibGljS2V5UGFyc2UAAAAACAAAAAAAAAAXU2VjcDI1NnIxU2lnbmF0dXJlUGFyc2UAAAAACQAAAAAAAAAVU2VjcDI1NnIxVmVyaWZ5RmFpbGVkAAAAAAAACg==",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAMAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAAAAAAAB2ZhY3RvcnkAAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
-        "AAAAAAAAAAAAAAAIcmVfc3VwZXIAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
-        "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
+        "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
+        "AAAAAAAAAAAAAAAIcmVfc3VwZXIAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAQAAAAAAAAAAAAAACVNpZ25hdHVyZQAAAAAAAAQAAAAAAAAAEmF1dGhlbnRpY2F0b3JfZGF0YQAAAAAADgAAAAAAAAAQY2xpZW50X2RhdGFfanNvbgAAAA4AAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAlzaWduYXR1cmUAAAAAAAPuAAAAQA==",
         "AAAAAAAAAAAAAAAMX19jaGVja19hdXRoAAAAAwAAAAAAAAARc2lnbmF0dXJlX3BheWxvYWQAAAAAAAPuAAAAIAAAAAAAAAAJc2lnbmF0dXJlAAAAAAAH0AAAAAlTaWduYXR1cmUAAAAAAAAAAAAADWF1dGhfY29udGV4dHMAAAAAAAPqAAAH0AAAAAdDb250ZXh0AAAAAAEAAAPpAAAD7QAAAAAAAAAD"]),
       options
     )
   }
   public readonly fromJSON = {
-    extend_ttl: this.txFromJSON<null>,
     init: this.txFromJSON<Result<void>>,
     upgrade: this.txFromJSON<Result<void>>,
-    re_super: this.txFromJSON<Result<void>>,
+    add_sig: this.txFromJSON<Result<void>>,
     rm_sig: this.txFromJSON<Result<void>>,
-    add_sig: this.txFromJSON<Result<void>>
+    re_super: this.txFromJSON<Result<void>>
   }
 }

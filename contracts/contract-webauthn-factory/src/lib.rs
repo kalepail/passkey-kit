@@ -72,7 +72,7 @@ impl Contract {
         );
 
         let max_ttl = env.storage().max_ttl();
-        
+
         env.storage()
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
