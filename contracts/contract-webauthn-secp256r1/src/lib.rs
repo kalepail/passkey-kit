@@ -226,7 +226,7 @@ impl CustomAccountInterface for Contract {
                             .storage()
                             .instance()
                             .get::<Symbol, Bytes>(&SUPER)
-                            .ok_or(Error::NotFound)?
+                            .ok_or(Error::NotInitialized)?
                             != signature.id
                         {
                             return Err(Error::NotPermitted);
