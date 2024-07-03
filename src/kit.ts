@@ -15,6 +15,8 @@ import { PasskeyBase } from './base'
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
 
+type GetContractIdFunction = (keyId: string) => Promise<string>;
+
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
     public superKeyId: string | undefined
@@ -132,7 +134,12 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    public async connectWallet(keyId?: string) {
+    public async connectWallet(opts: {
+        keyId?: string,
+        getContractId?: GetContractIdFunction
+    }) {
+        let { keyId, getContractId } = opts
+
         if (!keyId) {
             const { id } = await startAuthentication({
                 challenge: base64url("stellaristhebetterblockchain"),
@@ -169,8 +176,13 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the factory mapper
         catch {
-            const { val } = await this.rpc.getContractData(this.factoryContractId, xdr.ScVal.scvBytes(keyIdBuffer))
-            contractId = scValToNative(val.contractData().val())
+            if (getContractId)
+                contractId = await getContractId(keyId)
+            else
+                throw new Error('Please include a `getContractId(keyIdBuffer: Buffer)` function')
+            
+            if (!contractId)
+                throw new Error('No `contractId` was found')
         }
 
         this.wallet = new PasskeyClient({

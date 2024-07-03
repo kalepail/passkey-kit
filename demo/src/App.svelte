@@ -1,13 +1,9 @@
 <script lang="ts">
 	import { PasskeyKit } from "passkey-kit";
-	import {
-		Operation,
-		authorizeEntry,
-		scValToNative,
-	} from "@stellar/stellar-sdk";
+	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getBalance, getEvents, transferSAC } from "./lib/account";
+	import { getAddress, getBalance, getSigners, transferSAC } from "./lib/account";
 	import { fundKeypair, fundPubkey, rpc } from "./lib/common";
 	import { arraysEqual } from "./lib/utils";
 
@@ -54,7 +50,10 @@
 	}
 	async function connect(keyId?: string) {
 		const { keyId: kid, contractId: cid } =
-			await account.connectWallet(keyId);
+			await account.connectWallet({ 
+				keyId,
+				getContractId: async (keyId) => getAddress(base64url.toBuffer(keyId))
+			});
 
 		localStorage.setItem("sp:keyId", base64url(kid));
 
@@ -132,27 +131,7 @@
 	}
 	async function getWalletData() {
 		walletData = await account.getData();
-
-		(await getEvents(contractId))
-			.sort((a, b) => {
-				if (a.topic2 !== "rm_sig" && b.topic2 === "rm_sig") return -1;
-				else if (a.topic2 === "rm_sig" && b.topic2 !== "rm_sig")
-					return 1;
-				else return 0;
-			})
-			.forEach(({ topic2, data }) => {
-				if (
-					topic2 === "add_sig" &&
-					!signers.some((signer) => arraysEqual(signer, data))
-				)
-					signers.push(data);
-				else if (topic2 === "rm_sig")
-					signers = signers.filter(
-						(signer) => !arraysEqual(signer, data),
-					);
-			});
-
-		signers = signers;
+		signers = await getSigners(contractId);
 	}
 
 	async function fundWallet() {

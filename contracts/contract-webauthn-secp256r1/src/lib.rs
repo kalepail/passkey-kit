@@ -4,7 +4,7 @@ use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contracterror, contractimpl, contracttype,
     crypto::Hash,
-    symbol_short, vec, Address, Bytes, BytesN, Env, Symbol, Vec,
+    symbol_short, Address, Bytes, BytesN, Env, Symbol, Vec,
 };
 
 /* TODO
@@ -25,10 +25,10 @@ pub struct Contract;
 #[contracterror]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Error {
-    NotInited = 1,
+    NotInitialized = 1,
     NotFound = 2,
     NotPermitted = 3,
-    AlreadyInited = 4,
+    AlreadyInitialized = 4,
     JsonParseError = 5,
     InvalidContext = 6,
     ClientDataJsonChallengeIncorrect = 7,
@@ -56,7 +56,7 @@ impl Contract {
     }
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
         if env.storage().instance().has(&SUPER) {
-            return Err(Error::AlreadyInited);
+            return Err(Error::AlreadyInitialized);
         }
 
         let max_ttl = env.storage().max_ttl();
@@ -69,10 +69,21 @@ impl Contract {
 
         Self::extend_ttl(&env);
 
+        env.events().publish(
+            (factory, symbol_short!("add_sig"), id, symbol_short!("init")),
+            pk,
+        );
+
         Ok(())
     }
     pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
         env.current_contract_address().require_auth();
+
+        /* TODO
+            - Currently we're not updating the FACTORY hash to point to a new factory. Should we?
+                It would break all the reverse lookups and I'm not sure what the benefit would be
+                @No?
+        */
 
         env.deployer().update_current_contract_wasm(hash);
 
@@ -80,18 +91,26 @@ impl Contract {
 
         Ok(())
     }
-    pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
+    pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
+        if !env.storage().instance().has(&SUPER) {
+            return Err(Error::NotInitialized);
+        }
+
         env.current_contract_address().require_auth();
 
-        // Ensure the new proposed super signer exists
-        if env.storage().persistent().has(&id) {
-            let max_ttl = env.storage().max_ttl();
+        let max_ttl = env.storage().max_ttl();
 
-            env.storage().instance().set(&SUPER, &id);
-            env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
-        } else {
-            return Err(Error::NotFound);
-        }
+        env.storage().persistent().set(&id, &pk);
+        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+
+        let factory = env
+            .storage()
+            .instance()
+            .get::<Symbol, Address>(&FACTORY)
+            .ok_or(Error::NotInitialized)?;
+
+        env.events()
+            .publish((factory, symbol_short!("add_sig"), id), pk);
 
         Self::extend_ttl(&env);
 
@@ -103,7 +122,7 @@ impl Contract {
             .storage()
             .instance()
             .get::<Symbol, Bytes>(&SUPER)
-            .ok_or(Error::NotFound)?
+            .ok_or(Error::NotInitialized)?
             == id
         {
             return Err(Error::NotPermitted);
@@ -121,41 +140,27 @@ impl Contract {
             .storage()
             .instance()
             .get::<Symbol, Address>(&FACTORY)
-            .ok_or(Error::NotInited)?;
+            .ok_or(Error::NotInitialized)?;
 
-        let () = env.invoke_contract(
-            &factory,
-            &symbol_short!("rm_sig"),
-            vec![&env, id.to_val(), env.current_contract_address().to_val()],
-        );
+        env.events()
+            .publish((factory, symbol_short!("rm_sig"), id), ());
 
         Self::extend_ttl(&env);
 
         Ok(())
     }
-    pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        if !env.storage().instance().has(&SUPER) {
-            return Err(Error::NotInited);
-        }
-
+    pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        let factory = env
-            .storage()
-            .instance()
-            .get::<Symbol, Address>(&FACTORY)
-            .ok_or(Error::NotInited)?;
+        // Ensure the new proposed super signer exists
+        if env.storage().persistent().has(&id) {
+            let max_ttl = env.storage().max_ttl();
 
-        let () = env.invoke_contract(
-            &factory,
-            &symbol_short!("add_sig"),
-            vec![&env, id.to_val(), env.current_contract_address().to_val()],
-        );
-
-        let max_ttl = env.storage().max_ttl();
-
-        env.storage().persistent().set(&id, &pk);
-        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+            env.storage().instance().set(&SUPER, &id);
+            env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+        } else {
+            return Err(Error::NotFound);
+        }
 
         Self::extend_ttl(&env);
 
@@ -193,10 +198,10 @@ impl CustomAccountInterface for Contract {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address()
-                        && (c.fn_name == Symbol::new(&env, "add_sig")
+                        && (c.fn_name == Symbol::new(&env, "upgrade")
+                            || c.fn_name == Symbol::new(&env, "add_sig")
                             || c.fn_name == Symbol::new(&env, "rm_sig")
-                            || c.fn_name == Symbol::new(&env, "re_super")
-                            || c.fn_name == Symbol::new(&env, "upgrade"))
+                            || c.fn_name == Symbol::new(&env, "re_super"))
                     {
                         if env
                             .storage()

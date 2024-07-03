@@ -1,33 +1,23 @@
-import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, StrKey, Address } from '@stellar/stellar-sdk'
-import { rpc } from './common'
-import { Buffer } from 'buffer'
+import { xdr, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative } from '@stellar/stellar-sdk'
+import { mockSource, rpc } from './common'
 
-export const mockPubkey = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
-export const mockSource = new Account(mockPubkey, '0')
-
-export async function getEvents(contractId: string) {
-    const query = `
-        query {
-            eventByContractIdAndTopic(
-                searchedContractId: "${import.meta.env.VITE_factoryContractId}",
-                t1: "${Address.fromString(contractId).toScVal().toXDR('base64')}",
-            ) {
-                nodes {
-                    topic1
-                    topic2
-                    data
-                }
-            }
-        }
-    `;
-
-    const { data } = await fetch(import.meta.env.VITE_mercuryUrl, {
+export async function getSigners(contractId: string) {
+    const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_mercuryJwt}`
+            Authorization: `Bearer ${import.meta.env.VITE_mercuryJwt}`
         },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({
+            mode: {
+                Function: {
+                    fname: "get_signers_by_address",
+                    arguments: JSON.stringify({
+                        address: contractId
+                    })
+                }
+            }
+        })
     })
         .then(async (res) => {
             if (res.ok)
@@ -36,15 +26,35 @@ export async function getEvents(contractId: string) {
             throw await res.json()
         })
 
-    const nodes: { topic1: string, topic2: string, data: string }[] = data.eventByContractIdAndTopic.nodes
+    return res.map(({ id }: { id: number[] }) => new Uint8Array(id))
+}
 
-    return nodes.map((node) => {
-        return {
-            topic1: scValToNative(xdr.ScVal.fromXDR(node.topic1, 'base64')),
-            topic2: scValToNative(xdr.ScVal.fromXDR(node.topic2, 'base64')),
-            data: scValToNative(xdr.ScVal.fromXDR(node.data, 'base64'))
-        }
+export async function getAddress(signer: Uint8Array) {
+    const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${import.meta.env.VITE_mercuryJwt}`
+        },
+        body: JSON.stringify({
+            mode: {
+                Function: {
+                    fname: "get_address_by_signer",
+                    arguments: JSON.stringify({
+                        id: [...signer]
+                    })
+                }
+            }
+        })
     })
+        .then(async (res) => {
+            if (res.ok)
+                return res.json()
+
+            throw await res.json()
+        })
+
+    return res[0].address
 }
 
 export async function getBalance(id: string) {

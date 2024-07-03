@@ -1,7 +1,10 @@
-import { Keypair, SorobanRpc } from "@stellar/stellar-sdk"
+import { Account, Keypair, SorobanRpc, StrKey } from "@stellar/stellar-sdk"
 import { Buffer } from "buffer";
 
 export const rpc = new SorobanRpc.Server(import.meta.env.VITE_rpcUrl);
+
+export const mockPubkey = StrKey.encodeEd25519PublicKey(Buffer.alloc(32))
+export const mockSource = new Account(mockPubkey, '0')
 
 export const fundKeypair = new Promise<Keypair>(async (resolve) => {
     const now = new Date();
