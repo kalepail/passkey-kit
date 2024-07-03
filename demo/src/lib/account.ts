@@ -1,4 +1,4 @@
-import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, StrKey } from '@stellar/stellar-sdk'
+import { xdr, Account, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative, StrKey, Address } from '@stellar/stellar-sdk'
 import { rpc } from './common'
 import { Buffer } from 'buffer'
 
@@ -8,8 +8,9 @@ export const mockSource = new Account(mockPubkey, '0')
 export async function getEvents(contractId: string) {
     const query = `
         query {
-            eventByContractId(
-                searchedContractId: "${contractId}"
+            eventByContractIdAndTopic(
+                searchedContractId: "${import.meta.env.VITE_factoryContractId}",
+                t1: "${Address.fromString(contractId).toScVal().toXDR('base64')}",
             ) {
                 nodes {
                     topic1
@@ -28,14 +29,14 @@ export async function getEvents(contractId: string) {
         },
         body: JSON.stringify({ query })
     })
-    .then(async (res) => {
-        if (res.ok)
-            return res.json()
-        
-        throw await res.json()
-    })
+        .then(async (res) => {
+            if (res.ok)
+                return res.json()
 
-    const nodes: {topic1: string, topic2: string, data: string}[] = data.eventByContractId.nodes
+            throw await res.json()
+        })
+
+    const nodes: { topic1: string, topic2: string, data: string }[] = data.eventByContractIdAndTopic.nodes
 
     return nodes.map((node) => {
         return {

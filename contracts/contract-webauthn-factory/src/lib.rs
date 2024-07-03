@@ -117,6 +117,9 @@ impl Contract {
 
         Self::extend_ttl(&env);
 
+        env.events()
+            .publish((contract, symbol_short!("rm_sig")), id);
+
         Ok(())
     }
 
@@ -138,6 +141,9 @@ impl Contract {
 
         env.storage().persistent().set(id, contract);
         env.storage().persistent().extend_ttl(id, max_ttl, max_ttl);
+
+        env.events()
+            .publish((contract, symbol_short!("add_sig")), id.clone());
 
         Ok(())
     }

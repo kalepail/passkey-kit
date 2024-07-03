@@ -2,6 +2,7 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+    readonly VITE_factoryContractId: string;
     readonly VITE_networkPassphrase: string;
     readonly VITE_nativeContractId: string;
     readonly VITE_rpcUrl: string;

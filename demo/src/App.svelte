@@ -22,6 +22,7 @@
 		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
+		factoryContractId: import.meta.env.VITE_factoryContractId,
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
@@ -46,7 +47,7 @@
 		localStorage.setItem("sp:keyId", base64url(keyId));
 
 		contractId = cid;
-		console.log(cid);
+		console.log("register", cid);
 
 		await fundWallet();
 		await getWalletData();
@@ -58,7 +59,7 @@
 		localStorage.setItem("sp:keyId", base64url(kid));
 
 		contractId = cid;
-		console.log(cid);
+		console.log("connect", cid);
 
 		await getWalletBalance();
 		await getWalletData();
@@ -132,15 +133,24 @@
 	async function getWalletData() {
 		walletData = await account.getData();
 
-		(await getEvents(contractId)).forEach(({ topic1, topic2 }) => {
-			if (
-				["init", "add_sig"].includes(topic1) &&
-				!signers.some((signer) => arraysEqual(signer, topic2))
-			)
-				signers.push(topic2);
-			else if (topic1 === "rm_sig")
-				signers = signers.filter((signer) => !arraysEqual(signer, topic2));
-		});
+		(await getEvents(contractId))
+			.sort((a, b) => {
+				if (a.topic2 !== "rm_sig" && b.topic2 === "rm_sig") return -1;
+				else if (a.topic2 === "rm_sig" && b.topic2 !== "rm_sig")
+					return 1;
+				else return 0;
+			})
+			.forEach(({ topic2, data }) => {
+				if (
+					topic2 === "add_sig" &&
+					!signers.some((signer) => arraysEqual(signer, data))
+				)
+					signers.push(data);
+				else if (topic2 === "rm_sig")
+					signers = signers.filter(
+						(signer) => !arraysEqual(signer, data),
+					);
+			});
 
 		signers = signers;
 	}

@@ -69,8 +69,6 @@ impl Contract {
 
         Self::extend_ttl(&env);
 
-        env.events().publish((symbol_short!("init"), id), pk);
-
         Ok(())
     }
     pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
@@ -96,8 +94,6 @@ impl Contract {
         }
 
         Self::extend_ttl(&env);
-
-        env.events().publish((symbol_short!("re_super"), id), ());
 
         Ok(())
     }
@@ -135,8 +131,6 @@ impl Contract {
 
         Self::extend_ttl(&env);
 
-        env.events().publish((symbol_short!("rm_sig"), id), ());
-
         Ok(())
     }
     pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
@@ -164,8 +158,6 @@ impl Contract {
         env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
 
         Self::extend_ttl(&env);
-
-        env.events().publish((symbol_short!("add_sig"), id), pk);
 
         Ok(())
     }
