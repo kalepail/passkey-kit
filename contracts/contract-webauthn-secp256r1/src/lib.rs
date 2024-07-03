@@ -37,22 +37,26 @@ pub enum Error {
     Secp256r1VerifyFailed = 10,
 }
 
+const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
+const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
 const FACTORY: Symbol = symbol_short!("factory");
 const SUPER: Symbol = symbol_short!("super");
 
 #[contractimpl]
 impl Contract {
-    pub fn extend_ttl(env: &Env) {
-        let max_ttl = env.storage().max_ttl();
+    pub fn extend_ttl(env: &Env, threshold: u32, extend_to: u32) {
         let contract_address = env.current_contract_address();
 
-        env.storage().instance().extend_ttl(max_ttl, max_ttl);
+        env.storage().instance().extend_ttl(threshold, extend_to);
         env.deployer()
-            .extend_ttl(contract_address.clone(), max_ttl, max_ttl);
+            .extend_ttl(contract_address.clone(), threshold, extend_to);
         env.deployer()
-            .extend_ttl_for_code(contract_address.clone(), max_ttl, max_ttl);
-        env.deployer()
-            .extend_ttl_for_contract_instance(contract_address.clone(), max_ttl, max_ttl);
+            .extend_ttl_for_code(contract_address.clone(), threshold, extend_to);
+        env.deployer().extend_ttl_for_contract_instance(
+            contract_address.clone(),
+            threshold,
+            extend_to,
+        );
     }
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>, factory: Address) -> Result<(), Error> {
         if env.storage().instance().has(&SUPER) {
@@ -62,12 +66,14 @@ impl Contract {
         let max_ttl = env.storage().max_ttl();
 
         env.storage().persistent().set(&id, &pk);
-        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         env.storage().instance().set(&SUPER, &id);
         env.storage().instance().set(&FACTORY, &factory);
 
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         env.events().publish(
             (factory, symbol_short!("add_sig"), id, symbol_short!("init")),
@@ -87,7 +93,8 @@ impl Contract {
 
         env.deployer().update_current_contract_wasm(hash);
 
-        Self::extend_ttl(&env);
+        let max_ttl = env.storage().max_ttl();
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -96,12 +103,20 @@ impl Contract {
             return Err(Error::NotInitialized);
         }
 
+        /* TODO
+            - With storage simplified via events now may be the right time to revisit using temporary entries
+                Given we store the pk in the event we should be able to reuse the same keys via sign in vs always needing to sign up with new keys after an expiration
+                Just ensure we're properly toggling temporary vs persistent in the case of the super key, which should never be temporary
+        */
+
         env.current_contract_address().require_auth();
 
         let max_ttl = env.storage().max_ttl();
 
         env.storage().persistent().set(&id, &pk);
-        env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         let factory = env
             .storage()
@@ -112,7 +127,7 @@ impl Contract {
         env.events()
             .publish((factory, symbol_short!("add_sig"), id), pk);
 
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -145,7 +160,8 @@ impl Contract {
         env.events()
             .publish((factory, symbol_short!("rm_sig"), id), ());
 
-        Self::extend_ttl(&env);
+        let max_ttl = env.storage().max_ttl();
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -157,12 +173,15 @@ impl Contract {
             let max_ttl = env.storage().max_ttl();
 
             env.storage().instance().set(&SUPER, &id);
-            env.storage().persistent().extend_ttl(&id, max_ttl, max_ttl);
+            env.storage()
+                .persistent()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
         } else {
             return Err(Error::NotFound);
         }
 
-        Self::extend_ttl(&env);
+        let max_ttl = env.storage().max_ttl();
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
@@ -198,10 +217,10 @@ impl CustomAccountInterface for Contract {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address()
-                        && (c.fn_name == Symbol::new(&env, "upgrade")
-                            || c.fn_name == Symbol::new(&env, "add_sig")
-                            || c.fn_name == Symbol::new(&env, "rm_sig")
-                            || c.fn_name == Symbol::new(&env, "re_super"))
+                        && (c.fn_name == symbol_short!("upgrade")
+                            || c.fn_name == symbol_short!("add_sig")
+                            || c.fn_name == symbol_short!("rm_sig")
+                            || c.fn_name == symbol_short!("re_super"))
                     {
                         if env
                             .storage()
@@ -214,7 +233,7 @@ impl CustomAccountInterface for Contract {
                         }
                     }
                 }
-                _ => return Err(Error::InvalidContext),
+                _ => {} // Don't block for example the deploying of new contracts from this contract
             };
         }
 
@@ -254,9 +273,9 @@ impl CustomAccountInterface for Contract {
         let max_ttl = env.storage().max_ttl();
         env.storage()
             .persistent()
-            .extend_ttl(&signature.id, max_ttl, max_ttl);
+            .extend_ttl(&signature.id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        Self::extend_ttl(&env);
+        Self::extend_ttl(&env, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
     }
