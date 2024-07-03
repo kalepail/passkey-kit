@@ -208,7 +208,7 @@ pub extern "C" fn get_address_by_signer() {
 pub extern "C" fn get_events_by_address() {
     let env = EnvClient::empty();
     let request: QueryByAddressRequest = env.read_request_body();
-    let events: Vec<AdjacentEvents> = env.read_filter().column_equal_to("contract", request.address).read().unwrap();
+    let events: Vec<AdjacentEvents> = env.read_filter().column_equal_to("address", request.address).read().unwrap();
 
     env.conclude(&events)
 }
