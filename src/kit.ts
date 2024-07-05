@@ -9,9 +9,6 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 
 /* TODO 
-    - Clean up these params and the interface as a whole
-        Might put wallet activities and maybe factory as well into the root of the class vs buried inside this.wallet and this.factory
-        @Later
     - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
 */
 
@@ -19,27 +16,18 @@ type GetContractIdFunction = (keyId: string) => Promise<string>;
 
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
-    public superKeyId: string | undefined
+    public keyExpired: boolean | undefined
     public wallet: PasskeyClient | undefined
     public factory: FactoryClient
     public networkPassphrase: Networks
     public rpcUrl: string
     public rpc: SorobanRpc.Server
-    public factoryContractId: string = networks.testnet.contractId
 
-    /* NOTE 
-        - Consider adding the ability to pass in a keyId and maybe even a contractId in order to preconnect to a wallet
-            If just a keyId call `connectWallet` in order to get the contractId
-            If both keyId and contractId are passed in then we can skip the connectWallet call (though we won't get the superKeyId in that case)
-            We don't strictly _need_ this as a dev can just call `connectWallet` after class instantiation but it might be a nice convenience
-            `connectWallet` is async making it tricky to know when the wallet is "ready". Thus I think it's better for `connectWallet` to be called externally
-            @No
-    */
     constructor(options: {
         rpcUrl: string,
         launchtubeUrl?: string,
         launchtubeJwt?: string,
-        factoryContractId?: string,
+        factoryContractId: string,
         networkPassphrase: string,
     }) {
         const {
@@ -55,14 +43,11 @@ export class PasskeyKit extends PasskeyBase {
             launchtubeJwt,
         })
 
-        if (factoryContractId)
-            this.factoryContractId = factoryContractId
-
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
         this.networkPassphrase = networkPassphrase as Networks
         this.factory = new FactoryClient({
-            contractId: this.factoryContractId,
+            contractId: factoryContractId,
             networkPassphrase,
             rpcUrl
         })
@@ -112,13 +97,8 @@ export class PasskeyKit extends PasskeyBase {
             attestation: "none",
         });
 
-        if (!this.keyId) {
+        if (!this.keyId)
             this.keyId = startRegistrationResponse.id
-
-            // If there was no keyId we're likely about to deploy a new wallet so we should set the superKeyId 
-            if (!this.superKeyId)
-                this.superKeyId = startRegistrationResponse.id
-        }
 
         const { publicKeyObject } = this.getPublicKeyObject(startRegistrationResponse.response.attestationObject);
 
@@ -155,44 +135,48 @@ export class PasskeyKit extends PasskeyBase {
 
         const keyIdBuffer = base64url.toBuffer(keyId)
 
-        // NOTE might not need this for derivation as all signers are stored in the factory and we can use that lookup as both primary and secondary
-        let contractId = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
+        // Check for the contractId on-chain as a derivation from the keyId. This is the easiest and "cheapest" check however it will only work for the initially deployed passkey if it was used as derivation
+        let contractId: string | undefined = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
             new xdr.HashIdPreimageContractId({
                 networkId: hash(Buffer.from(this.networkPassphrase, 'utf-8')),
                 contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
                     new xdr.ContractIdPreimageFromAddress({
-                        address: Address.fromString(this.factoryContractId).toScAddress(),
+                        address: Address.fromString(this.factory.options.contractId).toScAddress(),
                         salt: hash(keyIdBuffer),
                     })
                 )
             })
         ).toXDR()));
 
-        let contractData: SorobanRpc.Api.LedgerEntryResult | undefined
-
         // attempt passkey id derivation
         try {
-            contractData = await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
+            await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
         }
         // if that fails look up from the factory mapper
         catch {
-            if (getContractId)
+            contractId = undefined
+
+            if (getContractId) {
                 contractId = await getContractId(keyId)
-            else
-                throw new Error('Please include a `getContractId(keyIdBuffer: Buffer)` function')
-            
-            if (!contractId)
-                throw new Error('No `contractId` was found')
+
+                // Handle case where temporary session signer is missing on-chain (so we can queue up a re-add)
+                try {
+                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(keyIdBuffer), SorobanRpc.Durability.Temporary)
+                    // throw true
+                } catch {
+                    this.keyExpired = true
+                }
+            }
         }
+
+        if (!contractId)
+            throw new Error('No `contractId` was found')
 
         this.wallet = new PasskeyClient({
             contractId,
             networkPassphrase: this.networkPassphrase,
             rpcUrl: this.rpcUrl
         })
-
-        // get and set the super signer (passing in `contractData` from the `getContractData` call above to avoid dupe requests)
-        await this.getData(contractData)
 
         return {
             keyId: keyIdBuffer,
@@ -203,7 +187,7 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
-            keyId?: 'any' | 'super' | string | Uint8Array
+            keyId?: 'any' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
@@ -224,7 +208,6 @@ export class PasskeyKit extends PasskeyBase {
 
         const authenticationResponse = await startAuthentication(
             keyId === 'any'
-                || (keyId === 'super' && !this.superKeyId)
                 || (!keyId && !this.keyId)
                 ? {
                     challenge: base64url(payload),
@@ -236,11 +219,9 @@ export class PasskeyKit extends PasskeyBase {
                     // rpId: undefined,
                     allowCredentials: [
                         {
-                            id: keyId === 'super'
-                                ? this.superKeyId!
-                                : keyId instanceof Uint8Array
-                                    ? base64url(keyId)
-                                    : keyId || this.keyId!,
+                            id: keyId instanceof Uint8Array
+                                ? base64url(keyId)
+                                : keyId || this.keyId!,
                             type: "public-key",
                         },
                     ],
@@ -250,7 +231,7 @@ export class PasskeyKit extends PasskeyBase {
 
         const signatureRaw = base64url.toBuffer(authenticationResponse.response.signature);
         const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
-        
+
         credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
         credentials.signature(xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
@@ -270,13 +251,13 @@ export class PasskeyKit extends PasskeyBase {
                 val: xdr.ScVal.scvBytes(signature),
             }),
         ]))
-        
+
         return entry
     }
     public async signAuthEntries(
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
-            keyId?: 'any' | 'super' | string | Uint8Array
+            keyId?: 'any' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
@@ -293,21 +274,14 @@ export class PasskeyKit extends PasskeyBase {
 
         return entries
     }
-    /* NOTE 
-        - Is there anything to be done with using the TS bindings `signAuthEntries` logic? Likely not but worth exploring 
-            Perhaps not but maybe the js-sdk's `authorizeEntry` or `authorizeInvocation`
-            https://stellar.github.io/js-stellar-sdk/global.html#authorizeInvocation
-            These methods all only support ed25519 Keypairs
-            @No
-    */
     public async sign(
         txn: Transaction | string,
         options?: {
-            keyId?: 'any' | 'super' | string | Uint8Array
+            keyId?: 'any' | string | Uint8Array
             ledgersToLive?: number
         }
     ) {
-        /* NOTE 
+        /*
             - Hack to ensure we don't stack fees when simulating and assembling multiple times
                 AssembleTransaction always adds the resource fee onto the transaction fee. 
                 This is bad in cases where you need to simulate multiple times
@@ -327,7 +301,7 @@ export class PasskeyKit extends PasskeyBase {
                 op.type !== 'invokeHostFunction'
                 && op.type !== 'extendFootprintTtl'
                 && op.type !== 'restoreFootprint'
-            ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')    
+            ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
         }
 
         // Only need to sign auth for `invokeHostFunction` operations
@@ -347,15 +321,10 @@ export class PasskeyKit extends PasskeyBase {
 
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
-
-    public async getData(contractData?: SorobanRpc.Api.LedgerEntryResult) {
+    public async getSuperKeyId() {
         const data: Map<string, any> = new Map()
 
-        /* TODO 
-            - Pretty easy to get into a state where there is no contractId and this we error at `this.wallet!.options.contractId,`
-                We should have a better error or maybe just handle no-wallet scenarios more gracefully
-        */
-        const { val } = contractData || await this.rpc.getContractData(
+        const { val } = await this.rpc.getContractData(
             this.wallet!.options.contractId,
             xdr.ScVal.scvLedgerKeyContractInstance(),
         );
@@ -371,9 +340,7 @@ export class PasskeyKit extends PasskeyBase {
                 );
             });
 
-        this.superKeyId = base64url(data.get('super'))
-
-        return data
+        return base64url(data.get('super'))
     }
 
     /* TODO 

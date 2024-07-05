@@ -1,5 +1,6 @@
 import { xdr, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToNative } from '@stellar/stellar-sdk'
 import { mockSource, rpc } from './common'
+import base64url from 'base64url'
 
 export async function getSigners(contractId: string) {
     const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
@@ -26,10 +27,29 @@ export async function getSigners(contractId: string) {
             throw await res.json()
         })
 
-    return res.map(({ id }: { id: number[] }) => new Uint8Array(id))
+    return res
+        .map(({ id, pubkey }: { id: number[], pubkey: number[] }) => ({
+            id: new Uint8Array(id),
+            pk: new Uint8Array(pubkey)
+        }))
+        .filter((
+            item: { id: number[], pubkey: number[] },
+            index: number,
+            array: { id: number[], pubkey: number[] }[]
+        ) => array.map((item) => item.id.toString()).indexOf(item.id.toString()) === index)
+        .reduce(
+            (
+                map: Map<string, Uint8Array>,
+                obj: { id: Uint8Array; pk: Uint8Array },
+            ) => {
+                map.set(base64url(obj.id), obj.pk);
+                return map;
+            },
+            new Map(),
+        )
 }
 
-export async function getAddress(signer: Uint8Array) {
+export async function getContractId(signer: string) {
     const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
         method: 'POST',
         headers: {
@@ -41,7 +61,7 @@ export async function getAddress(signer: Uint8Array) {
                 Function: {
                     fname: "get_address_by_signer",
                     arguments: JSON.stringify({
-                        id: [...signer]
+                        id: [...base64url.toBuffer(signer)]
                     })
                 }
             }

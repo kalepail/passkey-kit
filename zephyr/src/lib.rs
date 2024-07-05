@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
-use zephyr_sdk::{prelude::*, soroban_sdk::{xdr::{Hash, PublicKey, ScAddress, ScVal, ScVec, VecM}, Address, Bytes, BytesN, String as SorobanString, Symbol}, DatabaseDerive, EnvClient};
-
-const FACTORY_CONTRACT_ID: &str = "CD477X3QMZ76RZORYC6SLMXXRC5OBFGOUAQA7F6NUJMICHJ4DNRKY7ZQ";
+use zephyr_sdk::{prelude::*, soroban_sdk::{xdr::{Hash, PublicKey, ScAddress, ScVal, ScVec, VecM}, Bytes, BytesN, Symbol}, DatabaseDerive, EnvClient};
 
 #[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("signers")]
@@ -114,7 +112,7 @@ fn bytesn_to_vec(bytes: BytesN<65>) -> Vec<u8> {
 pub extern "C" fn on_close() {
     let env = EnvClient::new();
     let existing_addresses: Vec<String> = Signers::read_to_rows(&env, None).iter().map(|signer| signer.address.clone()).collect();
-    let factory_address = SorobanString::from_str(&env.soroban(), FACTORY_CONTRACT_ID);
+    let event_tag = Symbol::new(env.soroban(), "sw_v1");
 
     for event in env.reader().pretty().soroban_events() {
         // if there are events where the address of the wallet is involved in, we track them.
@@ -136,12 +134,14 @@ pub extern "C" fn on_close() {
         };
 
         if let Some(topic0) = event.topics.get(0) {
-            let factory = env.try_from_scval::<Address>(topic0);
-            if let Ok(factory) = factory {
+            let t0 = env.try_from_scval::<Symbol>(topic0);
+
+            if let Ok(t0) = t0 {
                 if let Some(topic1) = event.topics.get(1) {
-                    let event_type = env.try_from_scval::<Symbol>(&topic1);
+                    let event_type = env.try_from_scval::<Symbol>(topic1);
+
                     if let Ok(etype) = event_type {
-                        if factory.to_string() == factory_address {
+                        if t0 == event_tag {
                             if etype == Symbol::new(env.soroban(), "add_sig") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let pk: BytesN<65> = env.from_scval(&event.data);
@@ -153,11 +153,12 @@ pub extern "C" fn on_close() {
                                 };
 
                                 env.put(&signer);
-                            } if etype == Symbol::new(env.soroban(), "rm_sig") {
+                            } else if etype == Symbol::new(env.soroban(), "rm_sig") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let id = bytes_to_vec(id);
                                 let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).column_equal_to("active", 0).read().unwrap();
                                 let mut older = older[0].clone();
+
                                 older.active = 1;
 
                                 env.update().column_equal_to("id", id).execute(&older).unwrap();
