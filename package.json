@@ -21,12 +21,10 @@
     "bignumber.js": "^9.1.2",
     "buffer": "^6.0.3",
     "cbor-x": "^1.5.9",
-    "elliptic": "^6.5.5",
     "passkey-factory-sdk": "workspace:*",
     "passkey-kit-sdk": "workspace:*"
   },
   "devDependencies": {
-    "@types/elliptic": "^6.4.18",
     "typescript": "^5.5.3"
   },
   "workspaces": [

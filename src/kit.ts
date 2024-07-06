@@ -6,10 +6,7 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { ec } from 'elliptic';
 import BigNumber from 'bignumber.js';
-
-const EC = new ec('p256');
 
 type GetContractIdFunction = (keyId: string) => Promise<string>;
 
@@ -430,7 +427,11 @@ export class PasskeyKit extends PasskeyBase {
         let sBigNum = new BigNumber(s.toString('hex'), 16);
     
         // Ensure s is in the low-S form
-        const n = new BigNumber(EC.curve.n.toString('hex'), 16);
+        // https://github.com/stellar/stellar-protocol/discussions/1435#discussioncomment-8809175
+        // https://discord.com/channels/897514728459468821/1233048618571927693
+        // Define the order of the curve secp256r1
+        // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
+        const n = new BigNumber('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551', 16);
         const halfN = n.dividedBy(2);
     
         if (sBigNum.isGreaterThan(halfN))
