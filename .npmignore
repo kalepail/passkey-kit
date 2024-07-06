@@ -178,6 +178,6 @@ meta.json
 
 package
 
-demo/
 contracts/
 zephyr/
+demo/
