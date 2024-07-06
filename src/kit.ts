@@ -6,7 +6,6 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import BigNumber from 'bignumber.js';
 
 type GetContractIdFunction = (keyId: string) => Promise<string>;
 
@@ -420,30 +419,31 @@ export class PasskeyKit extends PasskeyBase {
 
         const sLength = signature[offset + 1];
         const s = signature.slice(offset + 2, offset + 2 + sLength);
-    
-        // Convert r and s to BigNumber
-        const rBigNum = new BigNumber(r.toString('hex'), 16);
 
-        let sBigNum = new BigNumber(s.toString('hex'), 16);
-    
+        // Convert r and s to BigInt
+        const rBigInt = BigInt('0x' + r.toString('hex'));
+        let sBigInt = BigInt('0x' + s.toString('hex'));
+
         // Ensure s is in the low-S form
         // https://github.com/stellar/stellar-protocol/discussions/1435#discussioncomment-8809175
         // https://discord.com/channels/897514728459468821/1233048618571927693
         // Define the order of the curve secp256r1
         // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
-        const n = new BigNumber('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551', 16);
-        const halfN = n.dividedBy(2);
-    
-        if (sBigNum.isGreaterThan(halfN))
-            sBigNum = n.minus(sBigNum);
-    
+        const n = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
+        const halfN = n / 2n;
+
+        if (sBigInt > halfN) {
+            console.log('fired');
+            sBigInt = n - sBigInt;
+        }
+
         // Convert back to buffers and ensure they are 32 bytes
-        const rPadded = Buffer.from(rBigNum.toString(16).padStart(64, '0'), 'hex');
-        const sLowS = Buffer.from(sBigNum.toString(16).padStart(64, '0'), 'hex');
-    
+        const rPadded = Buffer.from(rBigInt.toString(16).padStart(64, '0'), 'hex');
+        const sLowS = Buffer.from(sBigInt.toString(16).padStart(64, '0'), 'hex');
+
         // Concatenate r and low-s
         const concatSignature = Buffer.concat([rPadded, sLowS]);
-    
+
         return concatSignature;
     }
 }

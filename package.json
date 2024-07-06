@@ -18,7 +18,6 @@
     "@simplewebauthn/browser": "^10.0.0",
     "@stellar/stellar-sdk": "12.1.0",
     "base64url": "^3.0.1",
-    "bignumber.js": "^9.1.2",
     "buffer": "^6.0.3",
     "cbor-x": "^1.5.9",
     "passkey-factory-sdk": "workspace:*",
