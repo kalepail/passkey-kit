@@ -183,8 +183,6 @@
 </script>
 
 <main>
-	<h2>INTENTIONALLY BROKEN WHILE WE BUG HUNT</h2>
-
 	<button on:click={register}>Register</button>
 	<button on:click={() => connect()}>Sign In</button>
 	<button on:click={reset}>Reset</button>

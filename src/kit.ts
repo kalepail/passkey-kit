@@ -1,12 +1,15 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
-import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
+import { ec } from 'elliptic';
+import BigNumber from 'bignumber.js';
+
+const EC = new ec('p256');
 
 type GetContractIdFunction = (keyId: string) => Promise<string>;
 
@@ -115,7 +118,7 @@ export class PasskeyKit extends PasskeyBase {
         getContractId?: GetContractIdFunction
     }) {
         let { keyId, getContractId } = opts
-        let keyIdBuffer: Uint8Array
+        let keyIdBuffer: Buffer
 
         if (!keyId) {
             const { id } = await startAuthentication({
@@ -128,8 +131,8 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         if (keyId instanceof Uint8Array) {
-            keyIdBuffer = keyId
-            keyId = base64url(keyId)
+            keyIdBuffer = Buffer.from(keyId)
+            keyId = base64url(keyIdBuffer)
         } else {
             keyIdBuffer = base64url.toBuffer(keyId)
         }
@@ -222,7 +225,7 @@ export class PasskeyKit extends PasskeyBase {
                     allowCredentials: [
                         {
                             id: keyId instanceof Uint8Array
-                                ? base64url(keyId)
+                                ? base64url(Buffer.from(keyId))
                                 : keyId || this.keyId!,
                             type: "public-key",
                         },
@@ -232,22 +235,7 @@ export class PasskeyKit extends PasskeyBase {
         );
 
         const signatureRaw = base64url.toBuffer(authenticationResponse.response.signature);
-
-        // START TEMP
-        const node = document.createElement("span");
-        node.textContent = `${signatureRaw.length} `;
-        document.body.insertBefore(node, document.body.firstChild);
-        // END TEMP
-
         const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
-
-        if (signature.length !== 64) {
-            // START TEMP
-            const node = document.createElement("p");
-            node.textContent = authenticationResponse.response.signature;
-            document.body.insertBefore(node, document.body.firstChild);
-            // END TEMP
-        }
 
         credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
         credentials.signature(xdr.ScVal.scvMap([
@@ -424,75 +412,37 @@ export class PasskeyKit extends PasskeyBase {
 
         throw new Error("Attested credential data not present in the flags.");
     }
+    private convertEcdsaSignatureAsnToCompact(signature: Buffer) {
+        // Decode the DER signature
+        let offset = 2;
 
-    private convertEcdsaSignatureAsnToCompact(sig: Buffer) {
-        // Define the order of the curve secp256k1
-        // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
-        const q = Buffer.from('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551', 'hex')
+        const rLength = signature[offset + 1];
+        const r = signature.slice(offset + 2, offset + 2 + rLength);
 
-        // ASN Sequence
-        let offset = 0;
-        if (sig[offset] != 0x30) {
-            throw "signature is not a sequence";
-        }
-        offset += 1;
+        offset += 2 + rLength;
 
-        // ASN Sequence Byte Length
-        offset += 1;
+        const sLength = signature[offset + 1];
+        const s = signature.slice(offset + 2, offset + 2 + sLength);
+    
+        // Convert r and s to BigNumber
+        const rBigNum = new BigNumber(r.toString('hex'), 16);
 
-        // ASN Integer (R)
-        if (sig[offset] != 0x02) {
-            throw "first element in sequence is not an integer";
-        }
-        offset += 1;
-
-        // ASN Integer (R) Byte Length
-        const rLen = sig[offset];
-        offset += 1;
-
-        // ASN Integer (R) Byte Value
-        if (rLen >= 33) {
-            if (rLen != 33 || sig[offset] != 0x00) {
-                throw "can only handle larger than 32 byte R's that are len 33 and lead with zero";
-            }
-            offset += 1;
-        }
-        const r = sig.slice(offset, offset + 32);
-        offset += 32;
-
-        // ASN Integer (S)
-        if (sig[offset] != 0x02) {
-            throw "second element in sequence is not an integer";
-        }
-        offset += 1;
-
-        // ASN Integer (S) Byte Length
-        const sLen = sig[offset];
-        offset += 1;
-
-        // ASN Integer (S) Byte Value
-        if (sLen >= 33) {
-            if (sLen != 33 || sig[offset] != 0x00) {
-                throw "can only handle larger than 32 byte R's that are len 33 and lead with zero";
-            }
-            offset += 1;
-        }
-
-        const s = sig.slice(offset, offset + 32);
-
-        offset += 32;
-
-        let signature64: Buffer
-
-        // Force low S range
-        // https://github.com/stellar/stellar-protocol/discussions/1435#discussioncomment-8809175
-        // https://discord.com/channels/897514728459468821/1233048618571927693
-        if (bufToBigint(s) > ((bufToBigint(q) - BigInt(1)) / BigInt(2))) {
-            signature64 = Buffer.from([...r, ...Buffer.from(bigintToBuf(bufToBigint(q) - bufToBigint(s), true) as ArrayBuffer)]);
-        } else {
-            signature64 = Buffer.from([...r, ...s]);
-        }
-
-        return signature64;
+        let sBigNum = new BigNumber(s.toString('hex'), 16);
+    
+        // Ensure s is in the low-S form
+        const n = new BigNumber(EC.curve.n.toString('hex'), 16);
+        const halfN = n.dividedBy(2);
+    
+        if (sBigNum.isGreaterThan(halfN))
+            sBigNum = n.minus(sBigNum);
+    
+        // Convert back to buffers and ensure they are 32 bytes
+        const rPadded = Buffer.from(rBigNum.toString(16).padStart(64, '0'), 'hex');
+        const sLowS = Buffer.from(sBigNum.toString(16).padStart(64, '0'), 'hex');
+    
+        // Concatenate r and low-s
+        const concatSignature = Buffer.concat([rPadded, sLowS]);
+    
+        return concatSignature;
     }
 }

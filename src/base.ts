@@ -19,26 +19,24 @@ export class PasskeyBase {
     }
 
     public async send(xdr: string, fee: number = 10_000) {
-        // TEMP DON'T SEND WHILE WE FIX BUG
+        if (!this.launchtubeUrl || !this.launchtubeJwt)
+            throw new Error('Launchtube service not configured')
 
-        // if (!this.launchtubeUrl || !this.launchtubeJwt)
-        //     throw new Error('Launchtube service not configured')
+        const data = new FormData();
 
-        // const data = new FormData();
+        data.set('xdr', xdr);
+        data.set('fee', fee.toString());
 
-        // data.set('xdr', xdr);
-        // data.set('fee', fee.toString());
-
-        // return fetch(this.launchtubeUrl, {
-        //     method: 'POST',
-        //     headers: {
-        //         authorization: `Bearer ${this.launchtubeJwt}`,
-        //     },
-        //     body: data
-        // }).then(async (res) => {
-        //     if (res.ok)
-        //         return res.json()
-        //     else throw await res.json()
-        // })
+        return fetch(this.launchtubeUrl, {
+            method: 'POST',
+            headers: {
+                authorization: `Bearer ${this.launchtubeJwt}`,
+            },
+            body: data
+        }).then(async (res) => {
+            if (res.ok)
+                return res.json()
+            else throw await res.json()
+        })
     }
 }
