@@ -39,7 +39,12 @@ export class PasskeyBase {
             else throw await res.json()
         })
         .catch((err) => {
-            alert(JSON.stringify(err))
+            // START TEMP
+            const node = document.createElement("pre");
+            node.textContent = JSON.stringify(err, null, 2);
+            document.body.insertBefore(node, document.body.lastChild);
+            // END TEMP
+            
             throw err
         })
     }
