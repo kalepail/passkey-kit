@@ -13,13 +13,14 @@ On the client:
 ```ts
 const account = new PasskeyKit({
     rpcUrl: env.RPC_URL,
-    networkPassphrase: env.NETWORK_PASSPHRASE
+    networkPassphrase: env.NETWORK_PASSPHRASE,
+    factoryContractId: env.FACTORY_CONTRACT_ID,
 });
 ```
 
 On the server:
 ```ts
-const account = new PasskeyKit({
+const account = new PasskeyBase({
     launchtubeUrl: env.LAUNCHTUBE_URL,
     launchtubeJwt: env.LAUNCHTUBE_JWT,
 });
@@ -37,6 +38,7 @@ For any questions or to showcase your progress please join the `#passkeys` chann
 
 Passkey kit consists of three primary directories:
 - `./contracts` - Contains the Rust Soroban smart contracts of the smart wallet implementation.
+- `./zephyr` - Contains the [Zephyr](https://www.mercurydata.app/products/zephyr-vm) program for processing smart wallet events.
 - `./src` - Contains the TypeScript files for the actual TS SDK library.
 - `./demo` - Contains a basic demo of the SDK in action.
 

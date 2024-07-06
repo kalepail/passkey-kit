@@ -42,6 +42,7 @@ impl Contract {
         env.storage()
             .instance()
             .set(&STORAGE_KEY_WASM_HASH, &wasm_hash);
+
         env.storage()
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
@@ -60,15 +61,11 @@ impl Contract {
             .deployer()
             .with_current_contract(env.crypto().sha256(&id))
             .deploy(wasm_hash);
+
         let () = env.invoke_contract(
             &address,
             &symbol_short!("init"),
-            vec![
-                &env,
-                id.to_val(),
-                pk.to_val(),
-                env.current_contract_address().to_val(),
-            ],
+            vec![&env, id.to_val(), pk.to_val()],
         );
 
         let max_ttl = env.storage().max_ttl();

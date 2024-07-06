@@ -3,15 +3,19 @@
 	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getAddress, getBalance, getSigners, transferSAC } from "./lib/account";
-	import { fundKeypair, fundPubkey, rpc } from "./lib/common";
-	import { arraysEqual } from "./lib/utils";
+	import {
+		getContractId,
+		getBalance,
+		getSigners,
+		transferSAC,
+	} from "./lib/account";
+	import { fundKeypair, fundPubkey } from "./lib/common";
 
-	let walletData: Map<string, any> = new Map();
-	let keyId: string | undefined;
+	let keyId: string;
 	let contractId: string;
+	let superKeyId: string;
 	let balance: string;
-	let signers: Uint8Array[] = [];
+	let signers: Map<string, Uint8Array> = new Map();
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
@@ -45,15 +49,14 @@
 		contractId = cid;
 		console.log("register", cid);
 
+		await getWalletSigners();
 		await fundWallet();
-		await getWalletData();
 	}
 	async function connect(keyId?: string) {
-		const { keyId: kid, contractId: cid } =
-			await account.connectWallet({ 
-				keyId,
-				getContractId: async (keyId) => getAddress(base64url.toBuffer(keyId))
-			});
+		const { keyId: kid, contractId: cid } = await account.connectWallet({
+			keyId,
+			getContractId, // only strictly needed when the passed keyId will not derive to any or the correct contractId
+		});
 
 		localStorage.setItem("sp:keyId", base64url(kid));
 
@@ -61,76 +64,77 @@
 		console.log("connect", cid);
 
 		await getWalletBalance();
-		await getWalletData();
+		await getWalletSigners();
 	}
 	async function reset() {
 		localStorage.removeItem("sp:keyId");
 		location.reload();
 	}
 
-	async function addSigner() {
-		/* TODO 
-			- Add existing signer vs always creating a new one
-				Will require a lookup onchain for the existing passkey public key on an existing wallet
-				I also think this currently will require removing that signer from its current wallet in order to add it as a signer to an alternative wallet
-				@Later
-		*/
+	async function addSigner(pubkey?: Uint8Array) {
+		let id: Buffer;
+		let pk: Buffer;
 
-		const user = prompt("Give this passkey a name");
+		if (pubkey && keyId) {
+			id = base64url.toBuffer(keyId);
+			pk = Buffer.from(pubkey);
+		} else {
+			const user = prompt("Give this passkey a name");
 
-		if (!user) return;
+			if (!user) return;
 
-		const { keyId, publicKey } = await account.createKey(
-			"Super Peach",
-			user,
-		);
+			const { keyId: kid, publicKey } = await account.createKey(
+				"Super Peach",
+				user,
+			);
+
+			id = kid;
+			pk = publicKey;
+		}
 
 		const { built } = await account.wallet!.add_sig({
-			id: keyId,
-			pk: publicKey!,
+			id,
+			pk,
 		});
 
-		const xdr = await account.sign(built!, { keyId: "super" });
+		const xdr = await account.sign(built!, { keyId: superKeyId });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		await getWalletData();
+		await getWalletSigners();
 	}
-	async function removeSigner(signer: Uint8Array) {
+	async function removeSigner(signer: string) {
 		const { built } = await account.wallet!.rm_sig({
-			id: Buffer.from(signer),
+			id: base64url.toBuffer(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "super" });
+		const xdr = await account.sign(built!, { keyId: superKeyId });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		await getWalletData();
+		await getWalletSigners();
 	}
-	async function updateSuper(signer: Uint8Array) {
+	async function updateSuper(signer: string) {
 		const { built } = await account.wallet!.re_super({
-			id: Buffer.from(signer),
+			id: base64url.toBuffer(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: "super" });
+		const xdr = await account.sign(built!, { keyId: superKeyId });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
-		// update the super signer
-		account.superKeyId = base64url(signer);
-
-		await getWalletData();
+		await getWalletSigners();
 	}
 
 	async function getWalletBalance() {
 		balance = await getBalance(contractId);
 		console.log(balance);
 	}
-	async function getWalletData() {
-		walletData = await account.getData();
+	async function getWalletSigners() {
+		superKeyId = await account.getSuperKeyId();
 		signers = await getSigners(contractId);
 	}
 
@@ -161,7 +165,7 @@
 
 		await getWalletBalance();
 	}
-	async function walletTransfer(signer: Uint8Array) {
+	async function walletTransfer(signer: string) {
 		const { built } = await transferSAC({
 			SAC: import.meta.env.VITE_nativeContractId,
 			from: contractId,
@@ -192,25 +196,29 @@
 
 		<button on:click={fundWallet}>Add Funds</button>
 		<button on:click={getWalletBalance}>Get Balance</button>
-		<button on:click={getWalletData}>Get Wallet Data</button>
-		<button on:click={addSigner}>Add Signer</button>
+		<button on:click={() => addSigner()}>Add Signer</button>
 	{/if}
 
 	<ul>
-		{#each signers as signer}
+		{#each signers.entries() as [id]}
 			<li>
-				{base64url(signer)}
+				{id}
 
-				<button on:click={() => walletTransfer(signer)}
+				<button on:click={() => walletTransfer(id)}
 					>Transfer 1 XLM</button
 				>
 
-				{#if walletData.size && !arraysEqual(signer, walletData.get("super"))}
-					<button on:click={() => updateSuper(signer)}
-						>Make Super</button
-					>
-					<button on:click={() => removeSigner(signer)}>Remove</button
-					>
+				{#if id !== superKeyId}
+					<button on:click={() => updateSuper(id)}>Make Super</button>
+
+					{#if account.keyExpired && id === account.keyId}
+						<button on:click={() => addSigner(signers.get(keyId))}
+							>Reload</button
+						>
+					{:else}
+						<button on:click={() => removeSigner(id)}>Remove</button
+						>
+					{/if}
 				{/if}
 			</li>
 		{/each}

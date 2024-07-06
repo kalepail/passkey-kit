@@ -1,1 +1,1 @@
-- [ ] Attach some meaningful metadata to signers so you know which one belongs to which domain
+- [ ] Add timestamps to zephyr event data
