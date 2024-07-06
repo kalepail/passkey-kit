@@ -411,6 +411,8 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     private convertEcdsaSignatureAsnToCompact(sig: Buffer) {
+        console.log('sig', sig);
+
         // Define the order of the curve secp256k1
         // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
         const q = Buffer.from('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551', 'hex')

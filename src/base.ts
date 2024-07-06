@@ -38,5 +38,9 @@ export class PasskeyBase {
                 return res.json()
             else throw await res.json()
         })
+        .catch((err) => {
+            alert(JSON.stringify(err))
+            throw err
+        })
     }
 }
