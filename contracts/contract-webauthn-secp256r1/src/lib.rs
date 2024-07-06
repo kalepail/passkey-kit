@@ -254,13 +254,15 @@ impl CustomAccountInterface for Contract {
                 .ok_or(Error::NotFound)?
         };
 
-        let mut payload = Bytes::new(&env);
+        let mut payload = signature.authenticator_data;
+        let client_data_json_hash = env.crypto().sha256(&signature.client_data_json).to_array();
 
-        payload.append(&signature.authenticator_data);
-        payload.extend_from_array(&env.crypto().sha256(&signature.client_data_json).to_array());
+        payload.extend_from_array(&client_data_json_hash);
+
+        let digest = env.crypto().sha256(&payload);
 
         env.crypto()
-            .secp256r1_verify(&pk, &env.crypto().sha256(&payload), &signature.signature);
+            .secp256r1_verify(&pk, &digest, &signature.signature);
 
         // Parse the client data JSON, extracting the base64 url encoded challenge.
         let client_data_json = signature.client_data_json.to_buffer::<1024>(); // <- why 1024?
