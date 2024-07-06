@@ -49,8 +49,8 @@
 		contractId = cid;
 		console.log("register", cid);
 
-		await fundWallet();
 		await getWalletSigners();
+		await fundWallet();
 	}
 	async function connect(keyId?: string) {
 		const { keyId: kid, contractId: cid } = await account.connectWallet({
@@ -224,12 +224,12 @@
 		{/each}
 	</ul>
 
-	<!-- {#if contractId}
+	{#if contractId}
 		<iframe
 			src="https://stellar.expert/explorer/testnet/contract/{contractId}"
 			frameborder="0"
 			width="1000"
 			height="600"
 		></iframe>
-	{/if} -->
+	{/if}
 </main>

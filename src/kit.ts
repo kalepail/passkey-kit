@@ -1,5 +1,5 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
-import { Client as FactoryClient, networks } from 'passkey-factory-sdk'
+import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
 import { bufToBigint, bigintToBuf } from 'bigint-conversion'
 import base64url from 'base64url'
@@ -7,10 +7,6 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-
-/* TODO 
-    - Right now publicKey can mean a Stellar public key or a passkey public key, there should be a noted difference
-*/
 
 type GetContractIdFunction = (keyId: string) => Promise<string>;
 
@@ -27,15 +23,15 @@ export class PasskeyKit extends PasskeyBase {
         rpcUrl: string,
         launchtubeUrl?: string,
         launchtubeJwt?: string,
-        factoryContractId: string,
         networkPassphrase: string,
+        factoryContractId: string,
     }) {
         const {
             rpcUrl,
             launchtubeUrl,
             launchtubeJwt,
-            factoryContractId,
             networkPassphrase,
+            factoryContractId,
         } = options
 
         super({
@@ -115,10 +111,11 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     public async connectWallet(opts: {
-        keyId?: string,
+        keyId?: string | Uint8Array,
         getContractId?: GetContractIdFunction
     }) {
         let { keyId, getContractId } = opts
+        let keyIdBuffer: Uint8Array
 
         if (!keyId) {
             const { id } = await startAuthentication({
@@ -130,10 +127,15 @@ export class PasskeyKit extends PasskeyBase {
             keyId = id
         }
 
+        if (keyId instanceof Uint8Array) {
+            keyIdBuffer = keyId
+            keyId = base64url(keyId)
+        } else {
+            keyIdBuffer = base64url.toBuffer(keyId)
+        }
+
         if (!this.keyId)
             this.keyId = keyId
-
-        const keyIdBuffer = base64url.toBuffer(keyId)
 
         // Check for the contractId on-chain as a derivation from the keyId. This is the easiest and "cheapest" check however it will only work for the initially deployed passkey if it was used as derivation
         let contractId: string | undefined = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(

@@ -10,7 +10,7 @@ use soroban_sdk::{
 /* TODO
     - Add the ability to add additional super signers. Currently too much rides on one single key
         @Maybe
-    - Alternatively or perhaps additionally add the ability to add recovery signers as ed25519 signers or even single use hash signers, etc. 
+    - Alternatively or perhaps additionally add the ability to add recovery signers as ed25519 signers or even single use hash signers, etc.
         @Maybe
 */
 

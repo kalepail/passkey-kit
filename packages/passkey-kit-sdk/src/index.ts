@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CD477X3QMZ76RZORYC6SLMXXRC5OBFGOUAQA7F6NUJMICHJ4DNRKY7ZQ",
+    contractId: "CA6DVSXLLOSI32JAPGP4MLOG64FGERLYCP2SGRX2A6MPWGA5KDUKL66P",
   }
 } as const
 
@@ -43,7 +43,7 @@ export interface Client {
   /**
    * Construct and simulate a init transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  init: ({ id, pk, factory }: { id: Buffer, pk: Buffer, factory: string }, options?: {
+  init: ({ id, pk }: { id: Buffer, pk: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -144,7 +144,7 @@ export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAACE5vdEZvdW5kAAAAAgAAAAAAAAAMTm90UGVybWl0dGVkAAAAAwAAAAAAAAASQWxyZWFkeUluaXRpYWxpemVkAAAAAAAEAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABQAAAAAAAAAOSW52YWxpZENvbnRleHQAAAAAAAYAAAAAAAAAIENsaWVudERhdGFKc29uQ2hhbGxlbmdlSW5jb3JyZWN0AAAABwAAAAAAAAAXU2VjcDI1NnIxUHVibGljS2V5UGFyc2UAAAAACAAAAAAAAAAXU2VjcDI1NnIxU2lnbmF0dXJlUGFyc2UAAAAACQAAAAAAAAAVU2VjcDI1NnIxVmVyaWZ5RmFpbGVkAAAAAAAACg==",
-        "AAAAAAAAAAAAAAAEaW5pdAAAAAMAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAAAAAAAB2ZhY3RvcnkAAAAAEwAAAAEAAAPpAAAD7QAAAAAAAAAD",
+        "AAAAAAAAAAAAAAAEaW5pdAAAAAIAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAABAAAD6QAAA+0AAAAAAAAAAw==",
         "AAAAAAAAAAAAAAAHdXBncmFkZQAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
         "AAAAAAAAAAAAAAAHYWRkX3NpZwAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAAAAAAAGcm1fc2lnAAAAAAABAAAAAAAAAAJpZAAAAAAADgAAAAEAAAPpAAAD7QAAAAAAAAAD",
