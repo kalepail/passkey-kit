@@ -232,7 +232,22 @@ export class PasskeyKit extends PasskeyBase {
         );
 
         const signatureRaw = base64url.toBuffer(authenticationResponse.response.signature);
+
+        // START TEMP
+        const node = document.createElement("span");
+        node.textContent = `${signatureRaw.length} `;
+        document.body.insertBefore(node, document.body.firstChild);
+        // END TEMP
+
         const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
+
+        if (signature.length !== 64) {
+            // START TEMP
+            const node = document.createElement("p");
+            node.textContent = authenticationResponse.response.signature;
+            document.body.insertBefore(node, document.body.firstChild);
+            // END TEMP
+        }
 
         credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
         credentials.signature(xdr.ScVal.scvMap([
@@ -411,12 +426,6 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     private convertEcdsaSignatureAsnToCompact(sig: Buffer) {
-        // START TEMP
-        const node = document.createElement("p");
-        node.textContent = `${base64url(sig)}: ${sig.length}`;
-        document.body.insertBefore(node, document.body.firstChild);
-        // END TEMP
-
         // Define the order of the curve secp256k1
         // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/lib.rs#L72
         const q = Buffer.from('ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551', 'hex')
