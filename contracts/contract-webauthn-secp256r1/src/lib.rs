@@ -202,6 +202,13 @@ impl CustomAccountInterface for Contract {
         signature: Signature,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
+        let Signature {
+            id,
+            mut authenticator_data,
+            client_data_json,
+            signature,
+        } = signature;
+
         let super_id = env
             .storage()
             .instance()
@@ -217,7 +224,7 @@ impl CustomAccountInterface for Contract {
                             || c.fn_name == symbol_short!("add_sig")
                             || c.fn_name == symbol_short!("rm_sig")
                             || c.fn_name == symbol_short!("re_super"))
-                        && signature.id != super_id
+                        && id != super_id
                     // signature key is not the SUPER key
                     {
                         return Err(Error::NotPermitted);
@@ -230,42 +237,41 @@ impl CustomAccountInterface for Contract {
         let max_ttl = env.storage().max_ttl();
 
         // Verify that the public key produced the signature.
-        let pk = if signature.id == super_id {
+        let pk = if id == super_id {
             // if super signer lookup in persistent storage
             env.storage().persistent().extend_ttl(
-                &signature.id,
+                &id,
                 max_ttl - WEEK_OF_LEDGERS,
                 max_ttl,
             );
 
             env.storage()
                 .persistent()
-                .get(&signature.id)
+                .get(&id)
                 .ok_or(Error::NotFound)?
         } else {
             // else lookup in temporary storage
             env.storage()
                 .temporary()
-                .extend_ttl(&signature.id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
             env.storage()
                 .temporary()
-                .get(&signature.id)
+                .get(&id)
                 .ok_or(Error::NotFound)?
         };
 
-        let mut payload = signature.authenticator_data;
-        let client_data_json_hash = env.crypto().sha256(&signature.client_data_json).to_array();
+        let client_data_json_hash = env.crypto().sha256(&client_data_json).to_array();
 
-        payload.extend_from_array(&client_data_json_hash);
+        authenticator_data.extend_from_array(&client_data_json_hash);
 
-        let digest = env.crypto().sha256(&payload);
+        let digest = env.crypto().sha256(&authenticator_data);
 
         env.crypto()
-            .secp256r1_verify(&pk, &digest, &signature.signature);
+            .secp256r1_verify(&pk, &digest, &signature);
 
         // Parse the client data JSON, extracting the base64 url encoded challenge.
-        let client_data_json = signature.client_data_json.to_buffer::<1024>(); // <- why 1024?
+        let client_data_json = client_data_json.to_buffer::<1024>(); // <- why 1024?
         let client_data_json = client_data_json.as_slice();
         let (client_data, _): (ClientDataJson, _) =
             serde_json_core::de::from_slice(client_data_json).map_err(|_| Error::JsonParseError)?;
