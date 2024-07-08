@@ -15,7 +15,7 @@ const transaction = new TransactionBuilder(mockSource, {
     networkPassphrase,
 })
 .addOperation(Operation.invokeContractFunction({
-    contract: 'CDQ2ZPRVMRRMYMX4EMISHQV6R7EEERDPAV2LU3PQ7Z3BCC7P4I6OP6WW',
+    contract: 'CCU4ZFRZXJO4YWOUJDO7PWCYN6YFTMBDYFJFQ6R7SEOLFU5PNJNZA46W',
     function: 'deploy',
     args: [
         nativeToScVal(id),

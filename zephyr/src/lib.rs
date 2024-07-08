@@ -148,16 +148,23 @@ pub extern "C" fn on_close() {
                         if t0 == event_tag {
                             if etype == Symbol::new(env.soroban(), "add") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
+
+                                env.log().debug("Step 1", None);
+
                                 let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
+
+                                env.log().debug("Step 2", None);
 
                                 let signer = Signers {
                                     address: stellar_strkey::Contract(event.contract).to_string(),
                                     id: bytes_to_vec(id),
                                     pk: bytesn_to_vec(pk),
                                     date: env.reader().ledger_timestamp(),
-                                    admin: if admin { 1 } else { 0 },
+                                    admin: admin as i32,
                                     active: 1,
                                 };
+
+                                env.log().debug("Step 3", None);
 
                                 // TODO
                                 // add can also act as a sort of update so treat accordingly
@@ -220,4 +227,71 @@ pub extern "C" fn get_events_by_address() {
     let events: Vec<AdjacentEvents> = env.read_filter().column_equal_to("address", request.address).read().unwrap();
 
     env.conclude(&events)
+}
+
+////
+
+#[cfg(test)]
+mod test {
+    use ledger_meta_factory::TransitionPretty;
+    use stellar_xdr::next::{ScBytes,ScSymbol, ScVal};
+    use zephyr_sdk::testutils::TestHost;
+
+    fn add_signature(transition: &mut TransitionPretty) {
+        transition.inner.set_sequence(8891);
+        transition
+            .contract_event(
+                "CAYFD5TO3QDPUSIM2RDFPWL3B2USBUPHJS3X5OBBTVLKDSNMS6NDDSXU",
+                vec![
+                    ScVal::Symbol(ScSymbol("sw_v1".try_into().unwrap())),
+                    ScVal::Symbol(ScSymbol("add".try_into().unwrap())),
+                    ScVal::Bytes(ScBytes([0; 20].try_into().unwrap())),
+                    ScVal::Symbol(ScSymbol("init".try_into().unwrap())),
+                ],
+                (
+                    ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
+                    ScVal::Bool(true)
+                ).try_into().unwrap(),
+            )
+            .unwrap();
+    }
+
+    // fn remove_signature() {}
+
+    #[tokio::test]
+    async fn test() {
+        let env = TestHost::default();
+        let mut program = env.new_program("./target/wasm32-unknown-unknown/release/smart_wallets_data.wasm");
+
+        let mut db = env.database("postgres://postgres:postgres@localhost:5432");
+        let _ = db.load_table(0, "signers", vec!["address", "id", "pk", "date", "admin", "active"]).await;
+        let _ = db.load_table(0, "adjacent", vec!["contract", "address", "topics", "data", "date"]).await;
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
+
+        let mut empty = TransitionPretty::new();
+        program.set_transition(empty.inner.clone());
+
+        let invocation = program.invoke_vm("on_close").await;
+        assert!(invocation.is_ok());
+        let inner_invocation = invocation.unwrap();
+        assert!(inner_invocation.is_ok());
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
+
+        add_signature(&mut empty);
+        program.set_transition(empty.inner.clone());
+
+        let invocation = program.invoke_vm("on_close").await;
+        assert!(invocation.is_ok());
+        let inner_invocation = invocation.unwrap();
+        assert!(inner_invocation.is_ok());
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 1);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 1);
+
+        db.close().await
+    }
 }
