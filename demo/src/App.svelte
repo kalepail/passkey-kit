@@ -17,7 +17,7 @@
 	let balance: string;
 	let signers: { id: string, pk: string, admin: boolean }[] = [];
 
-	let keyName: string;
+	let keyName: string = '';
 	let keyAdmin: boolean = false;
 
 	const account = new PasskeyKit({
@@ -106,6 +106,9 @@
 		console.log(res);
 
 		await getWalletSigners();
+
+		keyName = '';
+		keyAdmin = false
 	}
 	async function removeSigner(signer: string) {
 		const { built } = await account.wallet!.remove({
