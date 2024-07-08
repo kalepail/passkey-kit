@@ -1,0 +1,14 @@
+{
+  "name": "tests",
+  "module": "index.ts",
+  "type": "module",
+  "dependencies": {
+    "@stellar/stellar-sdk": "link:@stellar/stellar-sdk"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

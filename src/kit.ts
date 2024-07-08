@@ -322,27 +322,27 @@ export class PasskeyKit extends PasskeyBase {
 
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
-    public async getSuperKeyId() {
-        const data: Map<string, any> = new Map()
+    // public async getSuperKeyId() {
+    //     const data: Map<string, any> = new Map()
 
-        const { val } = await this.rpc.getContractData(
-            this.wallet!.options.contractId,
-            xdr.ScVal.scvLedgerKeyContractInstance(),
-        );
+    //     const { val } = await this.rpc.getContractData(
+    //         this.wallet!.options.contractId,
+    //         xdr.ScVal.scvLedgerKeyContractInstance(),
+    //     );
 
-        val.contractData()
-            .val()
-            .instance()
-            .storage()
-            ?.forEach((entry) => {
-                data.set(
-                    scValToNative(entry.key()),
-                    scValToNative(entry.val()),
-                );
-            });
+    //     val.contractData()
+    //         .val()
+    //         .instance()
+    //         .storage()
+    //         ?.forEach((entry) => {
+    //             data.set(
+    //                 scValToNative(entry.key()),
+    //                 scValToNative(entry.val()),
+    //             );
+    //         });
 
-        return base64url(data.get('super'))
-    }
+    //     return base64url(data.get('super'))
+    // }
 
     /* TODO 
         - Add a getKeyInfo action to get info about a specific passkey

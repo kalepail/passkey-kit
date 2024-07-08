@@ -6,17 +6,20 @@ use zephyr_sdk::{prelude::*, soroban_sdk::{xdr::{Hash, PublicKey, ScAddress, ScV
 pub struct Signers {
     address: String,
     id: Vec<u8>,
-    pubkey: Vec<u8>,
-    active: i32
+    pk: Vec<u8>,
+    date: u64,
+    admin: i32,
+    active: i32,
 }
 
 #[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("adjacent")]
 pub struct AdjacentEvents {
-    address: String,
     contract: String,
+    address: String,
     topics: ScVal,
     data: ScVal,
+    date: u64,
 }
 
 fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
@@ -126,7 +129,8 @@ pub extern "C" fn on_close() {
                     contract: stellar_strkey::Contract(event.contract).to_string(),
                     topics: ScVal::Vec(Some(ScVec(event.topics.clone().try_into().unwrap()))),
                     data: event.data.clone(),
-                    address
+                    address,
+                    date: env.reader().ledger_timestamp()
                 };
 
                 env.put(&event)
@@ -142,24 +146,27 @@ pub extern "C" fn on_close() {
 
                     if let Ok(etype) = event_type {
                         if t0 == event_tag {
-                            if etype == Symbol::new(env.soroban(), "add_sig") {
+                            if etype == Symbol::new(env.soroban(), "add") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
-                                let pk: BytesN<65> = env.from_scval(&event.data);
+                                let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
+
                                 let signer = Signers {
                                     address: stellar_strkey::Contract(event.contract).to_string(),
                                     id: bytes_to_vec(id),
-                                    pubkey: bytesn_to_vec(pk),
-                                    active: 0
+                                    pk: bytesn_to_vec(pk),
+                                    date: env.reader().ledger_timestamp(),
+                                    admin: if admin { 1 } else { 0 },
+                                    active: 1,
                                 };
 
                                 env.put(&signer);
-                            } else if etype == Symbol::new(env.soroban(), "rm_sig") {
+                            } else if etype == Symbol::new(env.soroban(), "remove") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let id = bytes_to_vec(id);
-                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).column_equal_to("active", 0).read().unwrap();
+                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).column_equal_to("active", 1).read().unwrap();
                                 let mut older = older[0].clone();
 
-                                older.active = 1;
+                                older.active = 0;
 
                                 env.update().column_equal_to("id", id).execute(&older).unwrap();
                             }
@@ -185,7 +192,7 @@ pub struct AddressBySignerRequest {
 pub extern "C" fn get_signers_by_address() {
     let env = EnvClient::empty();
     let request: QueryByAddressRequest = env.read_request_body();
-    let signers: Vec<Signers> = env.read_filter().column_equal_to("address", request.address).column_equal_to("active", 0).read().unwrap();
+    let signers: Vec<Signers> = env.read_filter().column_equal_to("address", request.address).column_equal_to("active", 1).read().unwrap();
 
     env.conclude(&signers)
 }
@@ -194,7 +201,7 @@ pub extern "C" fn get_signers_by_address() {
 pub extern "C" fn get_address_by_signer() {
     let env = EnvClient::empty();
     let request: AddressBySignerRequest = env.read_request_body();
-    let signers: Vec<Signers> = env.read_filter().column_equal_to("id", request.id).column_equal_to("active", 0).read().unwrap();
+    let signers: Vec<Signers> = env.read_filter().column_equal_to("id", request.id).column_equal_to("active", 1).read().unwrap();
 
     env.conclude(&signers)
 }

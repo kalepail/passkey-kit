@@ -12,7 +12,15 @@ name = "id"
 col_type = "BYTEA"
 
 [[tables.columns]]
-name = "pubkey"
+name = "pk"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "date"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "admin"
 col_type = "BYTEA"
 
 [[tables.columns]]
@@ -28,6 +36,10 @@ name = "contract"
 col_type = "BYTEA"
 
 [[tables.columns]]
+name = "address"
+col_type = "BYTEA"
+
+[[tables.columns]]
 name = "topics"
 col_type = "BYTEA"
 
@@ -36,5 +48,5 @@ name = "data"
 col_type = "BYTEA"
 
 [[tables.columns]]
-name = "address"
+name = "date"
 col_type = "BYTEA"

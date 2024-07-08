@@ -92,9 +92,10 @@
 			pk = publicKey;
 		}
 
-		const { built } = await account.wallet!.add_sig({
+		const { built } = await account.wallet!.add({
 			id,
 			pk,
+			admin: false
 		});
 
 		const xdr = await account.sign(built!, { keyId: superKeyId });
@@ -105,7 +106,7 @@
 		await getWalletSigners();
 	}
 	async function removeSigner(signer: string) {
-		const { built } = await account.wallet!.rm_sig({
+		const { built } = await account.wallet!.remove({
 			id: base64url.toBuffer(signer),
 		});
 
@@ -116,25 +117,25 @@
 
 		await getWalletSigners();
 	}
-	async function updateSuper(signer: string) {
-		const { built } = await account.wallet!.re_super({
-			id: base64url.toBuffer(signer),
-		});
+	// async function updateSuper(signer: string) {
+	// 	const { built } = await account.wallet!.re_super({
+	// 		id: base64url.toBuffer(signer),
+	// 	});
 
-		const xdr = await account.sign(built!, { keyId: superKeyId });
-		const res = await account.send(xdr);
+	// 	const xdr = await account.sign(built!, { keyId: superKeyId });
+	// 	const res = await account.send(xdr);
 
-		console.log(res);
+	// 	console.log(res);
 
-		await getWalletSigners();
-	}
+	// 	await getWalletSigners();
+	// }
 
 	async function getWalletBalance() {
 		balance = await getBalance(contractId);
 		console.log(balance);
 	}
 	async function getWalletSigners() {
-		superKeyId = await account.getSuperKeyId();
+		// superKeyId = await account.getSuperKeyId();
 		signers = await getSigners(contractId);
 	}
 
@@ -209,7 +210,7 @@
 				>
 
 				{#if id !== superKeyId}
-					<button on:click={() => updateSuper(id)}>Make Super</button>
+					<!-- <button on:click={() => updateSuper(id)}>Make Super</button> -->
 
 					{#if account.keyExpired && id === account.keyId}
 						<button on:click={() => addSigner(signers.get(keyId))}

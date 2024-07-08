@@ -173,12 +173,3 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
-
-meta.json
-
-package
-
-contracts/
-zephyr/
-demo/
-bun_tests/

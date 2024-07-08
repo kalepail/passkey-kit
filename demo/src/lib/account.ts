@@ -83,11 +83,13 @@ export async function getBalance(id: string) {
         nativeToScVal(id, { type: 'address' }),
     ])
 
-    const { amount } = await rpc
+    return rpc
         .getContractData(import.meta.env.VITE_nativeContractId, val)
-        .then((res) => scValToNative(res.val.contractData().val()))
-
-    return (amount as BigInt).toString()
+        .then(({ val }) => {
+            const { amount } = scValToNative(val.contractData().val())
+            return (amount as BigInt).toString()
+        })
+        .catch(() => '0')
 }
 
 export async function transferSAC(args: {
