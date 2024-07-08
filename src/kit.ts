@@ -322,27 +322,6 @@ export class PasskeyKit extends PasskeyBase {
 
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
-    public async getSuperKeyId() {
-        const data: Map<string, any> = new Map()
-
-        const { val } = await this.rpc.getContractData(
-            this.wallet!.options.contractId,
-            xdr.ScVal.scvLedgerKeyContractInstance(),
-        );
-
-        val.contractData()
-            .val()
-            .instance()
-            .storage()
-            ?.forEach((entry) => {
-                data.set(
-                    scValToNative(entry.key()),
-                    scValToNative(entry.val()),
-                );
-            });
-
-        return base64url(data.get('super'))
-    }
 
     /* TODO 
         - Add a getKeyInfo action to get info about a specific passkey
@@ -432,10 +411,8 @@ export class PasskeyKit extends PasskeyBase {
         const n = BigInt('0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551');
         const halfN = n / 2n;
 
-        if (sBigInt > halfN) {
-            console.log('fired');
+        if (sBigInt > halfN)
             sBigInt = n - sBigInt;
-        }
 
         // Convert back to buffers and ensure they are 32 bytes
         const rPadded = Buffer.from(rBigInt.toString(16).padStart(64, '0'), 'hex');

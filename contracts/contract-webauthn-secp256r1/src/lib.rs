@@ -1,18 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, CustomAccountInterface},
-    contract, contracterror, contractimpl, contracttype,
-    crypto::Hash,
-    symbol_short, Bytes, BytesN, Env, Symbol, Vec,
+    auth::{Context, CustomAccountInterface}, contract, contracterror, contractimpl, contracttype, crypto::Hash, panic_with_error, symbol_short, Bytes, BytesN, Env, Symbol, Vec
 };
-
-/* TODO
-    - Add the ability to add additional super signers. Currently too much rides on one single key
-        @Maybe
-    - Alternatively or perhaps additionally add the ability to add recovery signers as ed25519 signers or even single use hash signers, etc.
-        @Maybe
-*/
 
 mod base64_url;
 
@@ -24,35 +14,40 @@ pub struct Contract;
 #[contracterror]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Error {
-    NotInitialized = 1,
-    NotFound = 2,
-    NotPermitted = 3,
-    AlreadyInitialized = 4,
-    JsonParseError = 5,
-    InvalidContext = 6,
-    ClientDataJsonChallengeIncorrect = 7,
-    Secp256r1PublicKeyParse = 8,
-    Secp256r1SignatureParse = 9,
-    Secp256r1VerifyFailed = 10,
+    NotFound = 1,
+    NotPermitted = 2,
+    AlreadyInitialized = 3,
+    ClientDataJsonChallengeIncorrect = 4,
+    Secp256r1PublicKeyParse = 5,
+    Secp256r1SignatureParse = 6,
+    Secp256r1VerifyFailed = 7,
+    JsonParseError = 8,
 }
 
 const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
 const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
-const SUPER: Symbol = symbol_short!("super");
+const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
 
 #[contractimpl]
 impl Contract {
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        if env.storage().instance().has(&SUPER) {
+        /* NOTE
+            - You can't call `add` without some admin key so there has to be a method to add the first admin key
+                however once that has been called it must not be able to be called again
+                currently just storing the EVENT_TAG on the instance to mark that the wallet has been initialized
+                if some day we get something better we can use that
+        */
+
+        if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
             return Err(Error::AlreadyInitialized);
         }
 
-        let max_ttl = env.storage().max_ttl();
+        Self::update_admin_signer_count(&env, true);
 
         env.storage().persistent().set(&id, &pk);
 
-        env.storage().instance().set(&SUPER, &id);
+        let max_ttl = env.storage().max_ttl();
 
         env.storage()
             .persistent()
@@ -62,15 +57,87 @@ impl Contract {
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
+        // TEMP until Zephyr fixes their event processing system to allow for bytesn arrays in the data field
+        // env.events().publish(
+        //     (EVENT_TAG, symbol_short!("add"), id, symbol_short!("init")),
+        //     (pk, true),
+        // );
+
         env.events().publish(
-            (
-                EVENT_TAG,
-                symbol_short!("add_sig"),
-                id,
-                symbol_short!("init"),
-            ),
-            pk,
+            (EVENT_TAG, symbol_short!("add"), id, pk),
+            true,
         );
+
+        Ok(())
+    }
+    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, admin: bool) -> Result<(), Error> {
+        /* NOTE
+            - We're not doing any existence checks so it's possible to overwrite a key or "dupe" a key (which could cause issues for indexers if they aren't handling dupe events)
+        */
+
+        env.current_contract_address().require_auth();
+
+        let max_ttl = env.storage().max_ttl();
+
+        if admin {
+            if env.storage().temporary().has(&id) {
+                env.storage().temporary().remove(&id);
+            }
+
+            Self::update_admin_signer_count(&env, true);
+
+            env.storage().persistent().set(&id, &pk);
+
+            env.storage()
+                .persistent()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        } else {
+            if env.storage().persistent().has(&id) {
+                Self::update_admin_signer_count(&env, false);
+
+                env.storage().persistent().remove(&id);
+            }
+
+            env.storage().temporary().set(&id, &pk);
+
+            env.storage()
+                .temporary()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        }
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        // TEMP until Zephyr fixes their event processing system to allow for bytesn arrays in the data field
+        // env.events()
+        //     .publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
+        env.events()
+            .publish((EVENT_TAG, symbol_short!("add"), id, pk), admin);
+
+        Ok(())
+    }
+    pub fn remove(env: Env, id: Bytes) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        if env.storage().temporary().has(&id) {
+            env.storage().temporary().remove(&id);
+        }
+
+        if env.storage().persistent().has(&id) {
+            Self::update_admin_signer_count(&env, false);
+
+            env.storage().persistent().remove(&id);
+        }
+
+        let max_ttl = env.storage().max_ttl();
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.events()
+            .publish((EVENT_TAG, symbol_short!("remove"), id), ());
 
         Ok(())
     }
@@ -87,93 +154,22 @@ impl Contract {
 
         Ok(())
     }
-    pub fn add_sig(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
-        let max_ttl = env.storage().max_ttl();
-
-        // NOTE we're not doing any existence checks so it's possible to overwrite a key or "dupe" a key (which could cause issues for indexers if they aren't handling dupe events)
-
-        env.storage().temporary().set(&id, &pk);
-
-        env.storage()
-            .temporary()
-            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.storage()
-            .instance()
-            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.events()
-            .publish((EVENT_TAG, symbol_short!("add_sig"), id), pk);
-
-        Ok(())
-    }
-    pub fn rm_sig(env: Env, id: Bytes) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
-        // NOTE we cannot remove super signers so no need to care about that scenario here
-
-        env.storage().temporary().remove(&id);
-
-        let max_ttl = env.storage().max_ttl();
-
-        env.storage()
-            .instance()
-            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.events()
-            .publish((EVENT_TAG, symbol_short!("rm_sig"), id), ());
-
-        Ok(())
-    }
-    pub fn re_super(env: Env, id: Bytes) -> Result<(), Error> {
-        let super_id = env
+    fn update_admin_signer_count(env: &Env, add: bool) {
+        let count = env
             .storage()
             .instance()
-            .get::<Symbol, Bytes>(&SUPER)
-            .ok_or(Error::NotInitialized)?;
+            .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
+            .unwrap_or(0)
+            + if add { 1 } else { -1 };
 
-        let super_pk = env
-            .storage()
-            .persistent()
-            .get::<Bytes, BytesN<65>>(&super_id)
-            .ok_or(Error::NotFound)?;
+        if count <= 0 {
+            panic_with_error!(env, Error::NotPermitted)
+        }
 
-        let pk = env
-            .storage()
-            .temporary()
-            .get::<Bytes, BytesN<65>>(&id)
-            .ok_or(Error::NotFound)?;
-
-        env.current_contract_address().require_auth();
-
-        // Move old super signer to temporary storage
-        env.storage().temporary().set(&super_id, &super_pk);
-
-        // Move new super signer to persistent storage
-        env.storage().persistent().set(&id, &pk);
-
-        // Update the super signer pointer
-        env.storage().instance().set(&SUPER, &id);
-
-        // NOTE no need to remove entries as the protocol won't attempt to access keys of the "wrong" storage type
-
-        let max_ttl = env.storage().max_ttl();
-
-        env.storage()
-            .temporary()
-            .extend_ttl(&super_id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.storage()
-            .persistent()
-            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.storage()
-            .instance()
-            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        Ok(())
+        env.storage().instance().set::<Symbol, i32>(
+            &ADMIN_SIGNER_COUNT,
+            &count,
+        );
     }
 }
 
@@ -185,6 +181,7 @@ pub struct Signature {
     pub signature: BytesN<64>,
 }
 
+// TODO do we need this? I don't understand it
 #[derive(serde::Deserialize)]
 struct ClientDataJson<'a> {
     challenge: &'a str,
@@ -209,23 +206,40 @@ impl CustomAccountInterface for Contract {
             signature,
         } = signature;
 
-        let super_id = env
-            .storage()
-            .instance()
-            .get::<Symbol, Bytes>(&SUPER)
-            .ok_or(Error::NotInitialized)?;
+        let admin;
+        let max_ttl = env.storage().max_ttl();
 
-        // Only the super signer can `add_sig`, `rm_sig`, `re_super` and `upgrade`
+        let pk = match env.storage().temporary().get(&id) {
+            Some(pk) => {
+                admin = false;
+
+                env.storage()
+                    .temporary()
+                    .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+                pk
+            }
+            None => {
+                admin = true;
+
+                env.storage()
+                    .persistent()
+                    .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+                env.storage().persistent().get(&id).ok_or(Error::NotFound)?
+            }
+        };
+
+        // Only admin signers can `upgrade`, `add` and `remove`
         for context in auth_contexts.iter() {
             match context {
                 Context::Contract(c) => {
                     if c.contract == env.current_contract_address() // calling the smart wallet
                         && (c.fn_name == symbol_short!("upgrade") // calling a protected function
-                            || c.fn_name == symbol_short!("add_sig")
-                            || c.fn_name == symbol_short!("rm_sig")
-                            || c.fn_name == symbol_short!("re_super"))
-                        && id != super_id
-                    // signature key is not the SUPER key
+                            || c.fn_name == symbol_short!("add")
+                            || c.fn_name == symbol_short!("remove"))
+                        && !admin
+                    // signature key is not an admin key
                     {
                         return Err(Error::NotPermitted);
                     }
@@ -234,50 +248,22 @@ impl CustomAccountInterface for Contract {
             };
         }
 
-        let max_ttl = env.storage().max_ttl();
-
-        // Verify that the public key produced the signature.
-        let pk = if id == super_id {
-            // if super signer lookup in persistent storage
-            env.storage().persistent().extend_ttl(
-                &id,
-                max_ttl - WEEK_OF_LEDGERS,
-                max_ttl,
-            );
-
-            env.storage()
-                .persistent()
-                .get(&id)
-                .ok_or(Error::NotFound)?
-        } else {
-            // else lookup in temporary storage
-            env.storage()
-                .temporary()
-                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-            env.storage()
-                .temporary()
-                .get(&id)
-                .ok_or(Error::NotFound)?
-        };
-
         let client_data_json_hash = env.crypto().sha256(&client_data_json).to_array();
 
         authenticator_data.extend_from_array(&client_data_json_hash);
 
         let digest = env.crypto().sha256(&authenticator_data);
 
-        env.crypto()
-            .secp256r1_verify(&pk, &digest, &signature);
+        env.crypto().secp256r1_verify(&pk, &digest, &signature);
 
         // Parse the client data JSON, extracting the base64 url encoded challenge.
-        let client_data_json = client_data_json.to_buffer::<1024>(); // <- why 1024?
+        let client_data_json = client_data_json.to_buffer::<1024>(); // <- TODO why 1024?
         let client_data_json = client_data_json.as_slice();
         let (client_data, _): (ClientDataJson, _) =
             serde_json_core::de::from_slice(client_data_json).map_err(|_| Error::JsonParseError)?;
 
         // Build what the base64 url challenge is expecting.
-        let mut expected_challenge = [0u8; 43]; // <- why 43?
+        let mut expected_challenge = [0u8; 43];
 
         base64_url::encode(&mut expected_challenge, &signature_payload.to_array());
 

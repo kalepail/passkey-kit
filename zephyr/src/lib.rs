@@ -6,17 +6,20 @@ use zephyr_sdk::{prelude::*, soroban_sdk::{xdr::{Hash, PublicKey, ScAddress, ScV
 pub struct Signers {
     address: String,
     id: Vec<u8>,
-    pubkey: Vec<u8>,
-    active: i32
+    pk: Vec<u8>,
+    date: u64,
+    admin: i32,
+    active: i32,
 }
 
 #[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("adjacent")]
 pub struct AdjacentEvents {
-    address: String,
     contract: String,
+    address: String,
     topics: ScVal,
     data: ScVal,
+    date: u64,
 }
 
 fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
@@ -126,7 +129,8 @@ pub extern "C" fn on_close() {
                     contract: stellar_strkey::Contract(event.contract).to_string(),
                     topics: ScVal::Vec(Some(ScVec(event.topics.clone().try_into().unwrap()))),
                     data: event.data.clone(),
-                    address
+                    address,
+                    date: env.reader().ledger_timestamp()
                 };
 
                 env.put(&event)
@@ -142,24 +146,46 @@ pub extern "C" fn on_close() {
 
                     if let Ok(etype) = event_type {
                         if t0 == event_tag {
-                            if etype == Symbol::new(env.soroban(), "add_sig") {
-                                let id: Bytes = env.from_scval(&event.topics[2]);
-                                let pk: BytesN<65> = env.from_scval(&event.data);
-                                let signer = Signers {
-                                    address: stellar_strkey::Contract(event.contract).to_string(),
-                                    id: bytes_to_vec(id),
-                                    pubkey: bytesn_to_vec(pk),
-                                    active: 0
-                                };
-
-                                env.put(&signer);
-                            } else if etype == Symbol::new(env.soroban(), "rm_sig") {
+                            if etype == Symbol::new(env.soroban(), "add") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let id = bytes_to_vec(id);
-                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).column_equal_to("active", 0).read().unwrap();
+                                let pk: BytesN<65> = env.from_scval(&event.topics[3]);
+                                let pk = bytesn_to_vec(pk);
+                                let date = env.reader().ledger_timestamp();
+                                let admin = env.from_scval::<bool>(&event.data) as i32;
+
+                                // let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
+
+                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).read().unwrap();
+
+                                if older.len() == 0 {
+                                    let signer = Signers {
+                                        address: stellar_strkey::Contract(event.contract).to_string(),
+                                        id,
+                                        pk,
+                                        date,
+                                        admin,
+                                        active: 1,
+                                    };
+
+                                    env.put(&signer);
+                                } else {
+                                    let mut older = older[0].clone();
+
+                                    older.active = 1;
+                                    older.pk = pk;
+                                    older.date = date;
+                                    older.admin = admin;
+
+                                    env.update().column_equal_to("id", id).execute(&older).unwrap();
+                                }
+                            } else if etype == Symbol::new(env.soroban(), "remove") {
+                                let id: Bytes = env.from_scval(&event.topics[2]);
+                                let id = bytes_to_vec(id);
+                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).read().unwrap();
                                 let mut older = older[0].clone();
 
-                                older.active = 1;
+                                older.active = 0;
 
                                 env.update().column_equal_to("id", id).execute(&older).unwrap();
                             }
@@ -185,7 +211,7 @@ pub struct AddressBySignerRequest {
 pub extern "C" fn get_signers_by_address() {
     let env = EnvClient::empty();
     let request: QueryByAddressRequest = env.read_request_body();
-    let signers: Vec<Signers> = env.read_filter().column_equal_to("address", request.address).column_equal_to("active", 0).read().unwrap();
+    let signers: Vec<Signers> = env.read_filter().column_equal_to("address", request.address).column_equal_to("active", 1).read().unwrap();
 
     env.conclude(&signers)
 }
@@ -194,7 +220,9 @@ pub extern "C" fn get_signers_by_address() {
 pub extern "C" fn get_address_by_signer() {
     let env = EnvClient::empty();
     let request: AddressBySignerRequest = env.read_request_body();
-    let signers: Vec<Signers> = env.read_filter().column_equal_to("id", request.id).column_equal_to("active", 0).read().unwrap();
+    let signers: Vec<Signers> = env.read_filter().column_equal_to("id", request.id).column_equal_to("active", 1).read().unwrap();
+
+    // TODO we only need to return unique contract addresses not everything
 
     env.conclude(&signers)
 }
@@ -206,4 +234,73 @@ pub extern "C" fn get_events_by_address() {
     let events: Vec<AdjacentEvents> = env.read_filter().column_equal_to("address", request.address).read().unwrap();
 
     env.conclude(&events)
+}
+
+////
+
+#[cfg(test)]
+mod test {
+    use ledger_meta_factory::TransitionPretty;
+    use stellar_xdr::next::{ScBytes,ScSymbol, ScVal};
+    use zephyr_sdk::testutils::TestHost;
+
+    fn add_signature(transition: &mut TransitionPretty) {
+        transition.inner.set_sequence(8891);
+        transition
+            .contract_event(
+                "CAYFD5TO3QDPUSIM2RDFPWL3B2USBUPHJS3X5OBBTVLKDSNMS6NDDSXU",
+                vec![
+                    ScVal::Symbol(ScSymbol("sw_v1".try_into().unwrap())),
+                    ScVal::Symbol(ScSymbol("add".try_into().unwrap())),
+                    ScVal::Bytes(ScBytes([0; 20].try_into().unwrap())),
+                    ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
+                    // ScVal::Symbol(ScSymbol("init".try_into().unwrap())),
+                ],
+                ScVal::Bool(true)
+                // (
+                //     ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
+                //     ScVal::Bool(true)
+                // ).try_into().unwrap(),
+            )
+            .unwrap();
+    }
+
+    // fn remove_signature() {}
+
+    #[tokio::test]
+    async fn test() {
+        let env = TestHost::default();
+        let mut program = env.new_program("./target/wasm32-unknown-unknown/release/smart_wallets_data.wasm");
+
+        let mut db = env.database("postgres://postgres:postgres@localhost:5432");
+        let _ = db.load_table(0, "signers", vec!["address", "id", "pk", "date", "admin", "active"]).await;
+        let _ = db.load_table(0, "adjacent", vec!["contract", "address", "topics", "data", "date"]).await;
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
+
+        let mut empty = TransitionPretty::new();
+        program.set_transition(empty.inner.clone());
+
+        let invocation = program.invoke_vm("on_close").await;
+        assert!(invocation.is_ok());
+        let inner_invocation = invocation.unwrap();
+        assert!(inner_invocation.is_ok());
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
+
+        add_signature(&mut empty);
+        program.set_transition(empty.inner.clone());
+
+        let invocation = program.invoke_vm("on_close").await;
+        assert!(invocation.is_ok());
+        let inner_invocation = invocation.unwrap();
+        assert!(inner_invocation.is_ok());
+
+        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 1);
+        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 1);
+
+        db.close().await
+    }
 }

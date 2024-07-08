@@ -28,25 +28,11 @@ export async function getSigners(contractId: string) {
         })
 
     return res
-        .map(({ id, pubkey }: { id: number[], pubkey: number[] }) => ({
-            id: new Uint8Array(id),
-            pk: new Uint8Array(pubkey)
+        .map(({ id, pk, admin }: { id: number[], pk: number[], admin: boolean }) => ({
+            id: base64url(id),
+            pk: base64url(pk),
+            admin
         }))
-        .filter((
-            item: { id: number[], pubkey: number[] },
-            index: number,
-            array: { id: number[], pubkey: number[] }[]
-        ) => array.map((item) => item.id.toString()).indexOf(item.id.toString()) === index)
-        .reduce(
-            (
-                map: Map<string, Uint8Array>,
-                obj: { id: Uint8Array; pk: Uint8Array },
-            ) => {
-                map.set(base64url(obj.id), obj.pk);
-                return map;
-            },
-            new Map(),
-        )
 }
 
 export async function getContractId(signer: string) {
@@ -74,7 +60,7 @@ export async function getContractId(signer: string) {
             throw await res.json()
         })
 
-    return res[0].address
+    return res[0]?.address
 }
 
 export async function getBalance(id: string) {
@@ -83,11 +69,13 @@ export async function getBalance(id: string) {
         nativeToScVal(id, { type: 'address' }),
     ])
 
-    const { amount } = await rpc
+    return rpc
         .getContractData(import.meta.env.VITE_nativeContractId, val)
-        .then((res) => scValToNative(res.val.contractData().val()))
-
-    return (amount as BigInt).toString()
+        .then(({ val }) => {
+            const { amount } = scValToNative(val.contractData().val())
+            return (amount as BigInt).toString()
+        })
+        .catch(() => '0')
 }
 
 export async function transferSAC(args: {

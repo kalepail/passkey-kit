@@ -9,7 +9,8 @@ pnpm publish --no-git-checks
 
 export MERCURY_JWT=???
 mercury-cli --jwt $MERCURY_JWT --local false --mainnet false deploy
-mercury-cli --jwt $MERCURY_JWT --local false --mainnet false catchup --contracts "???" # don't forget to subscribe to the contract first
-curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_signers_by_address", "arguments": "{\"address\": \"CBLWEW63G2KU7ZGVQTTFTJLGQSXAU5PU5ZXERQDDLL4LBA72D7ER6C75\"}"}}}'
+mercury-cli --jwt $MERCURY_JWT --local false --mainnet false catchup --contracts "CCXIUFR243N7QWKXY44LZO3DVUXHAVBEEJWFGNGNVVB44VJXIYWVGNTR" # don't forget to subscribe to the contract first
+curl -X GET https://api.mercurydata.app/catchups/4
+curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_signers_by_address", "arguments": "{\"address\": \"CCXIUFR243N7QWKXY44LZO3DVUXHAVBEEJWFGNGNVVB44VJXIYWVGNTR\"}"}}}'
 curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_address_by_signer", "arguments": "{\"id\": [78,127,30,69,248,174,95,168,47,59,161,168,51,120,117,135,112,133,232,92]}"}}}'
-curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_events_by_address", "arguments": "{\"address\": \"CBLWEW63G2KU7ZGVQTTFTJLGQSXAU5PU5ZXERQDDLL4LBA72D7ER6C75\"}"}}}'
+curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_events_by_address", "arguments": "{\"address\": \"CCXIUFR243N7QWKXY44LZO3DVUXHAVBEEJWFGNGNVVB44VJXIYWVGNTR\"}"}}}'
