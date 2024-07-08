@@ -33,50 +33,78 @@ const EVENT_TAG: Symbol = symbol_short!("sw_v1");
 
 #[contractimpl]
 impl Contract {
-    /* NOTE
-        - You can't call `add` without some admin key so there has to be a method to add the first admin key
-            however once that has been called it must not be able to be called again
-            currently just storing the EVENT_TAG on the instance to mark that the wallet has been initialized
-            if some day we get something better we can use that
-    */
     pub fn init(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
+        /* NOTE
+            - You can't call `add` without some admin key so there has to be a method to add the first admin key
+                however once that has been called it must not be able to be called again
+                currently just storing the EVENT_TAG on the instance to mark that the wallet has been initialized
+                if some day we get something better we can use that
+        */
+
         if env.storage().instance().has(&EVENT_TAG) {
             return Err(Error::AlreadyInitialized);
         }
 
         env.storage().instance().set(&EVENT_TAG, &());
 
-        let res = Self::__add(&env, &id, &pk, true);
+        env.storage().persistent().set(&id, &pk);
+
+        let max_ttl = env.storage().max_ttl();
+
+        env.storage()
+            .persistent()
+            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         env.events().publish(
             (EVENT_TAG, symbol_short!("add"), id, symbol_short!("init")),
             (pk, true),
         );
 
-        res
+        Ok(())
     }
-    pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, admin: bool) -> Result<(), Error> {
+        /* NOTE
+            - We're not doing any existence checks so it's possible to overwrite a key or "dupe" a key (which could cause issues for indexers if they aren't handling dupe events)
+        */
+
         env.current_contract_address().require_auth();
 
-        env.deployer().update_current_contract_wasm(hash);
-
         let max_ttl = env.storage().max_ttl();
+
+        if admin {
+            if env.storage().temporary().has(&id) {
+                env.storage().temporary().remove(&id);
+            }
+
+            env.storage().persistent().set(&id, &pk);
+
+            env.storage()
+                .persistent()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        } else {
+            if env.storage().persistent().has(&id) {
+                env.storage().persistent().remove(&id);
+            }
+
+            env.storage().temporary().set(&id, &pk);
+
+            env.storage()
+                .temporary()
+                .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        }
 
         env.storage()
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        Ok(())
-    }
-    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, admin: bool) -> Result<(), Error> {
-        env.current_contract_address().require_auth();
-
-        let res = Self::__add(&env, &id, &pk, admin);
-
         env.events()
             .publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
 
-        res
+        Ok(())
     }
     pub fn remove(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
@@ -100,38 +128,12 @@ impl Contract {
 
         Ok(())
     }
-    fn __add(env: &Env, id: &Bytes, pk: &BytesN<65>, admin: bool) -> Result<(), Error> {
+    pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        env.deployer().update_current_contract_wasm(hash);
+
         let max_ttl = env.storage().max_ttl();
-
-        /* NOTE
-            - We're not doing any existence checks so it's possible to overwrite a key or "dupe" a key (which could cause issues for indexers if they aren't handling dupe events)
-            - Currently it's technically possible to have the same key added to both persistent and temporary
-                Is that a problem? Not for remove as we just attempt toss both keys but maybe for __check_auth if either A) the pubkeys are different and/or B) you want to force select the admin key
-                Just don't dupe keys between temp and persistent
-                TODO Maybe we should throw an error if the key already exists?
-        */
-
-        if admin {
-            if env.storage().temporary().has(id) {
-                env.storage().temporary().remove(id);
-            }
-
-            env.storage().persistent().set(id, pk);
-
-            env.storage()
-                .persistent()
-                .extend_ttl(id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-        } else {
-            if env.storage().persistent().has(id) {
-                env.storage().persistent().remove(id);
-            }
-
-            env.storage().temporary().set(id, pk);
-
-            env.storage()
-                .temporary()
-                .extend_ttl(id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-        }
 
         env.storage()
             .instance()
@@ -177,10 +179,6 @@ impl CustomAccountInterface for Contract {
         let admin;
         let max_ttl = env.storage().max_ttl();
 
-        /* NOTE
-            - This will always pick the temporary key first so if you have dupe ids between temp and persistent the persistent will never be selected.
-                So basically don't dupe ids between temp and persistent, it's dumb
-        */
         let pk = match env.storage().temporary().get(&id) {
             Some(pk) => {
                 admin = false;
@@ -229,13 +227,13 @@ impl CustomAccountInterface for Contract {
         env.crypto().secp256r1_verify(&pk, &digest, &signature);
 
         // Parse the client data JSON, extracting the base64 url encoded challenge.
-        let client_data_json = client_data_json.to_buffer::<1024>(); // <- why 1024?
+        let client_data_json = client_data_json.to_buffer::<1024>(); // <- TODO why 1024?
         let client_data_json = client_data_json.as_slice();
         let (client_data, _): (ClientDataJson, _) =
             serde_json_core::de::from_slice(client_data_json).map_err(|_| Error::JsonParseError)?;
 
         // Build what the base64 url challenge is expecting.
-        let mut expected_challenge = [0u8; 43]; // <- why 43?
+        let mut expected_challenge = [0u8; 43];
 
         base64_url::encode(&mut expected_challenge, &signature_payload.to_array());
 

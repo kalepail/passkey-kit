@@ -159,6 +159,8 @@ pub extern "C" fn on_close() {
                                     active: 1,
                                 };
 
+                                // TODO this could also delete a previous signer
+
                                 env.put(&signer);
                             } else if etype == Symbol::new(env.soroban(), "remove") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
@@ -167,6 +169,8 @@ pub extern "C" fn on_close() {
                                 let mut older = older[0].clone();
 
                                 older.active = 0;
+
+                                // TODO ensure this is fully correct and permits deactivating both temp and persistent signers
 
                                 env.update().column_equal_to("id", id).execute(&older).unwrap();
                             }
