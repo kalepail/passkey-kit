@@ -74,7 +74,7 @@ export async function getContractId(signer: string) {
             throw await res.json()
         })
 
-    return res[0].address
+    return res[0]?.address
 }
 
 export async function getBalance(id: string) {

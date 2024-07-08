@@ -1,10 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, CustomAccountInterface},
-    contract, contracterror, contractimpl, contracttype,
-    crypto::Hash,
-    symbol_short, Bytes, BytesN, Env, Symbol, Vec,
+    auth::{Context, CustomAccountInterface}, contract, contracterror, contractimpl, contracttype, crypto::Hash, panic_with_error, symbol_short, Bytes, BytesN, Env, Symbol, Vec
 };
 
 mod base64_url;
@@ -30,6 +27,7 @@ pub enum Error {
 const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
 const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
+const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
 
 #[contractimpl]
 impl Contract {
@@ -41,11 +39,11 @@ impl Contract {
                 if some day we get something better we can use that
         */
 
-        if env.storage().instance().has(&EVENT_TAG) {
+        if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
             return Err(Error::AlreadyInitialized);
         }
 
-        env.storage().instance().set(&EVENT_TAG, &());
+        Self::update_admin_signer_count(&env, true);
 
         env.storage().persistent().set(&id, &pk);
 
@@ -80,6 +78,8 @@ impl Contract {
                 env.storage().temporary().remove(&id);
             }
 
+            Self::update_admin_signer_count(&env, true);
+
             env.storage().persistent().set(&id, &pk);
 
             env.storage()
@@ -87,6 +87,8 @@ impl Contract {
                 .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
         } else {
             if env.storage().persistent().has(&id) {
+                Self::update_admin_signer_count(&env, false);
+
                 env.storage().persistent().remove(&id);
             }
 
@@ -114,6 +116,8 @@ impl Contract {
         }
 
         if env.storage().persistent().has(&id) {
+            Self::update_admin_signer_count(&env, false);
+
             env.storage().persistent().remove(&id);
         }
 
@@ -140,6 +144,23 @@ impl Contract {
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         Ok(())
+    }
+    fn update_admin_signer_count(env: &Env, add: bool) {
+        let count = env
+            .storage()
+            .instance()
+            .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
+            .unwrap_or(0)
+            + if add { 1 } else { -1 };
+
+        if count <= 0 {
+            panic_with_error!(env, Error::NotPermitted)
+        }
+
+        env.storage().instance().set::<Symbol, i32>(
+            &ADMIN_SIGNER_COUNT,
+            &count,
+        );
     }
 }
 

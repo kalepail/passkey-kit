@@ -9,15 +9,16 @@ edition = "2021"
 zephyr-sdk = { version = "0.1.7" }
 stellar-strkey = "0.0.8"
 serde = { version = "1.0", features = ["derive"] }
+stellar-xdr = { version = "20.1.0", features = ["next", "curr", "serde", "base64"] }
 
 [dev-dependencies]
 zephyr-sdk = { version = "0.1.7", features = ["testutils"] }
 tokio = { version = "1.0", features = ["full"] }
 ledger-meta-factory = { version = "0.1.1", features = [] }
 
-[dev-dependencies.stellar-xdr]
-version = "=20.1.0"
-features = ["next", "curr", "serde", "base64"]
+# [dev-dependencies.stellar-xdr]
+# version = "=20.1.0"
+# features = ["next", "curr", "serde", "base64"]
 
 [lib]
 crate-type = ["cdylib"]
