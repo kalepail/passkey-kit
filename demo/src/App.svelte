@@ -18,7 +18,7 @@
 	let signers: { id: string, pk: string, admin: boolean }[] = [];
 
 	let keyName: string;
-	let keyAdmin: boolean;
+	let keyAdmin: boolean = false;
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
