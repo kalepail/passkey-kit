@@ -159,7 +159,10 @@ pub extern "C" fn on_close() {
                                     active: 1,
                                 };
 
-                                // TODO this could also delete a previous signer
+                                // TODO
+                                // add can also act as a sort of update so treat accordingly
+                                // there should always only ever be 1 id either active or not and admin or not
+                                // in the `add` case we should check if the signer is already exists and if so update, otherwise insert new 
 
                                 env.put(&signer);
                             } else if etype == Symbol::new(env.soroban(), "remove") {
@@ -169,8 +172,6 @@ pub extern "C" fn on_close() {
                                 let mut older = older[0].clone();
 
                                 older.active = 0;
-
-                                // TODO ensure this is fully correct and permits deactivating both temp and persistent signers
 
                                 env.update().column_equal_to("id", id).execute(&older).unwrap();
                             }
@@ -206,6 +207,8 @@ pub extern "C" fn get_address_by_signer() {
     let env = EnvClient::empty();
     let request: AddressBySignerRequest = env.read_request_body();
     let signers: Vec<Signers> = env.read_filter().column_equal_to("id", request.id).column_equal_to("active", 1).read().unwrap();
+
+    // TODO we only need to return unique contract addresses not everything
 
     env.conclude(&signers)
 }
