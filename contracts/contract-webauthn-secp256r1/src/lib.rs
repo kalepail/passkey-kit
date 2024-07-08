@@ -57,9 +57,15 @@ impl Contract {
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
+        // TEMP until Zephyr fixes their event processing system to allow for bytesn arrays in the data field
+        // env.events().publish(
+        //     (EVENT_TAG, symbol_short!("add"), id, symbol_short!("init")),
+        //     (pk, true),
+        // );
+
         env.events().publish(
-            (EVENT_TAG, symbol_short!("add"), id, symbol_short!("init")),
-            (pk, true),
+            (EVENT_TAG, symbol_short!("add"), id, pk),
+            true,
         );
 
         Ok(())
@@ -103,8 +109,11 @@ impl Contract {
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
+        // TEMP until Zephyr fixes their event processing system to allow for bytesn arrays in the data field
+        // env.events()
+        //     .publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
         env.events()
-            .publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
+            .publish((EVENT_TAG, symbol_short!("add"), id, pk), admin);
 
         Ok(())
     }

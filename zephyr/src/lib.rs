@@ -148,34 +148,41 @@ pub extern "C" fn on_close() {
                         if t0 == event_tag {
                             if etype == Symbol::new(env.soroban(), "add") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
+                                let id = bytes_to_vec(id);
+                                let pk: BytesN<65> = env.from_scval(&event.topics[3]);
+                                let pk = bytesn_to_vec(pk);
+                                let date = env.reader().ledger_timestamp();
+                                let admin = env.from_scval::<bool>(&event.data) as i32;
 
-                                env.log().debug("Step 1", None);
+                                // let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
 
-                                let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
+                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).read().unwrap();
 
-                                env.log().debug("Step 2", None);
+                                if older.len() == 0 {
+                                    let signer = Signers {
+                                        address: stellar_strkey::Contract(event.contract).to_string(),
+                                        id,
+                                        pk,
+                                        date,
+                                        admin,
+                                        active: 1,
+                                    };
 
-                                let signer = Signers {
-                                    address: stellar_strkey::Contract(event.contract).to_string(),
-                                    id: bytes_to_vec(id),
-                                    pk: bytesn_to_vec(pk),
-                                    date: env.reader().ledger_timestamp(),
-                                    admin: admin as i32,
-                                    active: 1,
-                                };
+                                    env.put(&signer);
+                                } else {
+                                    let mut older = older[0].clone();
 
-                                env.log().debug("Step 3", None);
+                                    older.active = 1;
+                                    older.pk = pk;
+                                    older.date = date;
+                                    older.admin = admin;
 
-                                // TODO
-                                // add can also act as a sort of update so treat accordingly
-                                // there should always only ever be 1 id either active or not and admin or not
-                                // in the `add` case we should check if the signer is already exists and if so update, otherwise insert new 
-
-                                env.put(&signer);
+                                    env.update().column_equal_to("id", id).execute(&older).unwrap();
+                                }
                             } else if etype == Symbol::new(env.soroban(), "remove") {
                                 let id: Bytes = env.from_scval(&event.topics[2]);
                                 let id = bytes_to_vec(id);
-                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).column_equal_to("active", 1).read().unwrap();
+                                let older: Vec<Signers> = env.read_filter().column_equal_to("id", id.clone()).read().unwrap();
                                 let mut older = older[0].clone();
 
                                 older.active = 0;
@@ -246,12 +253,14 @@ mod test {
                     ScVal::Symbol(ScSymbol("sw_v1".try_into().unwrap())),
                     ScVal::Symbol(ScSymbol("add".try_into().unwrap())),
                     ScVal::Bytes(ScBytes([0; 20].try_into().unwrap())),
-                    ScVal::Symbol(ScSymbol("init".try_into().unwrap())),
-                ],
-                (
                     ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
-                    ScVal::Bool(true)
-                ).try_into().unwrap(),
+                    // ScVal::Symbol(ScSymbol("init".try_into().unwrap())),
+                ],
+                ScVal::Bool(true)
+                // (
+                //     ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
+                //     ScVal::Bool(true)
+                // ).try_into().unwrap(),
             )
             .unwrap();
     }

@@ -13,9 +13,12 @@
 
 	let keyId: string;
 	let contractId: string;
-	let superKeyId: string;
+	let adminKeyId: string | undefined;
 	let balance: string;
-	let signers: Map<string, Uint8Array> = new Map();
+	let signers: { id: string, pk: string, admin: boolean }[] = [];
+
+	let keyName: string;
+	let keyAdmin: boolean;
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
@@ -71,21 +74,20 @@
 		location.reload();
 	}
 
-	async function addSigner(pubkey?: Uint8Array) {
+	async function addSigner(publicKey?: string) {
 		let id: Buffer;
 		let pk: Buffer;
 
-		if (pubkey && keyId) {
+		if (publicKey && keyId) {
 			id = base64url.toBuffer(keyId);
-			pk = Buffer.from(pubkey);
+			pk = base64url.toBuffer(publicKey);
+			keyAdmin = false;
 		} else {
-			const user = prompt("Give this passkey a name");
-
-			if (!user) return;
+			if (!keyName) return;
 
 			const { keyId: kid, publicKey } = await account.createKey(
 				"Super Peach",
-				user,
+				keyName,
 			);
 
 			id = kid;
@@ -95,10 +97,10 @@
 		const { built } = await account.wallet!.add({
 			id,
 			pk,
-			admin: false
+			admin: keyAdmin
 		});
 
-		const xdr = await account.sign(built!, { keyId: superKeyId });
+		const xdr = await account.sign(built!, { keyId: adminKeyId });
 		const res = await account.send(xdr);
 
 		console.log(res);
@@ -110,33 +112,21 @@
 			id: base64url.toBuffer(signer),
 		});
 
-		const xdr = await account.sign(built!, { keyId: superKeyId });
+		const xdr = await account.sign(built!, { keyId: adminKeyId });
 		const res = await account.send(xdr);
 
 		console.log(res);
 
 		await getWalletSigners();
 	}
-	// async function updateSuper(signer: string) {
-	// 	const { built } = await account.wallet!.re_super({
-	// 		id: base64url.toBuffer(signer),
-	// 	});
-
-	// 	const xdr = await account.sign(built!, { keyId: superKeyId });
-	// 	const res = await account.send(xdr);
-
-	// 	console.log(res);
-
-	// 	await getWalletSigners();
-	// }
 
 	async function getWalletBalance() {
 		balance = await getBalance(contractId);
 		console.log(balance);
 	}
 	async function getWalletSigners() {
-		// superKeyId = await account.getSuperKeyId();
 		signers = await getSigners(contractId);
+		adminKeyId = signers.find(({ admin }) => admin)?.id;
 	}
 
 	async function fundWallet() {
@@ -197,29 +187,46 @@
 
 		<button on:click={fundWallet}>Add Funds</button>
 		<button on:click={getWalletBalance}>Get Balance</button>
-		<button on:click={() => addSigner()}>Add Signer</button>
+
+		<ul style="list-style: none; padding: 0;">
+			<li><input type="text" placeholder="Signer name" bind:value={keyName}></li>
+			<li>
+				<label for="admin">Make admin?</label>
+				<input type="checkbox" id="admin" name="admin" bind:checked={keyAdmin}>
+			</li>
+			<li>
+				<button on:click={() => addSigner()}>Add Signer</button>
+			</li>
+		</ul>
 	{/if}
 
 	<ul>
-		{#each signers.entries() as [id]}
+		{#each signers as { id, pk, admin }}
 			<li>
-				{id}
+				{#if admin}
+					<button disabled>
+						{#if adminKeyId === id} ◉ {/if}&nbsp;
+						ADMIN
+					</button>
+				{:else}
+					<button disabled>SESSION</button>
+				{/if}
+
+				{ id }
 
 				<button on:click={() => walletTransfer(id)}
 					>Transfer 1 XLM</button
 				>
 
-				{#if id !== superKeyId}
-					<!-- <button on:click={() => updateSuper(id)}>Make Super</button> -->
-
-					{#if account.keyExpired && id === account.keyId}
-						<button on:click={() => addSigner(signers.get(keyId))}
-							>Reload</button
-						>
-					{:else}
-						<button on:click={() => removeSigner(id)}>Remove</button
-						>
-					{/if}
+				{#if account.keyExpired && id === account.keyId}
+					<button on:click={() => addSigner(pk)}
+						>Reload</button
+					>
+				{:else if admin && id !== adminKeyId}
+					<button on:click={() => adminKeyId = id}>Set Active Admin</button>
+				{:else}
+					<button on:click={() => removeSigner(id)}>Remove</button
+					>
 				{/if}
 			</li>
 		{/each}
