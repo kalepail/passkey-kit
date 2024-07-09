@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, scValToNative, TransactionBuilder } from '@stellar/stellar-sdk'
+import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { decode } from 'cbor-x/decode'

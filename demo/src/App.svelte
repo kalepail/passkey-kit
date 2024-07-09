@@ -129,6 +129,7 @@
 	}
 	async function getWalletSigners() {
 		signers = await getSigners(contractId);
+		console.log(signers);
 		adminKeyId = signers.find(({ admin }) => admin)?.id;
 	}
 
@@ -191,16 +192,18 @@
 		<button on:click={fundWallet}>Add Funds</button>
 		<button on:click={getWalletBalance}>Get Balance</button>
 
-		<ul style="list-style: none; padding: 0;">
-			<li><input type="text" placeholder="Signer name" bind:value={keyName}></li>
-			<li>
-				<label for="admin">Make admin?</label>
-				<input type="checkbox" id="admin" name="admin" bind:checked={keyAdmin}>
-			</li>
-			<li>
-				<button on:click={() => addSigner()}>Add Signer</button>
-			</li>
-		</ul>
+		<form on:submit|preventDefault>
+			<ul style="list-style: none; padding: 0;">
+				<li><input type="text" placeholder="Signer name" bind:value={keyName}></li>
+				<li>
+					<label for="admin">Make admin?</label>
+					<input type="checkbox" id="admin" name="admin" bind:checked={keyAdmin}>
+				</li>
+				<li>
+					<button on:click={() => addSigner()}>Add Signer</button>
+				</li>
+			</ul>
+		</form>
 	{/if}
 
 	<ul>
