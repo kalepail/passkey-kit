@@ -13,11 +13,12 @@
 
 	let keyId: string;
 	let contractId: string;
+	let admins: number;
 	let adminKeyId: string | undefined;
 	let balance: string;
-	let signers: { id: string, pk: string, admin: boolean }[] = [];
+	let signers: { id: string; pk: string; admin: boolean }[] = [];
 
-	let keyName: string = '';
+	let keyName: string = "";
 	let keyAdmin: boolean = false;
 
 	const account = new PasskeyKit({
@@ -97,7 +98,7 @@
 		const { built } = await account.wallet!.add({
 			id,
 			pk,
-			admin: keyAdmin
+			admin: keyAdmin,
 		});
 
 		const xdr = await account.sign(built!, { keyId: adminKeyId });
@@ -107,8 +108,8 @@
 
 		await getWalletSigners();
 
-		keyName = '';
-		keyAdmin = false
+		keyName = "";
+		keyAdmin = false;
 	}
 	async function removeSigner(signer: string) {
 		const { built } = await account.wallet!.remove({
@@ -131,6 +132,7 @@
 		signers = await getSigners(contractId);
 		console.log(signers);
 		adminKeyId = signers.find(({ admin }) => admin)?.id;
+		admins = signers.filter(({ admin }) => admin).length;
 	}
 
 	async function fundWallet() {
@@ -194,10 +196,21 @@
 
 		<form on:submit|preventDefault>
 			<ul style="list-style: none; padding: 0;">
-				<li><input type="text" placeholder="Signer name" bind:value={keyName}></li>
+				<li>
+					<input
+						type="text"
+						placeholder="Signer name"
+						bind:value={keyName}
+					/>
+				</li>
 				<li>
 					<label for="admin">Make admin?</label>
-					<input type="checkbox" id="admin" name="admin" bind:checked={keyAdmin}>
+					<input
+						type="checkbox"
+						id="admin"
+						name="admin"
+						bind:checked={keyAdmin}
+					/>
 				</li>
 				<li>
 					<button on:click={() => addSigner()}>Add Signer</button>
@@ -211,27 +224,29 @@
 			<li>
 				{#if admin}
 					<button disabled>
-						{#if adminKeyId === id} ◉ {/if}&nbsp;
-						ADMIN
+						{#if adminKeyId === id}
+							◉
+						{/if}&nbsp; ADMIN
 					</button>
 				{:else}
 					<button disabled>SESSION</button>
 				{/if}
 
-				{ id }
+				{id}
 
 				<button on:click={() => walletTransfer(id)}
 					>Transfer 1 XLM</button
 				>
 
+				{#if !admin || admins > 1}
+					<button on:click={() => removeSigner(id)}>Remove</button>
+				{/if}
+
 				{#if account.keyExpired && id === account.keyId}
-					<button on:click={() => addSigner(pk)}
-						>Reload</button
-					>
+					<button on:click={() => addSigner(pk)}>Reload</button>
 				{:else if admin && id !== adminKeyId}
-					<button on:click={() => adminKeyId = id}>Set Active Admin</button>
-				{:else}
-					<button on:click={() => removeSigner(id)}>Remove</button
+					<button on:click={() => (adminKeyId = id)}
+						>Set Active Admin</button
 					>
 				{/if}
 			</li>
