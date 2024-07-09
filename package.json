@@ -24,6 +24,7 @@
     "passkey-kit-sdk": "workspace:*"
   },
   "devDependencies": {
+    "@simplewebauthn/types": "^10.0.0",
     "typescript": "^5.5.3"
   },
   "workspaces": [

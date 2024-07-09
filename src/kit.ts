@@ -3,6 +3,7 @@ import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
+import type { AuthenticatorAttestationResponseJSON } from "@simplewebauthn/types"
 import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
@@ -48,8 +49,8 @@ export class PasskeyKit extends PasskeyBase {
         })
     }
 
-    public async createWallet(name: string, user: string) {
-        const { keyId, publicKey } = await this.createKey(name, user)
+    public async createWallet(app: string, user: string) {
+        const { keyId, publicKey } = await this.createKey(app, user)
 
         const { result, built } = await this.factory.deploy({
             id: keyId,
@@ -71,17 +72,19 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    public async createKey(name: string, user: string) {
-        const startRegistrationResponse = await startRegistration({
+    public async createKey(app: string, user: string) {
+        const now = new Date()
+        const displayName = `${user} — ${now.toLocaleString()}`
+        const { id, response} = await startRegistration({
             challenge: base64url("stellaristhebetterblockchain"),
             rp: {
                 // id: undefined,
-                name,
+                name: app,
             },
-            user: {
-                id: base64url(user),
-                name: user,
-                displayName: user,
+            user: { // TODO there's a real danger here of overwriting a user's key if they use the same `user` name
+                id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
+                name: displayName,
+                displayName
             },
             authenticatorSelection: {
                 requireResidentKey: false,
@@ -93,21 +96,12 @@ export class PasskeyKit extends PasskeyBase {
         });
 
         if (!this.keyId)
-            this.keyId = startRegistrationResponse.id;
+            this.keyId = id;
 
-        let publicKey: Buffer | undefined
-
-        if (startRegistrationResponse.response.publicKey)
-            publicKey = base64url.toBuffer(startRegistrationResponse.response.publicKey).slice(startRegistrationResponse.response.publicKey.length - 65)
-
-        if (
-            !publicKey
-            || publicKey[0] !== 0x04
-            || publicKey.length !== 65
-        ) publicKey = this.getPublicKey(startRegistrationResponse.response.attestationObject);
+        const publicKey = this.getPublicKey(response);
 
         return {
-            keyId: base64url.toBuffer(startRegistrationResponse.id),
+            keyId: base64url.toBuffer(id),
             publicKey
         }
     }
@@ -120,13 +114,15 @@ export class PasskeyKit extends PasskeyBase {
         let keyIdBuffer: Buffer
 
         if (!keyId) {
-            const { id } = await startAuthentication({
+            const response = await startAuthentication({
                 challenge: base64url("stellaristhebetterblockchain"),
                 // rpId: undefined,
                 userVerification: "discouraged",
             });
 
-            keyId = id
+            console.log(response);
+
+            keyId = response.id
         }
 
         if (keyId instanceof Uint8Array) {
@@ -333,18 +329,31 @@ export class PasskeyKit extends PasskeyBase {
             @Later
     */
 
-    private getPublicKey(attestationObject: string) {
-        // Extract and decode attestation object (CBOR), slice authenticator data to get COSE-encoded public key, and decode COSE to obtain key components
-        const { authData } = decode(base64url.toBuffer(attestationObject));
-        const credentialIdLength = (authData[53] << 8) + authData[54];
-        const publicKeyBytes = authData.slice(55 + credentialIdLength);
-        const publicKeyCose = decode(publicKeyBytes);
+    private getPublicKey(response: AuthenticatorAttestationResponseJSON) {
+        let publicKey: Buffer | undefined
 
-        return Buffer.from([
-            0x04, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
-            ...publicKeyCose['-2'],
-            ...publicKeyCose['-3']
-        ])
+        if (response.publicKey)
+            publicKey = base64url.toBuffer(response.publicKey).slice(response.publicKey.length - 65)
+
+        if (
+            !publicKey
+            || publicKey[0] !== 0x04
+            || publicKey.length !== 65
+        ) {
+            // Extract and decode attestation object (CBOR), slice authenticator data to get COSE-encoded public key, and decode COSE to obtain key components
+            const { authData } = response.authenticatorData ? { authData: base64url.toBuffer(response.authenticatorData) } : decode(base64url.toBuffer(response.attestationObject));
+            const credentialIdLength = (authData[53] << 8) + authData[54];
+            const publicKeyBytes = authData.slice(55 + credentialIdLength);
+            const publicKeyCose = decode(publicKeyBytes);
+
+            publicKey = Buffer.from([
+                0x04, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+                ...publicKeyCose['-2'],
+                ...publicKeyCose['-3']
+            ])
+        }
+
+        return publicKey
     }
     private compactSignature(signature: Buffer) {
         // Decode the DER signature
