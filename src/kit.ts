@@ -93,15 +93,18 @@ export class PasskeyKit extends PasskeyBase {
         });
 
         if (!this.keyId)
-            this.keyId = startRegistrationResponse.id
+            this.keyId = startRegistrationResponse.id;
 
-        const { publicKeyObject } = this.getPublicKeyObject(startRegistrationResponse.response.attestationObject);
+        let publicKey: Buffer | undefined
 
-        const publicKey = Buffer.from([
-            4, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
-            ...publicKeyObject.get('-2')!,
-            ...publicKeyObject.get('-3')!
-        ])
+        if (startRegistrationResponse.response.publicKey)
+            publicKey = base64url.toBuffer(startRegistrationResponse.response.publicKey).slice(startRegistrationResponse.response.publicKey.length - 65)
+
+        if (
+            !publicKey
+            || publicKey[0] !== 0x04
+            || publicKey.length !== 65
+        ) publicKey = this.getPublicKey(startRegistrationResponse.response.attestationObject);
 
         return {
             keyId: base64url.toBuffer(startRegistrationResponse.id),
@@ -230,8 +233,9 @@ export class PasskeyKit extends PasskeyBase {
                 }
         );
 
-        const signatureRaw = base64url.toBuffer(authenticationResponse.response.signature);
-        const signature = this.convertEcdsaSignatureAsnToCompact(signatureRaw);
+        const signature = this.compactSignature(
+            base64url.toBuffer(authenticationResponse.response.signature)
+        );
 
         credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
         credentials.signature(xdr.ScVal.scvMap([
@@ -329,65 +333,20 @@ export class PasskeyKit extends PasskeyBase {
             @Later
     */
 
-    private getPublicKeyObject(attestationObject: string) {
+    private getPublicKey(attestationObject: string) {
+        // Extract and decode attestation object (CBOR), slice authenticator data to get COSE-encoded public key, and decode COSE to obtain key components
         const { authData } = decode(base64url.toBuffer(attestationObject));
-        const authDataUint8Array = new Uint8Array(authData);
-        const authDataView = new DataView(authDataUint8Array.buffer, 0, authDataUint8Array.length);
+        const credentialIdLength = (authData[53] << 8) + authData[54];
+        const publicKeyBytes = authData.slice(55 + credentialIdLength);
+        const publicKeyCose = decode(publicKeyBytes);
 
-        let offset = 0;
-
-        // RP ID Hash (32 bytes)
-        const rpIdHash = authData.slice(offset, offset + 32);
-        offset += 32;
-
-        // Flags (1 byte)
-        const flags = authDataView.getUint8(offset);
-        offset += 1;
-
-        // Sign Count (4 bytes, big endian)
-        const signCount = authDataView.getUint32(offset, false);
-        offset += 4;
-
-        // Attested Credential Data, if present
-        if (flags & 0x40) { // Checking the AT flag
-            // AAGUID (16 bytes)
-            const aaguid = authData.slice(offset, offset + 16);
-            offset += 16;
-
-            // Credential ID Length (2 bytes, big endian)
-            const credIdLength = authDataView.getUint16(offset, false);
-            offset += 2;
-
-            // Credential ID (variable length)
-            const credentialId = authData.slice(offset, offset + credIdLength);
-            offset += credIdLength;
-
-            // Credential Public Key - (77 bytes...I hope)
-            const credentialPublicKey = authData.slice(offset, offset + 77);
-            offset += 77;
-
-            // Any leftover bytes. I found some when using a YubiKey
-            const theRest = authData.slice(offset);
-
-            // Decode the credential public key to COSE
-            const publicKeyObject = new Map<string, any>(Object.entries(decode(credentialPublicKey)));
-
-            return {
-                rpIdHash,
-                flags,
-                signCount,
-                aaguid,
-                credIdLength,
-                credentialId,
-                credentialPublicKey,
-                theRest,
-                publicKeyObject
-            };
-        }
-
-        throw new Error("Attested credential data not present in the flags.");
+        return Buffer.from([
+            0x04, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
+            ...publicKeyCose['-2'],
+            ...publicKeyCose['-3']
+        ])
     }
-    private convertEcdsaSignatureAsnToCompact(signature: Buffer) {
+    private compactSignature(signature: Buffer) {
         // Decode the DER signature
         let offset = 2;
 
