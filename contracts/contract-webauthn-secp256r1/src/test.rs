@@ -55,9 +55,10 @@ fn test() {
             133, 215, 200, 208, 230, 51, 210, 94, 214,
         ],
     );
+    // let salt = env.crypto().sha256(&id);
 
     // factory_client.init(&passkkey_hash);
-    deployee_client.init(&id, &pk);
+    deployee_client.add(&id, &pk, &true);
 
     let signature_payload = BytesN::from_array(
         &env,

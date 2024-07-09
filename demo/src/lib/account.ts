@@ -2,8 +2,15 @@ import { xdr, Operation, SorobanRpc, TransactionBuilder, nativeToScVal, scValToN
 import { mockSource, rpc } from './common'
 import base64url from 'base64url'
 
+export type Signer = {
+    id: string;
+    pk: string;
+    admin: boolean;
+    expired: boolean;
+}
+
 export async function getSigners(contractId: string) {
-    const res = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
+    const signers: Signer[] = await fetch(`${import.meta.env.VITE_mercuryUrl}/zephyr/execute`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -27,12 +34,20 @@ export async function getSigners(contractId: string) {
             throw await res.json()
         })
 
-    return res
-        .map(({ id, pk, admin }: { id: number[], pk: number[], admin: boolean }) => ({
-            id: base64url(id),
-            pk: base64url(pk),
-            admin
-        }))
+    for (const signer of signers) {
+        if (!signer.admin) {
+            try {
+                await rpc.getContractData(contractId, xdr.ScVal.scvBytes(signer.id), SorobanRpc.Durability.Temporary)
+            } catch {
+                signer.expired = true
+            }
+        }
+
+        signer.id = base64url(signer.id)
+        signer.pk = base64url(signer.pk)
+    }
+
+    return signers
 }
 
 export async function getContractId(signer: string) {

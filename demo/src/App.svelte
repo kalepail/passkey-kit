@@ -8,6 +8,7 @@
 		getBalance,
 		getSigners,
 		transferSAC,
+        type Signer,
 	} from "./lib/account";
 	import { fundKeypair, fundPubkey } from "./lib/common";
 
@@ -16,7 +17,7 @@
 	let admins: number;
 	let adminKeyId: string | undefined;
 	let balance: string;
-	let signers: { id: string; pk: string; admin: boolean }[] = [];
+	let signers: Signer[] = [];
 
 	let keyName: string = "";
 	let keyAdmin: boolean = false;
@@ -40,7 +41,7 @@
 		if (!user) return;
 
 		const {
-			keyId,
+			keyId: kid,
 			contractId: cid,
 			xdr,
 		} = await account.createWallet("Super Peach", user);
@@ -48,7 +49,8 @@
 
 		console.log(res);
 
-		localStorage.setItem("sp:keyId", base64url(keyId));
+		keyId = base64url(kid);
+		localStorage.setItem("sp:keyId", keyId);
 
 		contractId = cid;
 		console.log("register", cid);
@@ -56,13 +58,14 @@
 		await getWalletSigners();
 		await fundWallet();
 	}
-	async function connect(keyId?: string) {
+	async function connect(keyId_?: string) {
 		const { keyId: kid, contractId: cid } = await account.connectWallet({
-			keyId,
+			keyId: keyId_,
 			getContractId, // only strictly needed when the passed keyId will not derive to any or the correct contractId
 		});
 
-		localStorage.setItem("sp:keyId", base64url(kid));
+		keyId = base64url(kid);
+		localStorage.setItem("sp:keyId", keyId);
 
 		contractId = cid;
 		console.log("connect", cid);
@@ -131,8 +134,11 @@
 	async function getWalletSigners() {
 		signers = await getSigners(contractId);
 		console.log(signers);
-		adminKeyId = signers.find(({ admin }) => admin)?.id;
-		admins = signers.filter(({ admin }) => admin).length;
+
+		const adminKeys = signers.filter(({ admin }) => admin);
+		adminKeyId = (adminKeys.find(({ id }) => keyId === id) || adminKeys[0])
+			.id;
+		admins = adminKeys.length;
 	}
 
 	async function fundWallet() {
@@ -220,17 +226,15 @@
 	{/if}
 
 	<ul>
-		{#each signers as { id, pk, admin }}
+		{#each signers as { id, pk, admin, expired }}
 			<li>
-				{#if admin}
-					<button disabled>
-						{#if adminKeyId === id}
-							◉
-						{/if}&nbsp; ADMIN
-					</button>
-				{:else}
-					<button disabled>SESSION</button>
-				{/if}
+				<button disabled>
+					{#if adminKeyId === id}
+						{#if keyId === id}◉{:else}◎{/if}&nbsp;
+					{:else if keyId === id}
+						●&nbsp;
+					{/if} {#if admin} ADMIN {:else} SESSION {/if}
+				</button>
 
 				{id}
 
@@ -238,16 +242,16 @@
 					>Transfer 1 XLM</button
 				>
 
-				{#if !admin || admins > 1}
+				{#if (!admin || admins > 1) && id !== keyId}
 					<button on:click={() => removeSigner(id)}>Remove</button>
 				{/if}
 
-				{#if account.keyExpired && id === account.keyId}
-					<button on:click={() => addSigner(pk)}>Reload</button>
-				{:else if admin && id !== adminKeyId}
+				{#if admin && id !== adminKeyId}
 					<button on:click={() => (adminKeyId = id)}
 						>Set Active Admin</button
 					>
+				{:else if expired && id === account.keyId}
+					<button on:click={() => addSigner(pk)}>Reload</button>
 				{/if}
 			</li>
 		{/each}

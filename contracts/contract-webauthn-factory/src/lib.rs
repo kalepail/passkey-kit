@@ -13,8 +13,7 @@ pub enum Error {
     AlreadyInitialized = 2,
 }
 
-const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
-const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
+const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
 
 /* NOTE
@@ -50,22 +49,19 @@ impl Contract {
         Ok(())
     }
 
-    pub fn deploy(env: Env, id: Bytes, pk: BytesN<65>) -> Result<Address, Error> {
+    pub fn deploy(env: Env, salt: BytesN<32>, id: Bytes, pk: BytesN<65>) -> Result<Address, Error> {
         let wasm_hash = env
             .storage()
             .instance()
             .get::<Symbol, BytesN<32>>(&STORAGE_KEY_WASM_HASH)
             .ok_or(Error::NotInitialized)?;
 
-        let address = env
-            .deployer()
-            .with_current_contract(env.crypto().sha256(&id))
-            .deploy(wasm_hash);
+        let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
         let () = env.invoke_contract(
             &address,
-            &symbol_short!("init"),
-            vec![&env, id.to_val(), pk.to_val()],
+            &symbol_short!("add"),
+            vec![&env, id.to_val(), pk.to_val(), true.into()],
         );
 
         let max_ttl = env.storage().max_ttl();

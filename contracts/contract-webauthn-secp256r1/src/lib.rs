@@ -1,7 +1,10 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, CustomAccountInterface}, contract, contracterror, contractimpl, contracttype, crypto::Hash, panic_with_error, symbol_short, Bytes, BytesN, Env, Symbol, Vec
+    auth::{Context, CustomAccountInterface},
+    contract, contracterror, contractimpl, contracttype,
+    crypto::Hash,
+    panic_with_error, symbol_short, Bytes, BytesN, Env, FromVal, Symbol, Vec,
 };
 
 mod base64_url;
@@ -16,66 +19,25 @@ pub struct Contract;
 pub enum Error {
     NotFound = 1,
     NotPermitted = 2,
-    AlreadyInitialized = 3,
-    ClientDataJsonChallengeIncorrect = 4,
-    Secp256r1PublicKeyParse = 5,
-    Secp256r1SignatureParse = 6,
-    Secp256r1VerifyFailed = 7,
-    JsonParseError = 8,
+    ClientDataJsonChallengeIncorrect = 3,
+    Secp256r1PublicKeyParse = 4,
+    Secp256r1SignatureParse = 5,
+    Secp256r1VerifyFailed = 6,
+    JsonParseError = 7,
 }
 
-const DAY_OF_LEDGERS: u32 = 60 * 60 * 24 / 5;
-const WEEK_OF_LEDGERS: u32 = DAY_OF_LEDGERS * 7;
+const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
 const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
 
 #[contractimpl]
 impl Contract {
-    pub fn init(env: Env, id: Bytes, pk: BytesN<65>) -> Result<(), Error> {
-        /* NOTE
-            - You can't call `add` without some admin key so there has to be a method to add the first admin key
-                however once that has been called it must not be able to be called again
-                currently just storing the EVENT_TAG on the instance to mark that the wallet has been initialized
-                if some day we get something better we can use that
-        */
-
+    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, mut admin: bool) -> Result<(), Error> {
         if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
-            return Err(Error::AlreadyInitialized);
+            env.current_contract_address().require_auth();
+        } else {
+            admin = true; // Ensure if this is the first signer they are an admin
         }
-
-        Self::update_admin_signer_count(&env, true);
-
-        env.storage().persistent().set(&id, &pk);
-
-        let max_ttl = env.storage().max_ttl();
-
-        env.storage()
-            .persistent()
-            .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        env.storage()
-            .instance()
-            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        // TEMP until Zephyr fixes their event processing system to allow for bytesn arrays in the data field
-        // env.events().publish(
-        //     (EVENT_TAG, symbol_short!("add"), id, symbol_short!("init")),
-        //     (pk, true),
-        // );
-
-        env.events().publish(
-            (EVENT_TAG, symbol_short!("add"), id, pk),
-            true,
-        );
-
-        Ok(())
-    }
-    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, admin: bool) -> Result<(), Error> {
-        /* NOTE
-            - We're not doing any existence checks so it's possible to overwrite a key or "dupe" a key (which could cause issues for indexers if they aren't handling dupe events)
-        */
-
-        env.current_contract_address().require_auth();
 
         let max_ttl = env.storage().max_ttl();
 
@@ -122,9 +84,7 @@ impl Contract {
 
         if env.storage().temporary().has(&id) {
             env.storage().temporary().remove(&id);
-        }
-
-        if env.storage().persistent().has(&id) {
+        } else if env.storage().persistent().has(&id) {
             Self::update_admin_signer_count(&env, false);
 
             env.storage().persistent().remove(&id);
@@ -141,7 +101,7 @@ impl Contract {
 
         Ok(())
     }
-    pub fn upgrade(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+    pub fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
         env.deployer().update_current_contract_wasm(hash);
@@ -166,10 +126,9 @@ impl Contract {
             panic_with_error!(env, Error::NotPermitted)
         }
 
-        env.storage().instance().set::<Symbol, i32>(
-            &ADMIN_SIGNER_COUNT,
-            &count,
-        );
+        env.storage()
+            .instance()
+            .set::<Symbol, i32>(&ADMIN_SIGNER_COUNT, &count);
     }
 }
 
@@ -206,12 +165,29 @@ impl CustomAccountInterface for Contract {
             signature,
         } = signature;
 
-        let admin;
         let max_ttl = env.storage().max_ttl();
 
         let pk = match env.storage().temporary().get(&id) {
             Some(pk) => {
-                admin = false;
+                // Error if a session signer is trying to perform protected actions
+                for context in auth_contexts.iter() {
+                    match context {
+                        Context::Contract(c) => {
+                            if c.contract == env.current_contract_address() // if we're calling self
+                                && ( // and
+                                    c.fn_name != symbol_short!("remove") // the method isn't the only potentially available self command
+                                    || ( // we're not removing ourself
+                                        c.fn_name == symbol_short!("remove") 
+                                        && Bytes::from_val(&env, &c.args.get(0).unwrap()) != id
+                                    )
+                                )
+                            {
+                                return Err(Error::NotPermitted);
+                            }
+                        }
+                        _ => {} // Don't block for example the deploying of new contracts from this contract
+                    };
+                }
 
                 env.storage()
                     .temporary()
@@ -220,8 +196,6 @@ impl CustomAccountInterface for Contract {
                 pk
             }
             None => {
-                admin = true;
-
                 env.storage()
                     .persistent()
                     .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
@@ -230,36 +204,15 @@ impl CustomAccountInterface for Contract {
             }
         };
 
-        // Only admin signers can `upgrade`, `add` and `remove`
-        for context in auth_contexts.iter() {
-            match context {
-                Context::Contract(c) => {
-                    if c.contract == env.current_contract_address() // calling the smart wallet
-                        && (c.fn_name == symbol_short!("upgrade") // calling a protected function
-                            || c.fn_name == symbol_short!("add")
-                            || c.fn_name == symbol_short!("remove"))
-                        && !admin
-                    // signature key is not an admin key
-                    {
-                        return Err(Error::NotPermitted);
-                    }
-                }
-                _ => {} // Don't block for example the deploying of new contracts from this contract
-            };
-        }
+        authenticator_data.extend_from_array(&env.crypto().sha256(&client_data_json).to_array());
 
-        let client_data_json_hash = env.crypto().sha256(&client_data_json).to_array();
-
-        authenticator_data.extend_from_array(&client_data_json_hash);
-
-        let digest = env.crypto().sha256(&authenticator_data);
-
-        env.crypto().secp256r1_verify(&pk, &digest, &signature);
+        env.crypto()
+            .secp256r1_verify(&pk, &env.crypto().sha256(&authenticator_data), &signature);
 
         // Parse the client data JSON, extracting the base64 url encoded challenge.
         let client_data_json = client_data_json.to_buffer::<1024>(); // <- TODO why 1024?
         let client_data_json = client_data_json.as_slice();
-        let (client_data, _): (ClientDataJson, _) =
+        let (client_data_json, _): (ClientDataJson, _) =
             serde_json_core::de::from_slice(client_data_json).map_err(|_| Error::JsonParseError)?;
 
         // Build what the base64 url challenge is expecting.
@@ -268,7 +221,8 @@ impl CustomAccountInterface for Contract {
         base64_url::encode(&mut expected_challenge, &signature_payload.to_array());
 
         // Check that the challenge inside the client data JSON that was signed is identical to the expected challenge.
-        if client_data.challenge.as_bytes() != expected_challenge {
+        // TODO is this check actually necessary or is the secp256r1_verify enough? I think it's necessary
+        if client_data_json.challenge.as_bytes() != expected_challenge {
             return Err(Error::ClientDataJsonChallengeIncorrect);
         }
 

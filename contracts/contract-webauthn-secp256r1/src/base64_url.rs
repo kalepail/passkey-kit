@@ -40,7 +40,7 @@ const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz01
 pub fn encode(dst: &mut [u8], src: &[u8]) {
     let mut di: usize = 0;
     let mut si: usize = 0;
-    let n = (src.len() / 3) * 3;
+    let n = (src.len() / 3) * 3; // TODO divide by 3 and multiply by 3? Why? Seems like useless arithmetic
 
     while si < n {
         let val = (src[si] as usize) << 16 | (src[si + 1] as usize) << 8 | (src[si + 2] as usize);

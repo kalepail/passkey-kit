@@ -1,5 +1,5 @@
 # Install contract sdks
-npm publish --workspaces   
+npm publish --workspaces
 
 # Install passkey-kit
 pnpm publish --no-git-checks

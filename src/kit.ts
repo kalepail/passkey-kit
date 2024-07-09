@@ -12,7 +12,6 @@ type GetContractIdFunction = (keyId: string) => Promise<string>;
 
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
-    public keyExpired: boolean | undefined
     public wallet: PasskeyClient | undefined
     public factory: FactoryClient
     public networkPassphrase: Networks
@@ -53,8 +52,9 @@ export class PasskeyKit extends PasskeyBase {
         const { keyId, publicKey } = await this.createKey(app, user)
 
         const { result, built } = await this.factory.deploy({
+            salt: hash(keyId),
             id: keyId,
-            pk: publicKey!
+            pk: publicKey
         })
 
         const contractId = result.unwrap() as string
@@ -81,7 +81,7 @@ export class PasskeyKit extends PasskeyBase {
                 // id: undefined,
                 name: app,
             },
-            user: { // TODO there's a real danger here of overwriting a user's key if they use the same `user` name
+            user: {
                 id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
                 name: displayName,
                 displayName
@@ -98,11 +98,9 @@ export class PasskeyKit extends PasskeyBase {
         if (!this.keyId)
             this.keyId = id;
 
-        const publicKey = this.getPublicKey(response);
-
         return {
             keyId: base64url.toBuffer(id),
-            publicKey
+            publicKey: this.getPublicKey(response)
         }
     }
 
@@ -138,7 +136,7 @@ export class PasskeyKit extends PasskeyBase {
         // Check for the contractId on-chain as a derivation from the keyId. This is the easiest and "cheapest" check however it will only work for the initially deployed passkey if it was used as derivation
         let contractId: string | undefined = StrKey.encodeContract(hash(xdr.HashIdPreimage.envelopeTypeContractId(
             new xdr.HashIdPreimageContractId({
-                networkId: hash(Buffer.from(this.networkPassphrase, 'utf-8')),
+                networkId: hash(Buffer.from(this.networkPassphrase)),
                 contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
                     new xdr.ContractIdPreimageFromAddress({
                         address: Address.fromString(this.factory.options.contractId).toScAddress(),
@@ -150,23 +148,15 @@ export class PasskeyKit extends PasskeyBase {
 
         // attempt passkey id derivation
         try {
+            // TODO what is the error if the entry exists but is archived?
             await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
         }
         // if that fails look up from the factory mapper
         catch {
             contractId = undefined
 
-            if (getContractId) {
+            if (getContractId)
                 contractId = await getContractId(keyId)
-
-                // Handle case where temporary session signer is missing on-chain (so we can queue up a re-add)
-                try {
-                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(keyIdBuffer), SorobanRpc.Durability.Temporary)
-                    // throw true
-                } catch {
-                    this.keyExpired = true
-                }
-            }
         }
 
         if (!contractId)
@@ -255,6 +245,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return entry
     }
+
     public async signAuthEntries(
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
@@ -275,6 +266,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return entries
     }
+
     public async sign(
         txn: Transaction | string,
         options?: {
@@ -355,6 +347,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return publicKey
     }
+
     private compactSignature(signature: Buffer) {
         // Decode the DER signature
         let offset = 2;

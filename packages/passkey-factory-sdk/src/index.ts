@@ -15,7 +15,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBCPNJNIR7I6ZI5AIXTMYI3MCDCSTNUZ57XL75HQWI6Y4ESWUP24HRBG",
+    contractId: "CCNG4UOYRSULIMD2AVF5LWAQRM3XY4L3HQSARBLQ5A7HQBRLDVFUTZ7X",
   }
 } as const
 
@@ -48,7 +48,7 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({ id, pk }: { id: Buffer, pk: Buffer }, options?: {
+  deploy: ({ salt, id, pk }: { salt: Buffer, id: Buffer, pk: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -70,7 +70,7 @@ export class Client extends ContractClient {
     super(
       new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAg==",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
-        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAACAAAAAAAAAAJpZAAAAAAADgAAAAAAAAACcGsAAAAAA+4AAABBAAAAAQAAA+kAAAATAAAAAw=="]),
+        "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAADAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAAAmlkAAAAAAAOAAAAAAAAAAJwawAAAAAD7gAAAEEAAAABAAAD6QAAABMAAAAD"]),
       options
     )
   }
