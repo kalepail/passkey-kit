@@ -1438,14 +1438,14 @@ dependencies = [
 
 [[package]]
 name = "webauthn-factory"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "soroban-sdk",
 ]
 
 [[package]]
 name = "webauthn-secp256r1"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde-json-core",
