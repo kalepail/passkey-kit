@@ -221,7 +221,7 @@ impl CustomAccountInterface for Contract {
         base64_url::encode(&mut expected_challenge, &signature_payload.to_array());
 
         // Check that the challenge inside the client data JSON that was signed is identical to the expected challenge.
-        // TODO is this check actually necessary or is the secp256r1_verify enough? I think it's necessary
+        // TODO is this check actually necessary or is the secp256r1_verify enough?
         if client_data_json.challenge.as_bytes() != expected_challenge {
             return Err(Error::ClientDataJsonChallengeIncorrect);
         }

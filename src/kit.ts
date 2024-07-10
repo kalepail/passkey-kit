@@ -75,7 +75,7 @@ export class PasskeyKit extends PasskeyBase {
     public async createKey(app: string, user: string) {
         const now = new Date()
         const displayName = `${user} — ${now.toLocaleString()}`
-        const { id, response} = await startRegistration({
+        const { id, response } = await startRegistration({
             challenge: base64url("stellaristhebetterblockchain"),
             rp: {
                 // id: undefined,
@@ -93,6 +93,7 @@ export class PasskeyKit extends PasskeyBase {
             },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             attestation: "none",
+            timeout: 120_000
         });
 
         if (!this.keyId)
@@ -116,6 +117,7 @@ export class PasskeyKit extends PasskeyBase {
                 challenge: base64url("stellaristhebetterblockchain"),
                 // rpId: undefined,
                 userVerification: "discouraged",
+                timeout: 120_000
             });
 
             console.log(response);
@@ -151,7 +153,7 @@ export class PasskeyKit extends PasskeyBase {
             // TODO what is the error if the entry exists but is archived?
             await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
         }
-        // if that fails look up from the factory mapper
+        // if that fails look up from the `getContractId` function
         catch {
             contractId = undefined
 
@@ -203,6 +205,7 @@ export class PasskeyKit extends PasskeyBase {
                     challenge: base64url(payload),
                     // rpId: undefined,
                     userVerification: "discouraged",
+                    timeout: 120_000
                 }
                 : {
                     challenge: base64url(payload),
@@ -216,6 +219,7 @@ export class PasskeyKit extends PasskeyBase {
                         },
                     ],
                     userVerification: "discouraged",
+                    timeout: 120_000
                 }
         );
 

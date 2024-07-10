@@ -3,6 +3,11 @@ use soroban_sdk::{
     contract, contracterror, contractimpl, symbol_short, vec, Address, Bytes, BytesN, Env, Symbol,
 };
 
+// mod wallet {
+//     use soroban_sdk::auth::Context;
+//     soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_secp256r1.wasm");
+// }
+
 #[contract]
 pub struct Contract;
 
@@ -57,6 +62,8 @@ impl Contract {
             .ok_or(Error::NotInitialized)?;
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
+
+        // wallet::Client::new(&env, &address).add(&id, &pk, &true);
 
         let () = env.invoke_contract(
             &address,

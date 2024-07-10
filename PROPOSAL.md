@@ -1,4 +1,4 @@
-# Smart Wallet Interface
+# WebAuthn smart wallet contract interface
 
 With the release of [Protocol 21](https://stellar.org/blog/developers/announcing-protocol-21) (and specifically the inclusion of the secp256r1 verification  curve) Soroban now has tremendous first class support for passkey powered smart wallets.
 
