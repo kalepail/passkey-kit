@@ -105,11 +105,11 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    public async connectWallet(opts: {
+    public async connectWallet(opts?: {
         keyId?: string | Uint8Array,
         getContractId?: GetContractIdFunction
     }) {
-        let { keyId, getContractId } = opts
+        let { keyId, getContractId } = opts || {}
         let keyIdBuffer: Buffer
 
         if (!keyId) {
