@@ -1,6 +1,6 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, Networks, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON } from "@simplewebauthn/types"
@@ -8,39 +8,28 @@ import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 
-type GetContractIdFunction = (keyId: string) => Promise<string>;
-
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
-    public wallet: PasskeyClient | undefined
+    public networkPassphrase: string
     public factory: FactoryClient
-    public networkPassphrase: Networks
-    public rpcUrl: string
-    public rpc: SorobanRpc.Server
+    public wallet: PasskeyClient | undefined
 
     constructor(options: {
         rpcUrl: string,
-        launchtubeUrl?: string,
-        launchtubeJwt?: string,
         networkPassphrase: string,
         factoryContractId: string,
+        launchtubeUrl?: string,
+        launchtubeJwt?: string,
+        mercuryUrl?: string,
+        mercuryJwt?: string,
+        mercuryEmail?: string,
+        mercuryPassword?: string
     }) {
-        const {
-            rpcUrl,
-            launchtubeUrl,
-            launchtubeJwt,
-            networkPassphrase,
-            factoryContractId,
-        } = options
+        const { rpcUrl, networkPassphrase, factoryContractId } = options
 
-        super({
-            launchtubeUrl,
-            launchtubeJwt,
-        })
+        super(options)
 
-        this.rpcUrl = rpcUrl
-        this.rpc = new SorobanRpc.Server(rpcUrl)
-        this.networkPassphrase = networkPassphrase as Networks
+        this.networkPassphrase = networkPassphrase
         this.factory = new FactoryClient({
             contractId: factoryContractId,
             networkPassphrase,
@@ -107,9 +96,9 @@ export class PasskeyKit extends PasskeyBase {
 
     public async connectWallet(opts?: {
         keyId?: string | Uint8Array,
-        getContractId?: GetContractIdFunction
+        getContractId?: (keyId: string) => Promise<string | undefined>
     }) {
-        let { keyId, getContractId } = opts || {}
+        let { keyId, getContractId = this.getContractId } = opts || {}
         let keyIdBuffer: Buffer
 
         if (!keyId) {
@@ -155,10 +144,7 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the `getContractId` function
         catch {
-            contractId = undefined
-
-            if (getContractId)
-                contractId = await getContractId(keyId)
+            contractId = await getContractId(keyId)
         }
 
         if (!contractId)
