@@ -1,14 +1,40 @@
+import { Networks, SorobanRpc, xdr } from "@stellar/stellar-sdk"
+import { Client as FactoryClient } from 'passkey-factory-sdk'
+import base64url from "base64url"
+
 export class PasskeyBase {
+    public rpc: SorobanRpc.Server
+    public factory: FactoryClient
+    public rpcUrl: string
+    public networkPassphrase: Networks
     public launchtubeUrl: string | undefined
     public launchtubeJwt: string | undefined
+    public mercuryUrl: string | undefined
+    public mercuryJwt: string | undefined
+    public mercuryEmail: string | undefined
+    public mercuryPassword: string | undefined
 
     constructor(options: {
+        rpcUrl: string,
+        networkPassphrase: string,
+        factoryContractId: string,
         launchtubeUrl?: string,
         launchtubeJwt?: string,
+        mercuryUrl?: string,
+        mercuryJwt?: string,
+        mercuryEmail?: string,
+        mercuryPassword?: string
     }) {
         const {
+            rpcUrl,
+            networkPassphrase,
+            factoryContractId,
             launchtubeUrl,
             launchtubeJwt,
+            mercuryUrl,
+            mercuryJwt,
+            mercuryEmail,
+            mercuryPassword
         } = options
 
         if (launchtubeUrl)
@@ -16,7 +42,138 @@ export class PasskeyBase {
 
         if (launchtubeJwt)
             this.launchtubeJwt = launchtubeJwt
+
+        if (mercuryUrl)
+            this.mercuryUrl = mercuryUrl
+
+        if (mercuryJwt)
+            this.mercuryJwt = mercuryJwt
+
+        if (mercuryEmail)
+            this.mercuryEmail = mercuryEmail
+
+        if (mercuryPassword)
+            this.mercuryPassword = mercuryPassword
+
+        this.rpcUrl = rpcUrl
+        this.rpc = new SorobanRpc.Server(rpcUrl)
+        this.networkPassphrase = networkPassphrase as Networks
+        this.factory = new FactoryClient({
+            contractId: factoryContractId,
+            networkPassphrase,
+            rpcUrl
+        })
     }
+
+    public async getMercuryJwt() {
+        if (!this.mercuryEmail || !this.mercuryPassword)
+            throw new Error('Mercury service not configured')
+
+        const { data: { authenticate: { jwtToken } } } = await fetch(`${this.mercuryUrl}/graphql`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: `mutation {
+                    authenticate(input: {
+                        email: "${this.mercuryEmail}"
+                        password: "${this.mercuryPassword}"
+                    }) {
+                        jwtToken
+                    }
+                }`
+            })
+        })
+            .then(async (res) => {
+                if (res.ok)
+                    return res.json()
+
+                throw await res.json()
+            })
+
+        return jwtToken
+    }
+
+    public async getSigners(contractId: string = this.factory.options.contractId) {
+        if (!this.mercuryUrl || !this.mercuryJwt)
+            throw new Error('Mercury service not configured')
+
+        const signers = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${this.mercuryJwt}`
+            },
+            body: JSON.stringify({
+                mode: {
+                    Function: {
+                        fname: "get_signers_by_address",
+                        arguments: JSON.stringify({
+                            address: contractId
+                        })
+                    }
+                }
+            })
+        })
+            .then(async (res) => {
+                if (res.ok)
+                    return res.json()
+
+                throw await res.json()
+            })
+
+        for (const signer of signers) {
+            if (!signer.admin) {
+                try {
+                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(signer.id), SorobanRpc.Durability.Temporary)
+                } catch {
+                    signer.expired = true
+                }
+            }
+
+            signer.id = base64url(signer.id)
+            signer.pk = base64url(signer.pk)
+        }
+
+        return signers as { id: string, pk: string, admin: boolean, expired?: boolean }[]
+    }
+
+    public async getContractId(keyId: string) {
+        if (!this.mercuryUrl || !this.mercuryJwt)
+            return
+
+        const res = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${this.mercuryJwt}`
+            },
+            body: JSON.stringify({
+                mode: {
+                    Function: {
+                        fname: "get_address_by_signer",
+                        arguments: JSON.stringify({
+                            id: [...base64url.toBuffer(keyId)]
+                        })
+                    }
+                }
+            })
+        })
+            .then(async (res) => {
+                if (res.ok)
+                    return res.json()
+
+                throw await res.json()
+            })
+
+        return res[0]?.address as string | undefined
+    }
+
+    /* TODO 
+        - Add a method for getting a paginated or filtered list of all a wallet's events
+            @Later
+    */
 
     public async send(xdr: string, fee: number = 10_000) {
         if (!this.launchtubeUrl || !this.launchtubeJwt)

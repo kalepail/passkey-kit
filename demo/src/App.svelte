@@ -3,13 +3,7 @@
 	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import {
-		getContractId,
-		getBalance,
-		getSigners,
-		transferSAC,
-        type Signer,
-	} from "./lib/account";
+	import { getBalance, transferSAC } from "./lib/account";
 	import { fundKeypair, fundPubkey } from "./lib/common";
 
 	let keyId: string;
@@ -17,7 +11,12 @@
 	let admins: number;
 	let adminKeyId: string | undefined;
 	let balance: string;
-	let signers: Signer[] = [];
+	let signers: {
+		id: string;
+		pk: string;
+		admin: boolean;
+		expired?: boolean | undefined;
+	}[] = [];
 
 	let keyName: string = "";
 	let keyAdmin: boolean = false;
@@ -28,6 +27,8 @@
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
 		factoryContractId: import.meta.env.VITE_factoryContractId,
+		mercuryUrl: import.meta.env.VITE_mercuryUrl,
+		mercuryJwt: import.meta.env.VITE_mercuryJwt,
 	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
@@ -59,10 +60,7 @@
 		await fundWallet();
 	}
 	async function connect(keyId_?: string) {
-		const { keyId: kid, contractId: cid } = await account.connectWallet({
-			keyId: keyId_,
-			getContractId, // only strictly needed when the passed keyId will not derive to any or the correct contractId
-		});
+		const { keyId: kid, contractId: cid } = await account.connectWallet({keyId: keyId_});
 
 		keyId = base64url(kid);
 		localStorage.setItem("sp:keyId", keyId);
@@ -132,7 +130,7 @@
 		console.log(balance);
 	}
 	async function getWalletSigners() {
-		signers = await getSigners(contractId);
+		signers = await account.getSigners(contractId);
 		console.log(signers);
 
 		const adminKeys = signers.filter(({ admin }) => admin);
@@ -233,7 +231,12 @@
 						{#if keyId === id}◉{:else}◎{/if}&nbsp;
 					{:else if keyId === id}
 						●&nbsp;
-					{/if} {#if admin} ADMIN {:else} SESSION {/if}
+					{/if}
+					{#if admin}
+						ADMIN
+					{:else}
+						SESSION
+					{/if}
 				</button>
 
 				{id}
