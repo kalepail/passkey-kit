@@ -1,5 +1,5 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
-
+import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
@@ -10,6 +10,8 @@ import { PasskeyBase } from './base'
 
 export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
+    public networkPassphrase: string
+    public factory: FactoryClient
     public wallet: PasskeyClient | undefined
 
     constructor(options: {
@@ -23,7 +25,16 @@ export class PasskeyKit extends PasskeyBase {
         mercuryEmail?: string,
         mercuryPassword?: string
     }) {
+        const { rpcUrl, networkPassphrase, factoryContractId } = options
+
         super(options)
+
+        this.networkPassphrase = networkPassphrase
+        this.factory = new FactoryClient({
+            contractId: factoryContractId,
+            networkPassphrase,
+            rpcUrl
+        })
     }
 
     public async createWallet(app: string, user: string) {

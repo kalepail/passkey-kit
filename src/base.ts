@@ -1,12 +1,9 @@
-import { Networks, SorobanRpc, xdr } from "@stellar/stellar-sdk"
-import { Client as FactoryClient } from 'passkey-factory-sdk'
+import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
 import base64url from "base64url"
 
 export class PasskeyBase {
     public rpc: SorobanRpc.Server
-    public factory: FactoryClient
     public rpcUrl: string
-    public networkPassphrase: Networks
     public launchtubeUrl: string | undefined
     public launchtubeJwt: string | undefined
     public mercuryUrl: string | undefined
@@ -27,8 +24,6 @@ export class PasskeyBase {
     }) {
         const {
             rpcUrl,
-            networkPassphrase,
-            factoryContractId,
             launchtubeUrl,
             launchtubeJwt,
             mercuryUrl,
@@ -55,17 +50,14 @@ export class PasskeyBase {
         if (mercuryPassword)
             this.mercuryPassword = mercuryPassword
 
+        if (!mercuryJwt && mercuryUrl && mercuryEmail && mercuryPassword)
+            this.setMercuryJwt()
+
         this.rpcUrl = rpcUrl
         this.rpc = new SorobanRpc.Server(rpcUrl)
-        this.networkPassphrase = networkPassphrase as Networks
-        this.factory = new FactoryClient({
-            contractId: factoryContractId,
-            networkPassphrase,
-            rpcUrl
-        })
     }
 
-    public async getMercuryJwt() {
+    public async setMercuryJwt() {
         if (!this.mercuryEmail || !this.mercuryPassword)
             throw new Error('Mercury service not configured')
 
@@ -92,10 +84,11 @@ export class PasskeyBase {
                 throw await res.json()
             })
 
+        this.mercuryJwt = jwtToken
         return jwtToken
     }
 
-    public async getSigners(contractId: string = this.factory.options.contractId) {
+    public async getSigners(contractId: string) {
         if (!this.mercuryUrl || !this.mercuryJwt)
             throw new Error('Mercury service not configured')
 
