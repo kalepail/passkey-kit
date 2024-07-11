@@ -2,8 +2,8 @@ import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
 import base64url from "base64url"
 
 export class PasskeyBase {
-    public rpc: SorobanRpc.Server
-    public rpcUrl: string
+    public rpc: SorobanRpc.Server | undefined
+    public rpcUrl: string | undefined
     public launchtubeUrl: string | undefined
     public launchtubeJwt: string | undefined
     public mercuryUrl: string | undefined
@@ -12,9 +12,7 @@ export class PasskeyBase {
     public mercuryPassword: string | undefined
 
     constructor(options: {
-        rpcUrl: string,
-        networkPassphrase: string,
-        factoryContractId: string,
+        rpcUrl?: string,
         launchtubeUrl?: string,
         launchtubeJwt?: string,
         mercuryUrl?: string,
@@ -53,8 +51,10 @@ export class PasskeyBase {
         if (!mercuryJwt && mercuryUrl && mercuryEmail && mercuryPassword)
             this.setMercuryJwt()
 
-        this.rpcUrl = rpcUrl
-        this.rpc = new SorobanRpc.Server(rpcUrl)
+        if (rpcUrl) {
+            this.rpcUrl = rpcUrl
+            this.rpc = new SorobanRpc.Server(rpcUrl)
+        }
     }
 
     public async setMercuryJwt() {
@@ -89,7 +89,7 @@ export class PasskeyBase {
     }
 
     public async getSigners(contractId: string) {
-        if (!this.mercuryUrl || !this.mercuryJwt)
+        if (!this.rpc || !this.mercuryUrl || !this.mercuryJwt)
             throw new Error('Mercury service not configured')
 
         const signers = await fetch(`${this.mercuryUrl}/zephyr/execute`, {

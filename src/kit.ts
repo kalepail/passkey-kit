@@ -4,7 +4,6 @@ import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, Transac
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON } from "@simplewebauthn/types"
-import { decode } from 'cbor-x/decode'
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 
@@ -28,6 +27,12 @@ export class PasskeyKit extends PasskeyBase {
         const { rpcUrl, networkPassphrase, factoryContractId } = options
 
         super(options)
+
+        if (!this.rpcUrl)
+            this.rpcUrl = rpcUrl
+
+        if (!this.rpc)
+            this.rpc = new SorobanRpc.Server(rpcUrl)
 
         this.networkPassphrase = networkPassphrase
         this.factory = new FactoryClient({
@@ -82,7 +87,7 @@ export class PasskeyKit extends PasskeyBase {
             },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             attestation: "none",
-            timeout: 120_000
+            timeout: 120_000,
         });
 
         if (!this.keyId)
@@ -90,7 +95,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return {
             keyId: base64url.toBuffer(id),
-            publicKey: this.getPublicKey(response)
+            publicKey: await this.getPublicKey(response)
         }
     }
 
@@ -109,7 +114,7 @@ export class PasskeyKit extends PasskeyBase {
                 timeout: 120_000
             });
 
-            console.log(response);
+            // console.log(response);
 
             keyId = response.id
         }
@@ -140,7 +145,7 @@ export class PasskeyKit extends PasskeyBase {
         // attempt passkey id derivation
         try {
             // TODO what is the error if the entry exists but is archived?
-            await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
+            await this.rpc!.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
         }
         // if that fails look up from the `getContractId` function
         catch {
@@ -172,7 +177,7 @@ export class PasskeyKit extends PasskeyBase {
         // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
         let { keyId, ledgersToLive = 60 } = options || {}
 
-        const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+        const lastLedger = await this.rpc!.getLatestLedger().then(({ sequence }) => sequence)
         const credentials = entry.credentials().address();
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
@@ -295,7 +300,7 @@ export class PasskeyKit extends PasskeyBase {
                 await this.signAuthEntries(entries, options)
         }
 
-        const sim = await this.rpc.simulateTransaction(txn)
+        const sim = await this.rpc!.simulateTransaction(txn)
 
         if (
             SorobanRpc.Api.isSimulationError(sim)
@@ -311,29 +316,50 @@ export class PasskeyKit extends PasskeyBase {
             @Later
     */
 
-    private getPublicKey(response: AuthenticatorAttestationResponseJSON) {
+    private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
         let publicKey: Buffer | undefined
 
-        if (response.publicKey)
-            publicKey = base64url.toBuffer(response.publicKey).slice(response.publicKey.length - 65)
+        if (response.publicKey) {
+            publicKey = base64url.toBuffer(response.publicKey)
+            publicKey = publicKey!.slice(publicKey!.length - 65)
+        }
 
         if (
             !publicKey
             || publicKey[0] !== 0x04
             || publicKey.length !== 65
         ) {
-            // Extract and decode attestation object (CBOR), slice authenticator data to get COSE-encoded public key, and decode COSE to obtain key components
-            const { authData } = response.authenticatorData ? { authData: base64url.toBuffer(response.authenticatorData) } : decode(base64url.toBuffer(response.attestationObject));
-            const credentialIdLength = (authData[53] << 8) + authData[54];
-            const publicKeyBytes = authData.slice(55 + credentialIdLength);
-            const publicKeyCose = decode(publicKeyBytes);
+            let x: Buffer
+            let y: Buffer
+
+            if (response.authenticatorData) {
+                const authenticatorData = base64url.toBuffer(response.authenticatorData)
+                const credentialIdLength = (authenticatorData[53] << 8) | authenticatorData[54]
+
+                x = authenticatorData.slice(65 + credentialIdLength, 97 + credentialIdLength)
+                y = authenticatorData.slice(100 + credentialIdLength, 132 + credentialIdLength)
+            } else {
+                const attestationData = base64url.toBuffer(response.attestationObject)
+                
+                let startIndex = attestationData.indexOf(0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20)
+                    startIndex = startIndex + startIndex.length
+
+                x = attestationData.slice(startIndex, 32 + startIndex)
+                y = attestationData.slice(35 + startIndex, 67 + startIndex)
+            }
 
             publicKey = Buffer.from([
                 0x04, // (0x04 prefix) https://en.bitcoin.it/wiki/Elliptic_Curve_Digital_Signature_Algorithm
-                ...publicKeyCose['-2'],
-                ...publicKeyCose['-3']
+                ...x,
+                ...y
             ])
         }
+
+        /* TODO 
+            - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
+                Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
+                @Later
+        */
 
         return publicKey
     }
