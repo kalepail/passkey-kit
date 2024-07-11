@@ -48,9 +48,6 @@ export class PasskeyBase {
         if (mercuryPassword)
             this.mercuryPassword = mercuryPassword
 
-        if (!mercuryJwt && mercuryUrl && mercuryEmail && mercuryPassword)
-            this.setMercuryJwt()
-
         if (rpcUrl) {
             this.rpcUrl = rpcUrl
             this.rpc = new SorobanRpc.Server(rpcUrl)
@@ -58,7 +55,7 @@ export class PasskeyBase {
     }
 
     public async setMercuryJwt() {
-        if (!this.mercuryEmail || !this.mercuryPassword)
+        if (!this.mercuryUrl || !this.mercuryEmail || !this.mercuryPassword)
             throw new Error('Mercury service not configured')
 
         const { data: { authenticate: { jwtToken } } } = await fetch(`${this.mercuryUrl}/graphql`, {

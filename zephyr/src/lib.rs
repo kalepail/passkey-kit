@@ -236,6 +236,8 @@ pub extern "C" fn get_events_by_address() {
     env.conclude(&events)
 }
 
+// TODO make a serverless function to deactivate signers by id
+
 ////
 
 #[cfg(test)]
