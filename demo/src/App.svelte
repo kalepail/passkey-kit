@@ -2,7 +2,6 @@
 	import { PasskeyKit, PasskeyServer } from "passkey-kit";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getBalance } from "./lib/account";
 	import { fundPubkey, fundSigner, native } from "./lib/common";
 
 
@@ -132,7 +131,9 @@
 	}
 
 	async function getWalletBalance() {
-		balance = await getBalance(contractId);
+		const { result } = await native.balance({ id: contractId })
+
+		balance = result.toString()
 		console.log(balance);
 	}
 	async function getWalletSigners() {
