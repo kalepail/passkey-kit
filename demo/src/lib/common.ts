@@ -1,4 +1,4 @@
-import { SACClient } from "passkey-kit";
+import { PasskeyKit, PasskeyServer, SACClient } from "passkey-kit";
 import { Account, Keypair, SorobanRpc, StrKey } from "@stellar/stellar-sdk"
 import { Buffer } from "buffer";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
@@ -25,6 +25,19 @@ export const fundKeypair = new Promise<Keypair>(async (resolve) => {
 })
 export const fundPubkey = (await fundKeypair).publicKey()
 export const fundSigner = basicNodeSigner(await fundKeypair, import.meta.env.VITE_networkPassphrase)
+
+export const account = new PasskeyKit({
+    rpcUrl: import.meta.env.VITE_rpcUrl,
+    networkPassphrase: import.meta.env.VITE_networkPassphrase,
+    factoryContractId: import.meta.env.VITE_factoryContractId,
+});
+export const server = new PasskeyServer({
+    rpcUrl: import.meta.env.VITE_rpcUrl,
+    launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
+    launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
+    mercuryUrl: import.meta.env.VITE_mercuryUrl,
+    mercuryJwt: import.meta.env.VITE_mercuryJwt,
+});
 
 export const sac = new SACClient({
     rpcUrl: import.meta.env.VITE_rpcUrl,

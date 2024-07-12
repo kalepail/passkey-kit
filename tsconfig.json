@@ -23,10 +23,10 @@
   },
   "exclude": [
     "./bun_tests",
-    "./contracts", 
-    "./demo", 
+    "./contracts",
+    "./demo",
     "./packages",
-    "./types", 
-    "./zephyr", 
+    "./types",
+    "./zephyr",
   ]
 }

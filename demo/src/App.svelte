@@ -1,9 +1,13 @@
 <script lang="ts">
-	import { PasskeyKit, PasskeyServer } from "passkey-kit";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { fundPubkey, fundSigner, native } from "./lib/common";
-
+	import {
+		account,
+		fundPubkey,
+		fundSigner,
+		native,
+		server,
+	} from "./lib/common";
 
 	let keyId: string;
 	let contractId: string;
@@ -20,19 +24,6 @@
 	let keyName: string = "";
 	let keyAdmin: boolean = false;
 
-	const account = new PasskeyKit({
-		rpcUrl: import.meta.env.VITE_rpcUrl,
-		networkPassphrase: import.meta.env.VITE_networkPassphrase,
-		factoryContractId: import.meta.env.VITE_factoryContractId,
-	});
-	const server = new PasskeyServer({
-		rpcUrl: import.meta.env.VITE_rpcUrl,
-		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
-		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
-		mercuryUrl: import.meta.env.VITE_mercuryUrl,
-		mercuryJwt: import.meta.env.VITE_mercuryJwt,
-	});
-
 	if (localStorage.hasOwnProperty("sp:keyId")) {
 		keyId = localStorage.getItem("sp:keyId")!;
 		connect(keyId);
@@ -43,38 +34,46 @@
 
 		if (!user) return;
 
-		const {
-			keyId: kid,
-			contractId: cid,
-			xdr,
-		} = await account.createWallet("Super Peach", user);
-		const res = await server.send(xdr);
+		try {
+			const {
+				keyId: kid,
+				contractId: cid,
+				xdr,
+			} = await account.createWallet("Super Peach", user);
+			const res = await server.send(xdr);
 
-		console.log(res);
+			console.log(res);
 
-		keyId = base64url(kid);
-		localStorage.setItem("sp:keyId", keyId);
+			keyId = base64url(kid);
+			localStorage.setItem("sp:keyId", keyId);
 
-		contractId = cid;
-		console.log("register", cid);
+			contractId = cid;
+			console.log("register", cid);
 
-		await getWalletSigners();
-		await fundWallet();
+			await getWalletSigners();
+			await fundWallet();
+		} catch (err: any) {
+			alert(err.message)
+		}
 	}
 	async function connect(keyId_?: string) {
-		const { keyId: kid, contractId: cid } = await account.connectWallet({
-			keyId: keyId_,
-			getContractId: (keyId) => server.getContractId(keyId)
-		});
+		try {
+			const { keyId: kid, contractId: cid } = await account.connectWallet({
+				keyId: keyId_,
+				getContractId: (keyId) => server.getContractId(keyId),
+			});
 
-		keyId = base64url(kid);
-		localStorage.setItem("sp:keyId", keyId);
+			keyId = base64url(kid);
+			localStorage.setItem("sp:keyId", keyId);
 
-		contractId = cid;
-		console.log("connect", cid);
+			contractId = cid;
+			console.log("connect", cid);
 
-		await getWalletBalance();
-		await getWalletSigners();
+			await getWalletBalance();
+			await getWalletSigners();
+		} catch (err: any) {
+			alert(err.message)
+		}
 	}
 	async function reset() {
 		localStorage.removeItem("sp:keyId");
@@ -82,81 +81,72 @@
 	}
 
 	async function addSigner(publicKey?: string) {
-		let id: Buffer;
-		let pk: Buffer;
+		try {
+			let id: Buffer;
+			let pk: Buffer;
 
-		if (publicKey && keyId) {
-			id = base64url.toBuffer(keyId);
-			pk = base64url.toBuffer(publicKey);
+			if (publicKey && keyId) {
+				id = base64url.toBuffer(keyId);
+				pk = base64url.toBuffer(publicKey);
+				keyAdmin = false;
+			} else {
+				if (!keyName) return;
+
+				const { keyId: kid, publicKey } = await account.createKey(
+					"Super Peach",
+					keyName,
+				);
+
+				id = kid;
+				pk = publicKey;
+			}
+
+			const { built } = await account.wallet!.add({
+				id,
+				pk,
+				admin: keyAdmin,
+			});
+
+			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const res = await server.send(xdr);
+
+			console.log(res);
+
+			await getWalletSigners();
+
+			keyName = "";
 			keyAdmin = false;
-		} else {
-			if (!keyName) return;
-
-			const { keyId: kid, publicKey } = await account.createKey(
-				"Super Peach",
-				keyName,
-			);
-
-			id = kid;
-			pk = publicKey;
+		} catch (err: any) {
+			alert(err.message)
 		}
-
-		const { built } = await account.wallet!.add({
-			id,
-			pk,
-			admin: keyAdmin,
-		});
-
-		const xdr = await account.sign(built!, { keyId: adminKeyId });
-		const res = await server.send(xdr);
-
-		console.log(res);
-
-		await getWalletSigners();
-
-		keyName = "";
-		keyAdmin = false;
 	}
 	async function removeSigner(signer: string) {
-		const { built } = await account.wallet!.remove({
-			id: base64url.toBuffer(signer),
-		});
+		try {
+			const { built } = await account.wallet!.remove({
+				id: base64url.toBuffer(signer),
+			});
 
-		const xdr = await account.sign(built!, { keyId: adminKeyId });
-		const res = await server.send(xdr);
+			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const res = await server.send(xdr);
 
-		console.log(res);
+			console.log(res);
 
-		await getWalletSigners();
+			await getWalletSigners();
+		} catch (err: any) {
+			alert(err.message)
+		}
 	}
-
-	async function getWalletBalance() {
-		const { result } = await native.balance({ id: contractId })
-
-		balance = result.toString()
-		console.log(balance);
-	}
-	async function getWalletSigners() {
-		signers = await server.getSigners(contractId);
-		console.log(signers);
-
-		const adminKeys = signers.filter(({ admin }) => admin);
-		adminKeyId = (adminKeys.find(({ id }) => keyId === id) || adminKeys[0])
-			.id;
-		admins = adminKeys.length;
-	}
-
 	async function fundWallet() {
 		const { built, ...transfer } = await native.transfer({
 			to: contractId,
 			from: fundPubkey,
 			amount: BigInt(100 * 10_000_000),
-		})
+		});
 
 		await transfer.signAuthEntries({
 			publicKey: fundPubkey,
-			signAuthEntry: (auth) => fundSigner.signAuthEntry(auth)
-		})
+			signAuthEntry: (auth) => fundSigner.signAuthEntry(auth),
+		});
 
 		const res = await server.send(built!.toXDR());
 
@@ -177,6 +167,21 @@
 		console.log(res);
 
 		await getWalletBalance();
+	}
+	async function getWalletBalance() {
+		const { result } = await native.balance({ id: contractId });
+
+		balance = result.toString();
+		console.log(balance);
+	}
+	async function getWalletSigners() {
+		signers = await server.getSigners(contractId);
+		console.log(signers);
+
+		const adminKeys = signers.filter(({ admin }) => admin);
+		adminKeyId = (adminKeys.find(({ id }) => keyId === id) || adminKeys[0])
+			.id;
+		admins = adminKeys.length;
 	}
 </script>
 
