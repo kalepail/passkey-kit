@@ -28,12 +28,6 @@ export class PasskeyKit extends PasskeyBase {
 
         super(options)
 
-        if (!this.rpcUrl)
-            this.rpcUrl = rpcUrl
-
-        if (!this.rpc)
-            this.rpc = new SorobanRpc.Server(rpcUrl)
-
         this.networkPassphrase = networkPassphrase
         this.factory = new FactoryClient({
             contractId: factoryContractId,

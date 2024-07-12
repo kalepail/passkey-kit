@@ -86,6 +86,9 @@ export class PasskeyBase {
     }
 
     public async getSigners(contractId: string) {
+        if (this.rpc && this.mercuryUrl && !this.mercuryJwt)
+            await this.setMercuryJwt()
+
         if (!this.rpc || !this.mercuryUrl || !this.mercuryJwt)
             throw new Error('Mercury service not configured')
 
@@ -130,6 +133,9 @@ export class PasskeyBase {
     }
 
     public async getContractId(keyId: string) {
+        if (this.mercuryUrl && !this.mercuryJwt)
+            await this.setMercuryJwt()
+
         if (!this.mercuryUrl || !this.mercuryJwt)
             return
 
