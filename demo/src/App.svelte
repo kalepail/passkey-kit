@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PasskeyKit } from "passkey-kit";
+	import { PasskeyKit, PasskeyServer } from "passkey-kit";
 	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
@@ -23,13 +23,17 @@
 
 	const account = new PasskeyKit({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
-		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
-		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
 		factoryContractId: import.meta.env.VITE_factoryContractId,
+		
+	});
+	const server = new PasskeyServer({
+		rpcUrl: import.meta.env.VITE_rpcUrl,
+		launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
+		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		mercuryUrl: import.meta.env.VITE_mercuryUrl,
 		mercuryJwt: import.meta.env.VITE_mercuryJwt,
-	});
+	})
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
 		keyId = localStorage.getItem("sp:keyId")!;
@@ -46,7 +50,7 @@
 			contractId: cid,
 			xdr,
 		} = await account.createWallet("Super Peach", user);
-		const res = await account.send(xdr);
+		const res = await server.send(xdr);
 
 		console.log(res);
 
@@ -60,7 +64,10 @@
 		await fundWallet();
 	}
 	async function connect(keyId_?: string) {
-		const { keyId: kid, contractId: cid } = await account.connectWallet({keyId: keyId_});
+		const { keyId: kid, contractId: cid } = await account.connectWallet({
+			keyId: keyId_,
+			getContractId: keyId_ ? (keyId) => server.getContractId(keyId) : undefined, // <- TODO TEST THIS
+		});
 
 		keyId = base64url(kid);
 		localStorage.setItem("sp:keyId", keyId);
@@ -103,7 +110,7 @@
 		});
 
 		const xdr = await account.sign(built!, { keyId: adminKeyId });
-		const res = await account.send(xdr);
+		const res = await server.send(xdr);
 
 		console.log(res);
 
@@ -118,7 +125,7 @@
 		});
 
 		const xdr = await account.sign(built!, { keyId: adminKeyId });
-		const res = await account.send(xdr);
+		const res = await server.send(xdr);
 
 		console.log(res);
 
@@ -130,7 +137,7 @@
 		console.log(balance);
 	}
 	async function getWalletSigners() {
-		signers = await account.getSigners(contractId);
+		signers = await server.getSigners(contractId);
 		console.log(signers);
 
 		const adminKeys = signers.filter(({ admin }) => admin);
@@ -160,7 +167,7 @@
 			op.auth!.push(signEntry);
 		}
 
-		const res = await account.send(txn.toXDR());
+		const res = await server.send(txn.toXDR());
 
 		console.log(res);
 
@@ -175,7 +182,7 @@
 		});
 
 		const xdr = await account.sign(built, { keyId: signer });
-		const res = await account.send(xdr);
+		const res = await server.send(xdr);
 
 		console.log(res);
 

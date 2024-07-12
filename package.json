@@ -1,6 +1,6 @@
 {
   "name": "passkey-kit",
-  "version": "0.4.6",
+  "version": "0.5.0",
   "description": "A helper library for creating and using passkey accounts on the Stellar blockchain.",
   "author": "Tyler van der Hoeven",
   "license": "MIT",

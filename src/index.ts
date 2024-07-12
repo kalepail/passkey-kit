@@ -1,4 +1,4 @@
-import { PasskeyBase } from "./base"
+import { PasskeyServer } from "./server"
 import { PasskeyKit } from "./kit"
 
-export { PasskeyBase, PasskeyKit }
+export { PasskeyServer, PasskeyKit }

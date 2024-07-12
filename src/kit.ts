@@ -8,6 +8,8 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 
 export class PasskeyKit extends PasskeyBase {
+    declare public rpc: SorobanRpc.Server
+    declare public rpcUrl: string
     public keyId: string | undefined
     public networkPassphrase: string
     public factory: FactoryClient
@@ -17,16 +19,10 @@ export class PasskeyKit extends PasskeyBase {
         rpcUrl: string,
         networkPassphrase: string,
         factoryContractId: string,
-        launchtubeUrl?: string,
-        launchtubeJwt?: string,
-        mercuryUrl?: string,
-        mercuryJwt?: string,
-        mercuryEmail?: string,
-        mercuryPassword?: string
     }) {
         const { rpcUrl, networkPassphrase, factoryContractId } = options
 
-        super(options)
+        super(rpcUrl)
 
         this.networkPassphrase = networkPassphrase
         this.factory = new FactoryClient({
@@ -97,7 +93,7 @@ export class PasskeyKit extends PasskeyBase {
         keyId?: string | Uint8Array,
         getContractId?: (keyId: string) => Promise<string | undefined>
     }) {
-        let { keyId, getContractId = this.getContractId } = opts || {}
+        let { keyId, getContractId } = opts || {}
         let keyIdBuffer: Buffer
 
         if (!keyId) {
@@ -139,11 +135,11 @@ export class PasskeyKit extends PasskeyBase {
         // attempt passkey id derivation
         try {
             // TODO what is the error if the entry exists but is archived?
-            await this.rpc!.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
+            await this.rpc.getContractData(contractId, xdr.ScVal.scvLedgerKeyContractInstance())
         }
         // if that fails look up from the `getContractId` function
         catch {
-            contractId = await getContractId(keyId)
+            contractId = getContractId ? await getContractId(keyId) : undefined
         }
 
         if (!contractId)
@@ -171,7 +167,7 @@ export class PasskeyKit extends PasskeyBase {
         // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
         let { keyId, ledgersToLive = 60 } = options || {}
 
-        const lastLedger = await this.rpc!.getLatestLedger().then(({ sequence }) => sequence)
+        const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
         const credentials = entry.credentials().address();
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
@@ -294,7 +290,7 @@ export class PasskeyKit extends PasskeyBase {
                 await this.signAuthEntries(entries, options)
         }
 
-        const sim = await this.rpc!.simulateTransaction(txn)
+        const sim = await this.rpc.simulateTransaction(txn)
 
         if (
             SorobanRpc.Api.isSimulationError(sim)
