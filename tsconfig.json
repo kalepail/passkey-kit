@@ -22,11 +22,11 @@
     "strictNullChecks": true,
   },
   "exclude": [
+    "./bun_tests",
+    "./contracts", 
     "./demo", 
     "./packages",
     "./types", 
-    "./contracts", 
     "./zephyr", 
-    "./bun_tests"
   ]
 }
