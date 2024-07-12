@@ -104,8 +104,6 @@ export class PasskeyKit extends PasskeyBase {
                 timeout: 120_000
             });
 
-            // console.log(response);
-
             keyId = response.id
         }
 

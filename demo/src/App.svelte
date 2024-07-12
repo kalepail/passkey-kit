@@ -25,7 +25,6 @@
 		rpcUrl: import.meta.env.VITE_rpcUrl,
 		networkPassphrase: import.meta.env.VITE_networkPassphrase,
 		factoryContractId: import.meta.env.VITE_factoryContractId,
-		
 	});
 	const server = new PasskeyServer({
 		rpcUrl: import.meta.env.VITE_rpcUrl,
@@ -33,7 +32,7 @@
 		launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
 		mercuryUrl: import.meta.env.VITE_mercuryUrl,
 		mercuryJwt: import.meta.env.VITE_mercuryJwt,
-	})
+	});
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
 		keyId = localStorage.getItem("sp:keyId")!;
@@ -66,7 +65,7 @@
 	async function connect(keyId_?: string) {
 		const { keyId: kid, contractId: cid } = await account.connectWallet({
 			keyId: keyId_,
-			getContractId: keyId_ ? (keyId) => server.getContractId(keyId) : undefined, // <- TODO TEST THIS
+			getContractId: (keyId) => server.getContractId(keyId)
 		});
 
 		keyId = base64url(kid);
