@@ -1,8 +1,8 @@
 import { SorobanRpc } from "@stellar/stellar-sdk"
 
 export class PasskeyBase {
-    public rpc: SorobanRpc.Server | undefined
     public rpcUrl: string | undefined
+    public rpc: SorobanRpc.Server | undefined
     
     constructor(rpcUrl?: string) {
         if (rpcUrl) {

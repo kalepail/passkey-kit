@@ -26,6 +26,9 @@ importers:
       passkey-kit-sdk:
         specifier: workspace:*
         version: link:packages/passkey-kit-sdk
+      sac-sdk:
+        specifier: workspace:*
+        version: link:packages/sac-sdk
     devDependencies:
       '@simplewebauthn/types':
         specifier: ^10.0.0
@@ -48,6 +51,19 @@ importers:
         version: 5.5.3
 
   packages/passkey-kit-sdk:
+    dependencies:
+      '@stellar/stellar-sdk':
+        specifier: 12.1.0
+        version: 12.1.0
+      buffer:
+        specifier: 6.0.3
+        version: 6.0.3
+    devDependencies:
+      typescript:
+        specifier: 5.5.3
+        version: 5.5.3
+
+  packages/sac-sdk:
     dependencies:
       '@stellar/stellar-sdk':
         specifier: 12.1.0

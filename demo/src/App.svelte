@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { PasskeyKit, PasskeyServer } from "passkey-kit";
-	import { Operation, authorizeEntry } from "@stellar/stellar-sdk";
 	import base64url from "base64url";
 	import { Buffer } from "buffer";
-	import { getBalance, transferSAC } from "./lib/account";
-	import { fundKeypair, fundPubkey } from "./lib/common";
+	import { getBalance } from "./lib/account";
+	import { fundPubkey, fundSigner, native } from "./lib/common";
+
 
 	let keyId: string;
 	let contractId: string;
@@ -146,41 +146,31 @@
 	}
 
 	async function fundWallet() {
-		const { txn, sim } = await transferSAC({
-			SAC: import.meta.env.VITE_nativeContractId,
-			from: fundPubkey,
+		const { built, ...transfer } = await native.transfer({
 			to: contractId,
-			amount: 100 * 10_000_000,
-		});
+			from: fundPubkey,
+			amount: BigInt(100 * 10_000_000),
+		})
 
-		const op = txn.operations[0] as Operation.InvokeHostFunction;
+		await transfer.signAuthEntries({
+			publicKey: fundPubkey,
+			signAuthEntry: (auth) => fundSigner.signAuthEntry(auth)
+		})
 
-		for (const auth of sim.result?.auth || []) {
-			const signEntry = await authorizeEntry(
-				auth,
-				await fundKeypair,
-				sim.latestLedger + 60,
-				import.meta.env.VITE_networkPassphrase,
-			);
-
-			op.auth!.push(signEntry);
-		}
-
-		const res = await server.send(txn.toXDR());
+		const res = await server.send(built!.toXDR());
 
 		console.log(res);
 
 		await getWalletBalance();
 	}
 	async function walletTransfer(signer: string) {
-		const { built } = await transferSAC({
-			SAC: import.meta.env.VITE_nativeContractId,
-			from: contractId,
+		const { built } = await native.transfer({
 			to: account.factory.options.contractId,
-			amount: 10_000_000,
+			from: contractId,
+			amount: BigInt(10_000_000),
 		});
 
-		const xdr = await account.sign(built, { keyId: signer });
+		const xdr = await account.sign(built!, { keyId: signer });
 		const res = await server.send(xdr);
 
 		console.log(res);

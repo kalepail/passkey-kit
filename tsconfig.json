@@ -1,29 +1,32 @@
 {
   "compilerOptions": {
     "outDir": "./types",
-
     // Enable latest features
     "target": "ESNext",
     "module": "ESNext",
     "moduleDetection": "force",
-
     // Bundler mode
     "moduleResolution": "node",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-
     // Best practices
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
-
     // Some stricter flags (disabled by default)
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
   },
-  "exclude": ["./demo", "./packages", "./types", "./contracts", "./zephyr", "./bun_tests"]
+  "exclude": [
+    "./demo", 
+    "./packages",
+    "./types", 
+    "./contracts", 
+    "./zephyr", 
+    "./bun_tests"
+  ]
 }

@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "name": "sac-sdk",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "prepublishOnly": "pnpm run build",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "buffer": "6.0.3",
+    "@stellar/stellar-sdk": "12.1.0"
+  },
+  "devDependencies": {
+    "typescript": "5.5.3"
+  }
+}

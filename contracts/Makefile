@@ -1,8 +1,9 @@
-# export SOROBAN_RPC_URL=http://67.205.175.159:8000/soroban/rpc
-# export SOROBAN_NETWORK_PASSPHRASE=Standalone Network ; February 2017
 export SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 export SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 export SOROBAN_ACCOUNT=default
+
+export NATIVE_CONTRACT=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+
 export WEBAUTHN_FACTORY=CCPLERXCJZB7LX2VOSOCBNRN754FRLHI6Y2AVOQBA5L7C2ZJX5RFVVET
 export WEBAUTHN_WASM=f5a06865c6ac90cd11c2f416fdad568da8350e0a7119fdb315595da5e8f9f230
 
@@ -27,6 +28,7 @@ init:
 	soroban contract invoke --id $(WEBAUTHN_FACTORY) -- init --wasm_hash $(WEBAUTHN_WASM)
 
 bindings:
+	soroban contract bindings typescript --id $(NATIVE_CONTRACT) --network testnet --output-dir ./out/sac-sdk --overwrite
 	soroban contract bindings typescript --id $(WEBAUTHN_FACTORY) --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
 	soroban contract bindings typescript --id $(WEBAUTHN_FACTORY) --wasm ./out/webauthn_secp256r1.optimized.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
 
