@@ -70,14 +70,14 @@ export class PasskeyKit extends PasskeyBase {
                 name: displayName,
                 displayName
             },
-            authenticatorSelection: {
-                requireResidentKey: false,
-                residentKey: "preferred",
-                userVerification: "discouraged",
-            },
+            // authenticatorSelection: {
+                // requireResidentKey: false,
+                // residentKey: "preferred",
+                // userVerification: "discouraged",
+            // },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-            attestation: "none",
-            timeout: 120_000,
+            // attestation: "none",
+            // timeout: 120_000,
         });
 
         if (!this.keyId)
@@ -100,8 +100,8 @@ export class PasskeyKit extends PasskeyBase {
             const response = await startAuthentication({
                 challenge: base64url("stellaristhebetterblockchain"),
                 // rpId: undefined,
-                userVerification: "discouraged",
-                timeout: 120_000
+                // userVerification: "discouraged",
+                // timeout: 120_000
             });
 
             keyId = response.id
@@ -183,8 +183,8 @@ export class PasskeyKit extends PasskeyBase {
                 ? {
                     challenge: base64url(payload),
                     // rpId: undefined,
-                    userVerification: "discouraged",
-                    timeout: 120_000
+                    // userVerification: "discouraged",
+                    // timeout: 120_000
                 }
                 : {
                     challenge: base64url(payload),
@@ -197,8 +197,8 @@ export class PasskeyKit extends PasskeyBase {
                             type: "public-key",
                         },
                     ],
-                    userVerification: "discouraged",
-                    timeout: 120_000
+                    // userVerification: "discouraged",
+                    // timeout: 120_000
                 }
         );
 
@@ -327,13 +327,14 @@ export class PasskeyKit extends PasskeyBase {
                 x = authenticatorData.slice(65 + credentialIdLength, 97 + credentialIdLength)
                 y = authenticatorData.slice(100 + credentialIdLength, 132 + credentialIdLength)
             } else {
-                const attestationData = base64url.toBuffer(response.attestationObject)
-                
-                let startIndex = attestationData.indexOf(0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20)
-                    startIndex = startIndex + startIndex.length
+                const attestationObject = base64url.toBuffer(response.attestationObject)
 
-                x = attestationData.slice(startIndex, 32 + startIndex)
-                y = attestationData.slice(35 + startIndex, 67 + startIndex)
+                let publicKeykPrefixSlice = Buffer.from([0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20])
+                let startIndex = attestationObject.indexOf(publicKeykPrefixSlice)
+                    startIndex = startIndex + publicKeykPrefixSlice.length
+
+                x = attestationObject.slice(startIndex, 32 + startIndex)
+                y = attestationObject.slice(35 + startIndex, 67 + startIndex)
             }
 
             publicKey = Buffer.from([
