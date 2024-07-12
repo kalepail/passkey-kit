@@ -12,27 +12,61 @@ pnpm i passkey-kit
 On the client:
 ```ts
 const account = new PasskeyKit({
-    rpcUrl: env.RPC_URL,
-    networkPassphrase: env.NETWORK_PASSPHRASE,
-    factoryContractId: env.FACTORY_CONTRACT_ID,
+    rpcUrl: env.PUBLIC_rpcUrl,
+    networkPassphrase: env.PUBLIC_networkPassphrase,
+    factoryContractId: env.PUBLIC_factoryContractId,
 });
 ```
 
 On the server:
 ```ts
 const account = new PasskeyBase({
-    launchtubeUrl: env.LAUNCHTUBE_URL,
-    launchtubeJwt: env.LAUNCHTUBE_JWT,
+    rpcUrl: env.PUBLIC_rpcUrl,
+    launchtubeUrl: env.PUBLIC_launchtubeUrl,
+    launchtubeJwt: env.PRIVATE_launchtubeJwt,
+    mercuryUrl: env.PUBLIC_mercuryUrl,
+    mercuryEmail: env.PRIVATE_mercuryEmail,
+    mercuryPassword: env.PRIVATE_mercuryPassword,
 });
 ```
 
 Note that while I don't recommend it you can use the server-intended `send` method on the client side by passing in the `launchtubeUrl` and `launchtubeJwt` values to the `PasskeyKit` constructor. We do this in the `./demo` site to ease demonstration, development and experimentation, however in a production environment you'll want to keep your secrets safe on the server.
+
+In order to utilize the zephyr indexing service to track available signers and reverse lookup smart wallet contract addresses from passkey ids you'll need to deploy the Zephyr program from inside the `./zephyr` directory.
+
+```bash
+cd ./zephyr
+cargo install mercury-cli
+# Get a JWT from Mercury https://test.mercurydata.app
+export MERCURY_JWT="<YOUR.MERCURY.JWT>"
+# Make sure you're on Rust version 1.79.0 or newer
+mercury-cli --jwt $MERCURY_JWT --local false --mainnet false deploy
+```
 
 This is a fully typed library so docs aren't provided, however there's a full example showcasing all the core public methods in the `./demo` directory. I also recommend reviewing the [Super Peach](https://github.com/kalepail/superpeach) repo for an example of how you could implement both the client and server side in a more real-world scenario.
 
 Good luck, have fun, and change the world!
 
 For any questions or to showcase your progress please join the `#passkeys` channel on our [Discord](https://discord.gg/stellardev).
+
+## Some Notes
+
+This is a TypeScript library and the npm package doesn't export a JavaScript version. The `@stellar/stellar-sdk` library is enormous and I really don't wan't folks bundling it up twice. Therefore you'll need to ensure you're transpiling this library into your project and that goes for either a TS project or a JS one. For many of you this will "just work" but for others you'll need to do some fiddling.
+
+For example if you're using NextJS this will mean modifying your `next.config.mjs` file to include the following packages in the `transpilePackages` key:
+```mjs
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+    transpilePackages: [
+        'passkey-kit', 
+        'passkey-factory-sdk', 
+        'passkey-kit-sdk'
+    ]
+};
+
+export default nextConfig;
+```
+If someone smarter than me knows how to include an optional JS build from a TS library please submit a PR. I just don't want to deploy a compiled version of this and wind up having folks doubling up on an already gargantuan dependency.
 
 ## Contributing 
 
