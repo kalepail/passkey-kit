@@ -1,6 +1,6 @@
 # Passkey Kit
 
-Passkey kit is a basic TypeScript SDK for creating and managing Stellar smart wallets. It's intended to be used in tandem with [Launchtube](https://github.com/kalepail/launchtube) for submitting passkey signed transactions onchain however this is not a requirement. This is both a client and a server side library. `PasskeyKit` on the client and `PasskeyBase` on the server.
+Passkey kit is a basic TypeScript SDK for creating and managing Stellar smart wallets. It's intended to be used in tandem with [Launchtube](https://github.com/kalepail/launchtube) for submitting passkey signed transactions onchain however this is not a requirement. This is both a client and a server side library. `PasskeyKit` on the client and `PasskeyServer` on the server.
 
 Demo site: [passkey-kit-demo.pages.dev](https://passkey-kit-demo.pages.dev/)
 
@@ -20,7 +20,7 @@ const account = new PasskeyKit({
 
 On the server:
 ```ts
-const account = new PasskeyBase({
+const account = new PasskeyServer({
     rpcUrl: env.PUBLIC_rpcUrl,
     launchtubeUrl: env.PUBLIC_launchtubeUrl,
     launchtubeJwt: env.PRIVATE_launchtubeJwt,
@@ -30,9 +30,15 @@ const account = new PasskeyBase({
 });
 ```
 
-Note that while I don't recommend it you can use the server-intended `send` method on the client side by passing in the `launchtubeUrl` and `launchtubeJwt` values to the `PasskeyKit` constructor. We do this in the `./demo` site to ease demonstration, development and experimentation, however in a production environment you'll want to keep your secrets safe on the server.
+This is a fully typed library so docs aren't provided, however there's a full example showcasing all the core public methods in the `./demo` directory. I also recommend reviewing the [Super Peach](https://github.com/kalepail/superpeach) repo for an example of how you could implement both the client and server side in a more real-world scenario.
 
-In order to utilize the zephyr indexing service to track available signers and reverse lookup smart wallet contract addresses from passkey ids you'll need to deploy the Zephyr program from inside the `./zephyr` directory.
+Good luck, have fun, and change the world!
+
+For any questions or to showcase your progress please join the `#passkeys` channel on our [Discord](https://discord.gg/stellardev).
+
+## Deploy the event indexer
+
+In order to utilize the Mercury Zephyr indexing service to track available signers and reverse lookup smart wallet contract addresses from passkey ids you'll need to deploy the Zephyr program from inside the `./zephyr` directory.
 
 ```bash
 cd ./zephyr
@@ -43,13 +49,7 @@ export MERCURY_JWT="<YOUR.MERCURY.JWT>"
 mercury-cli --jwt $MERCURY_JWT --local false --mainnet false deploy
 ```
 
-This is a fully typed library so docs aren't provided, however there's a full example showcasing all the core public methods in the `./demo` directory. I also recommend reviewing the [Super Peach](https://github.com/kalepail/superpeach) repo for an example of how you could implement both the client and server side in a more real-world scenario.
-
-Good luck, have fun, and change the world!
-
-For any questions or to showcase your progress please join the `#passkeys` channel on our [Discord](https://discord.gg/stellardev).
-
-## Some Notes
+## TypeScript gotchas
 
 This is a TypeScript library and the npm package doesn't export a JavaScript version. The `@stellar/stellar-sdk` library is enormous and I really don't wan't folks bundling it up twice. Therefore you'll need to ensure you're transpiling this library into your project and that goes for either a TS project or a JS one. For many of you this will "just work" but for others you'll need to do some fiddling.
 
@@ -71,10 +71,10 @@ If someone smarter than me knows how to include an optional JS build from a TS l
 ## Contributing 
 
 Passkey kit consists of three primary directories:
-- `./contracts` - Contains the Rust Soroban smart contracts of the smart wallet implementation.
-- `./zephyr` - Contains the [Zephyr](https://www.mercurydata.app/products/zephyr-vm) program for processing smart wallet events.
 - `./src` - Contains the TypeScript files for the actual TS SDK library.
 - `./demo` - Contains a basic demo of the SDK in action.
+- `./contracts` - Contains the Rust Soroban smart contracts of the smart wallet implementation.
+- `./zephyr` - Contains the [Zephyr](https://www.mercurydata.app/products/zephyr-vm) program for processing smart wallet events.
 
 To install dependencies:
 
