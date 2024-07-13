@@ -10,8 +10,6 @@ interface ImportMetaEnv {
     readonly VITE_launchtubeJwt: string;
     readonly VITE_mercuryUrl: string;
     readonly VITE_mercuryJwt: string;
-    readonly VITE_mercuryEmail: string;
-    readonly VITE_mercuryPassword: string;
 }
 
 interface ImportMeta {
