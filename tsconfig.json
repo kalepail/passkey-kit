@@ -6,7 +6,7 @@
     "module": "ESNext",
     "moduleDetection": "force",
     // Bundler mode
-    "moduleResolution": "node",
+    "moduleResolution": "Bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "declaration": true,
@@ -21,12 +21,7 @@
     "noPropertyAccessFromIndexSignature": false,
     "strictNullChecks": true,
   },
-  "exclude": [
-    "./bun_tests",
-    "./contracts",
-    "./demo",
-    "./packages",
-    "./types",
-    "./zephyr",
-  ]
+  "include": [
+    "src/*",
+  ],
 }

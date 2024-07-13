@@ -6,6 +6,7 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
+import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -41,7 +42,7 @@ export class PasskeyKit extends PasskeyBase {
             pk: publicKey
         })
 
-        const contractId = result.unwrap() as string
+        const contractId = result.unwrap()
 
         this.wallet = new PasskeyClient({
             contractId,
@@ -52,7 +53,7 @@ export class PasskeyKit extends PasskeyBase {
         return {
             keyId,
             contractId,
-            xdr: built!.toXDR() as string
+            xdr: built?.toXDR()
         }
     }
 
@@ -162,8 +163,7 @@ export class PasskeyKit extends PasskeyBase {
             ledgersToLive?: number
         }
     ) {
-        // Default mirrors DEFAULT_TIMEOUT (currently 5 minutes) https://github.com/stellar/js-stellar-sdk/blob/master/src/contract/utils.ts#L7
-        let { keyId, ledgersToLive = 60 } = options || {}
+        let { keyId, ledgersToLive = DEFAULT_TIMEOUT } = options || {}
 
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
         const credentials = entry.credentials().address();
@@ -242,7 +242,7 @@ export class PasskeyKit extends PasskeyBase {
                 && auth.credentials().address().address().switch().name === 'scAddressTypeContract'
             ) {
                 // If auth entry matches our Smart Wallet move forward with the signature request
-                if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet!.options.contractId)
+                if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet?.options.contractId)
                     await this.signAuthEntry(auth, options)
             }
         }
@@ -309,7 +309,7 @@ export class PasskeyKit extends PasskeyBase {
 
         if (response.publicKey) {
             publicKey = base64url.toBuffer(response.publicKey)
-            publicKey = publicKey!.slice(publicKey!.length - 65)
+            publicKey = publicKey?.slice(publicKey.length - 65)
         }
 
         if (
