@@ -21,7 +21,7 @@ mod factory {
 
 // mod passkey {
 //     use soroban_sdk::auth::Context;
-//     soroban_sdk::contractimport!(file = "../out/webauthn_secp256r1.optimized.wasm");
+//     soroban_sdk::contractimport!(file = "../out/webauthn_wallet.optimized.wasm");
 // }
 
 #[test]

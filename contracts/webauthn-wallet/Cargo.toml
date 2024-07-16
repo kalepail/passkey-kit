@@ -1,5 +1,5 @@
 [package]
-name = "webauthn-secp256r1"
+name = "webauthn-wallet"
 version = "0.3.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"

@@ -5,7 +5,7 @@ use soroban_sdk::{
 
 mod wallet {
     use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_secp256r1.wasm");
+    soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm");
 }
 
 #[contract]

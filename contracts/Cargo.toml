@@ -2,8 +2,8 @@
 resolver = "2"
 
 members = [
-    "contract-webauthn-factory",
-    "contract-webauthn-secp256r1",
+    "webauthn-factory",
+    "webauthn-wallet",
 ]
 
 [workspace.dependencies.soroban-sdk]
