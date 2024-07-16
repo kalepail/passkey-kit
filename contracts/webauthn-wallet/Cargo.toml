@@ -1,5 +1,5 @@
 [package]
-name = "webauthn-secp256r1"
+name = "webauthn-wallet"
 version = "0.3.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
@@ -17,11 +17,9 @@ testutils = ["soroban-sdk/testutils"]
 soroban-sdk = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde-json-core = { workspace = true }
+webauthn-wallet-interface = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
-stellar-xdr = { workspace = true, features = [
-    "std",
-    "curr",
-] }
+stellar-xdr = { workspace = true, features = ["std", "curr"] }
 sha256 = { workspace = true }

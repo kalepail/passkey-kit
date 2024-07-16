@@ -1,12 +1,9 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contracterror, contractimpl, symbol_short, vec, Address, Bytes, BytesN, Env, Symbol,
+    contract, contracterror, contractimpl, symbol_short, Address, Bytes, BytesN, Env, Symbol,
 };
-
-// mod wallet {
-//     use soroban_sdk::auth::Context;
-//     soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_secp256r1.wasm");
-// }
+use webauthn_wallet_interface::WebAuthnWallet;
+// use webauthn_secp256r1::ContractClient as SmartWallet;
 
 #[contract]
 pub struct Contract;
@@ -63,13 +60,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        // wallet::Client::new(&env, &address).add(&id, &pk, &true);
-
-        let () = env.invoke_contract(
-            &address,
-            &symbol_short!("add"),
-            vec![&env, id.to_val(), pk.to_val(), true.into()],
-        );
+        WebAuthnWallet::new(&env, &address).add(&id, &pk, &true);
 
         let max_ttl = env.storage().max_ttl();
 

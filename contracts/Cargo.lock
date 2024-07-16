@@ -1005,9 +1005,9 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "soroban-builtin-sdk-macros"
-version = "21.1.2"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4aa78f4b1c752f5471b033fe54279ef0617ace342be7be11acc7d90e5677790e"
+checksum = "44877373b3dc6c662377cb1600e3a62706d75e484b6064f9cd22e467c676b159"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -1017,9 +1017,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-common"
-version = "21.1.2"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9acd7dbf8fc4222f62a4f06c5b32c3e097de97f5ff48218c8d77676d3424f363"
+checksum = "590add16843a61b01844e19e89bccaaee6aa21dc76809017b0662c17dc139ee9"
 dependencies = [
  "arbitrary",
  "crate-git-revision",
@@ -1036,9 +1036,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-guest"
-version = "21.1.2"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "558a69d53d543a4b1ac60681332594dc1417080cffd2a6851bb6e0a376ebc76f"
+checksum = "05ec8dc43acdd6c7e7b371acf44fc1a7dac24934ae3b2f05fafd618818548176"
 dependencies = [
  "soroban-env-common",
  "static_assertions",
@@ -1046,9 +1046,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-host"
-version = "21.1.2"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "956beee1e959b7b8ac7bea8396454d1534927276830430bf015eafdc756d84ae"
+checksum = "4e25aaffe0c62eb65e0e349f725b4b8b13ad0764d78a15aab5bbccb5c4797726"
 dependencies = [
  "backtrace",
  "curve25519-dalek",
@@ -1079,9 +1079,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-macros"
-version = "21.1.2"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e04b96c8cf73c941ca134eefd00aa5085c4bcae5d534dd3937f4d69b401a838b"
+checksum = "3e16b761459fdf3c4b62b24df3941498d14e5246e6fadfb4774ed8114d243aa4"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -1094,9 +1094,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.1.1"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79e99e474b9faf76142348780651b0129747d004818447a71c44325152d3ec71"
+checksum = "667a040c424d5a479387a6ca71f9591c364cdd2cfdfb1f4227753b4d1bab2a80"
 dependencies = [
  "serde",
  "serde_json",
@@ -1108,9 +1108,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.1.1"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "056d762146fba4d5c0798920484f0120526b3e019b021e6efff6ad7dd62cdcbb"
+checksum = "1e76cfdcf2610f97d595db27dd164abe8f38c00b745e822220c2874c185d9c6f"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -1128,9 +1128,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.1.1"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b7d4d78936704cc2e686e1bb77fb5e9075adc392756aea74a3eb47aab74dd7e"
+checksum = "21c0ed4e51a37c8ef530f6704a25f14447e8bc74b9e0c2046a21cfecc5ced329"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -1148,9 +1148,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.1.1"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5c72bb3677167ba79c8f0f307b3a5b6469c40fd3ff01599298b3eff5c3f6e19"
+checksum = "1b411868046bc9aad3d481ef57ec5db34c58016c715bf871d854c8c752872b19"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr",
@@ -1160,9 +1160,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.1.1"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c6ca7570c91f2a54120269e6a7edb2f968b1661c54d0faca40b0f727fbc24b7"
+checksum = "e71e218a6ea10c0f858993d35b168a21ac7185c936c745a34a371d76d24fba0c"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1222,9 +1222,9 @@ dependencies = [
 
 [[package]]
 name = "stellar-xdr"
-version = "21.1.0"
+version = "21.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec43c9c5ae7ec7b6ac9e263b6d5b9e3781aa05ba3a1c05f6e70701c5c6600665"
+checksum = "2675a71212ed39a806e415b0dbf4702879ff288ec7f5ee996dda42a135512b50"
 dependencies = [
  "arbitrary",
  "base64 0.13.1",
@@ -1441,10 +1441,11 @@ name = "webauthn-factory"
 version = "0.3.1"
 dependencies = [
  "soroban-sdk",
+ "webauthn-wallet-interface",
 ]
 
 [[package]]
-name = "webauthn-secp256r1"
+name = "webauthn-wallet"
 version = "0.3.1"
 dependencies = [
  "serde",
@@ -1452,6 +1453,14 @@ dependencies = [
  "sha256",
  "soroban-sdk",
  "stellar-xdr",
+ "webauthn-wallet-interface",
+]
+
+[[package]]
+name = "webauthn-wallet-interface"
+version = "0.3.1"
+dependencies = [
+ "soroban-sdk",
 ]
 
 [[package]]

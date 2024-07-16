@@ -2,27 +2,18 @@
 resolver = "2"
 
 members = [
-    "contract-webauthn-factory",
-    "contract-webauthn-secp256r1",
+    "webauthn-factory",
+    "webauthn-wallet",
+    "webauthn-wallet-interface",
 ]
 
-[workspace.dependencies.soroban-sdk]
-version = "21.1.1"
-
-[workspace.dependencies.serde]
-version = "1"
-default-features = false
-
-[workspace.dependencies.serde-json-core]
-version = "0.5.1"
-default-features = false
-
-[workspace.dependencies.stellar-xdr]
-version = "21.1.0" 
-default-features = false
-
-[workspace.dependencies.sha256]
-version = "1.5.0"
+[workspace.dependencies]
+soroban-sdk = { version = "21.2.0" }
+serde = { version = "1", default-features = false }
+serde-json-core = { version = "0.5.1", default-features = false }
+stellar-xdr = { version = "21.2.0", default-features = false }
+sha256 = { version = "1.5.0" }
+webauthn-wallet-interface = { path = "webauthn-wallet-interface" }
 
 [profile.release]
 opt-level = "z"

@@ -2,10 +2,12 @@
 
 use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
-    contract, contracterror, contractimpl, contracttype,
+    contract, contractimpl, contracttype,
     crypto::Hash,
     panic_with_error, symbol_short, Bytes, BytesN, Env, FromVal, Symbol, Vec,
 };
+
+use webauthn_wallet_interface::{Error, WebAuthnWalletInterface};
 
 mod base64_url;
 
@@ -14,25 +16,25 @@ mod test;
 #[contract]
 pub struct Contract;
 
-#[contracterror]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum Error {
-    NotFound = 1,
-    NotPermitted = 2,
-    ClientDataJsonChallengeIncorrect = 3,
-    Secp256r1PublicKeyParse = 4,
-    Secp256r1SignatureParse = 5,
-    Secp256r1VerifyFailed = 6,
-    JsonParseError = 7,
-}
+// #[contracterror]
+// #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+// pub enum Error {
+//     NotFound = 1,
+//     NotPermitted = 2,
+//     ClientDataJsonChallengeIncorrect = 3,
+//     Secp256r1PublicKeyParse = 4,
+//     Secp256r1SignatureParse = 5,
+//     Secp256r1VerifyFailed = 6,
+//     JsonParseError = 7,
+// }
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
 const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
 
 #[contractimpl]
-impl Contract {
-    pub fn add(env: Env, id: Bytes, pk: BytesN<65>, mut admin: bool) -> Result<(), Error> {
+impl WebAuthnWalletInterface for Contract {
+    fn add(env: Env, id: Bytes, pk: BytesN<65>, mut admin: bool) -> Result<(), Error> {
         if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
             env.current_contract_address().require_auth();
         } else {
@@ -46,7 +48,7 @@ impl Contract {
                 env.storage().temporary().remove(&id);
             }
 
-            Self::update_admin_signer_count(&env, true);
+            update_admin_signer_count(&env, true);
 
             env.storage().persistent().set(&id, &pk);
 
@@ -55,7 +57,7 @@ impl Contract {
                 .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
         } else {
             if env.storage().persistent().has(&id) {
-                Self::update_admin_signer_count(&env, false);
+                update_admin_signer_count(&env, false);
 
                 env.storage().persistent().remove(&id);
             }
@@ -79,13 +81,13 @@ impl Contract {
 
         Ok(())
     }
-    pub fn remove(env: Env, id: Bytes) -> Result<(), Error> {
+    fn remove(env: Env, id: Bytes) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
         if env.storage().temporary().has(&id) {
             env.storage().temporary().remove(&id);
         } else if env.storage().persistent().has(&id) {
-            Self::update_admin_signer_count(&env, false);
+            update_admin_signer_count(&env, false);
 
             env.storage().persistent().remove(&id);
         }
@@ -101,7 +103,7 @@ impl Contract {
 
         Ok(())
     }
-    pub fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+    fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
         env.deployer().update_current_contract_wasm(hash);
@@ -114,22 +116,23 @@ impl Contract {
 
         Ok(())
     }
-    fn update_admin_signer_count(env: &Env, add: bool) {
-        let count = env
-            .storage()
-            .instance()
-            .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
-            .unwrap_or(0)
-            + if add { 1 } else { -1 };
+}
 
-        if count <= 0 {
-            panic_with_error!(env, Error::NotPermitted)
-        }
+fn update_admin_signer_count(env: &Env, add: bool) {
+    let count = env
+        .storage()
+        .instance()
+        .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
+        .unwrap_or(0)
+        + if add { 1 } else { -1 };
 
-        env.storage()
-            .instance()
-            .set::<Symbol, i32>(&ADMIN_SIGNER_COUNT, &count);
+    if count <= 0 {
+        panic_with_error!(env, Error::NotPermitted)
     }
+
+    env.storage()
+        .instance()
+        .set::<Symbol, i32>(&ADMIN_SIGNER_COUNT, &count);
 }
 
 #[contracttype]
