@@ -167,6 +167,7 @@ export class PasskeyServer extends PasskeyBase {
             @Later
     */
 
+    // TODO maybe fee should default to something more dynamic since we have endpoints for getting fee information now
     public async send(xdr: string, fee: number = 10_000) {
         if (!this.launchtubeUrl || !this.launchtubeJwt)
             throw new Error('Launchtube service not configured')

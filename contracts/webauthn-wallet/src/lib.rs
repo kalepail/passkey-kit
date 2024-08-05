@@ -16,6 +16,7 @@ pub struct Contract;
 
 #[contracterror]
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[repr(u32)]
 pub enum Error {
     NotFound = 1,
     NotPermitted = 2,
