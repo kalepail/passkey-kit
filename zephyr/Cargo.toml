@@ -6,13 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-zephyr-sdk = { version = "0.1.7" }
+zephyr-sdk = { version = "0.1.8" }
 stellar-strkey = "0.0.8"
 serde = { version = "1.0", features = ["derive"] }
-stellar-xdr = { version = "20.1.0", features = ["next", "curr", "serde", "base64"] }
+stellar-xdr = { version = "20.1.0", features = [
+    "next",
+    "curr",
+    "serde",
+    "base64",
+] }
 
 [dev-dependencies]
-zephyr-sdk = { version = "0.1.7", features = ["testutils"] }
+zephyr-sdk = { version = "0.1.8", features = ["testutils"] }
 tokio = { version = "1.0", features = ["full"] }
 ledger-meta-factory = { version = "0.1.1", features = [] }
 

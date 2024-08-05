@@ -2389,9 +2389,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-sdk"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea4e0ba0d96d3b7359f73b6ec6522d0ddaace36f1fd93bbe4ff2e2ba1f215759"
+checksum = "0bd2a37724449db6e11a515219b6c0c9f07f3c1eb024c105550ff802937fb07c"
 dependencies = [
  "bincode",
  "charming-fork-zephyr",
