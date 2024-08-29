@@ -3,7 +3,7 @@ import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
-import type { AuthenticatorAttestationResponseJSON } from "@simplewebauthn/types"
+import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
@@ -15,13 +15,21 @@ export class PasskeyKit extends PasskeyBase {
     public networkPassphrase: string
     public factory: FactoryClient
     public wallet: PasskeyClient | undefined
+    public WebAuthn: {
+        startRegistration: typeof startRegistration,
+        startAuthentication: typeof startAuthentication
+    }
 
     constructor(options: {
         rpcUrl: string,
         networkPassphrase: string,
         factoryContractId: string,
+        WebAuthn?: {
+            startRegistration: typeof startRegistration,
+            startAuthentication: typeof startAuthentication
+        }
     }) {
-        const { rpcUrl, networkPassphrase, factoryContractId } = options
+        const { rpcUrl, networkPassphrase, factoryContractId, WebAuthn } = options
 
         super(rpcUrl)
 
@@ -31,6 +39,7 @@ export class PasskeyKit extends PasskeyBase {
             networkPassphrase,
             rpcUrl
         })
+        this.WebAuthn = WebAuthn || { startRegistration, startAuthentication }
     }
 
     public async createWallet(app: string, user: string) {
@@ -57,13 +66,17 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
-    public async createKey(app: string, user: string) {
+    public async createKey(app: string, user: string, settings?: {
+        rpId?: string
+        authenticatorSelection?: AuthenticatorSelectionCriteria
+    }) {
         const now = new Date()
         const displayName = `${user} — ${now.toLocaleString()}`
-        const { id, response } = await startRegistration({
+        const { rpId, authenticatorSelection } = settings || {}
+        const { id, response } = await this.WebAuthn.startRegistration({
             challenge: base64url("stellaristhebetterblockchain"),
             rp: {
-                // id: undefined,
+                id: rpId,
                 name: app,
             },
             user: {
@@ -71,10 +84,11 @@ export class PasskeyKit extends PasskeyBase {
                 name: displayName,
                 displayName
             },
+            authenticatorSelection,
             // authenticatorSelection: {
-                // requireResidentKey: false,
-                // residentKey: "preferred",
-                // userVerification: "discouraged",
+            //     requireResidentKey: false,
+            //     residentKey: "preferred",
+            //     userVerification: "discouraged",
             // },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             // attestation: "none",
@@ -92,15 +106,16 @@ export class PasskeyKit extends PasskeyBase {
 
     public async connectWallet(opts?: {
         keyId?: string | Uint8Array,
+        rpId?: string,
         getContractId?: (keyId: string) => Promise<string | undefined>
     }) {
-        let { keyId, getContractId } = opts || {}
+        let { keyId, rpId, getContractId } = opts || {}
         let keyIdBuffer: Buffer
 
         if (!keyId) {
-            const response = await startAuthentication({
+            const response = await this.WebAuthn.startAuthentication({
                 challenge: base64url("stellaristhebetterblockchain"),
-                // rpId: undefined,
+                rpId,
                 // userVerification: "discouraged",
                 // timeout: 120_000
             });
@@ -160,10 +175,11 @@ export class PasskeyKit extends PasskeyBase {
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
             keyId?: 'any' | string | Uint8Array
+            rpId?: string,
             ledgersToLive?: number
         }
     ) {
-        let { keyId, ledgersToLive = DEFAULT_TIMEOUT } = options || {}
+        let { keyId, rpId, ledgersToLive = DEFAULT_TIMEOUT } = options || {}
 
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
         const credentials = entry.credentials().address();
@@ -177,18 +193,18 @@ export class PasskeyKit extends PasskeyBase {
         )
         const payload = hash(preimage.toXDR())
 
-        const authenticationResponse = await startAuthentication(
+        const authenticationResponse = await this.WebAuthn.startAuthentication(
             keyId === 'any'
                 || (!keyId && !this.keyId)
                 ? {
                     challenge: base64url(payload),
-                    // rpId: undefined,
+                    rpId,
                     // userVerification: "discouraged",
                     // timeout: 120_000
                 }
                 : {
                     challenge: base64url(payload),
-                    // rpId: undefined,
+                    rpId,
                     allowCredentials: [
                         {
                             id: keyId instanceof Uint8Array
@@ -331,7 +347,7 @@ export class PasskeyKit extends PasskeyBase {
 
                 let publicKeykPrefixSlice = Buffer.from([0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20])
                 let startIndex = attestationObject.indexOf(publicKeykPrefixSlice)
-                    startIndex = startIndex + publicKeykPrefixSlice.length
+                startIndex = startIndex + publicKeykPrefixSlice.length
 
                 x = attestationObject.slice(startIndex, 32 + startIndex)
                 y = attestationObject.slice(35 + startIndex, 67 + startIndex)

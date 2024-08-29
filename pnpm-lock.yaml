@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@darkedges/capacitor-native-webauthn':
+        specifier: ^0.0.4
+        version: 0.0.4(@capacitor/core@5.7.8)
       '@simplewebauthn/browser':
         specifier: ^10.0.0
         version: 10.0.0
@@ -78,11 +81,25 @@ importers:
 
 packages:
 
+  '@capacitor/core@5.7.8':
+    resolution: {integrity: sha512-rrZcm/2vJM0WdWRQup1TUidbjQV9PfIadSkV4rAGLD7R6PuzZSMPGT0gmoZzCRlXkqrazrWWDkurei3ozU02FA==}
+
+  '@darkedges/capacitor-native-webauthn@0.0.4':
+    resolution: {integrity: sha512-/dbNpjKyh3Ofh2oXheDgi4YrXPlO6/wKHtCOb+bRYLMirDC4oAuJ4kgIDoKygKkEN2BnU2hypCPDIC53omcbOg==}
+    peerDependencies:
+      '@capacitor/core': ^5.0.0
+
   '@simplewebauthn/browser@10.0.0':
     resolution: {integrity: sha512-hG0JMZD+LiLUbpQcAjS4d+t4gbprE/dLYop/CkE01ugU/9sKXflxV5s0DRjdz3uNMFecatRfb4ZLG3XvF8m5zg==}
 
+  '@simplewebauthn/browser@9.0.1':
+    resolution: {integrity: sha512-wD2WpbkaEP4170s13/HUxPcAV5y4ZXaKo1TfNklS5zDefPinIgXOpgz1kpEvobAsaLPa2KeH7AKKX/od1mrBJw==}
+
   '@simplewebauthn/types@10.0.0':
     resolution: {integrity: sha512-SFXke7xkgPRowY2E+8djKbdEznTVnD5R6GO7GPTthpHrokLvNKw8C3lFZypTxLI7KkCfGPfhtqB3d7OVGGa9jQ==}
+
+  '@simplewebauthn/types@9.0.1':
+    resolution: {integrity: sha512-tGSRP1QvsAvsJmnOlRQyw/mvK9gnPtjEc5fg2+m8n+QUa+D7rvrKkOYyfpy42GTs90X3RDOnqJgfHt+qO67/+w==}
 
   '@stellar/js-xdr@3.1.1':
     resolution: {integrity: sha512-3gnPjAz78htgqsNEDkEsKHKosV2BF2iZkoHCNxpmZwUxiPsw+2VaXMed8RRMe0rGk3d5GZe7RrSba8zV80J3Ag==}
@@ -178,6 +195,9 @@ packages:
   toml@3.0.0:
     resolution: {integrity: sha512-y/mWCZinnvxjTKYhJ+pYxwD0mRLVvOtdS2Awbgxln6iEnt4rk0yBxeSBHkGJcPucRiG0e55mwWp+g/05rsrd6w==}
 
+  tslib@2.6.3:
+    resolution: {integrity: sha512-xNvxJEOUiWPGhUuUdQgAJPKOOJfGnIyKySOc09XkKsgdUV/3E2zvwZYdejjmRgPCgcym1juLH3226yA7sEFJKQ==}
+
   tweetnacl@1.0.3:
     resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
 
@@ -191,11 +211,26 @@ packages:
 
 snapshots:
 
+  '@capacitor/core@5.7.8':
+    dependencies:
+      tslib: 2.6.3
+
+  '@darkedges/capacitor-native-webauthn@0.0.4(@capacitor/core@5.7.8)':
+    dependencies:
+      '@capacitor/core': 5.7.8
+      '@simplewebauthn/browser': 9.0.1
+
   '@simplewebauthn/browser@10.0.0':
     dependencies:
       '@simplewebauthn/types': 10.0.0
 
+  '@simplewebauthn/browser@9.0.1':
+    dependencies:
+      '@simplewebauthn/types': 9.0.1
+
   '@simplewebauthn/types@10.0.0': {}
+
+  '@simplewebauthn/types@9.0.1': {}
 
   '@stellar/js-xdr@3.1.1': {}
 
@@ -293,6 +328,8 @@ snapshots:
     optional: true
 
   toml@3.0.0: {}
+
+  tslib@2.6.3: {}
 
   tweetnacl@1.0.3: {}
 

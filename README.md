@@ -25,8 +25,7 @@ const account = new PasskeyServer({
     launchtubeUrl: env.PUBLIC_launchtubeUrl,
     launchtubeJwt: env.PRIVATE_launchtubeJwt,
     mercuryUrl: env.PUBLIC_mercuryUrl,
-    mercuryEmail: env.PRIVATE_mercuryEmail,
-    mercuryPassword: env.PRIVATE_mercuryPassword,
+    mercuryJwt: env.PRIVATE_mercuryJwt,
 });
 ```
 

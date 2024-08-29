@@ -2,6 +2,7 @@ import { PasskeyKit, PasskeyServer, SACClient } from "passkey-kit";
 import { Account, Keypair, SorobanRpc, StrKey } from "@stellar/stellar-sdk"
 import { Buffer } from "buffer";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
+import { WebAuthn } from "@darkedges/capacitor-native-webauthn";
 
 export const rpc = new SorobanRpc.Server(import.meta.env.VITE_rpcUrl);
 
@@ -30,6 +31,7 @@ export const account = new PasskeyKit({
     rpcUrl: import.meta.env.VITE_rpcUrl,
     networkPassphrase: import.meta.env.VITE_networkPassphrase,
     factoryContractId: import.meta.env.VITE_factoryContractId,
+    WebAuthn
 });
 export const server = new PasskeyServer({
     rpcUrl: import.meta.env.VITE_rpcUrl,

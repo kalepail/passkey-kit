@@ -7,8 +7,6 @@ export class PasskeyServer extends PasskeyBase {
     public launchtubeJwt: string | undefined
     public mercuryUrl: string | undefined
     public mercuryJwt: string | undefined
-    public mercuryEmail: string | undefined
-    public mercuryPassword: string | undefined
 
     constructor(options: {
         rpcUrl?: string,
@@ -16,8 +14,6 @@ export class PasskeyServer extends PasskeyBase {
         launchtubeJwt?: string,
         mercuryUrl?: string,
         mercuryJwt?: string,
-        mercuryEmail?: string,
-        mercuryPassword?: string
     }) {
         const {
             rpcUrl,
@@ -25,8 +21,6 @@ export class PasskeyServer extends PasskeyBase {
             launchtubeJwt,
             mercuryUrl,
             mercuryJwt,
-            mercuryEmail,
-            mercuryPassword
         } = options
 
         super(rpcUrl)
@@ -42,49 +36,9 @@ export class PasskeyServer extends PasskeyBase {
 
         if (mercuryJwt)
             this.mercuryJwt = mercuryJwt
-
-        if (mercuryEmail)
-            this.mercuryEmail = mercuryEmail
-
-        if (mercuryPassword)
-            this.mercuryPassword = mercuryPassword
-    }
-
-    public async setMercuryJwt() {
-        if (!this.mercuryUrl || !this.mercuryEmail || !this.mercuryPassword)
-            throw new Error('Mercury service not configured')
-
-        const { data: { authenticate: { jwtToken } } } = await fetch(`${this.mercuryUrl}/graphql`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: `mutation {
-                    authenticate(input: {
-                        email: "${this.mercuryEmail}"
-                        password: "${this.mercuryPassword}"
-                    }) {
-                        jwtToken
-                    }
-                }`
-            })
-        })
-            .then(async (res) => {
-                if (res.ok)
-                    return res.json()
-
-                throw await res.json()
-            })
-
-        this.mercuryJwt = jwtToken
-        return jwtToken
     }
 
     public async getSigners(contractId: string) {
-        if (this.rpc && this.mercuryUrl && !this.mercuryJwt)
-            await this.setMercuryJwt()
-
         if (!this.rpc || !this.mercuryUrl || !this.mercuryJwt)
             throw new Error('Mercury service not configured')
 
@@ -129,9 +83,6 @@ export class PasskeyServer extends PasskeyBase {
     }
 
     public async getContractId(keyId: string) {
-        if (this.mercuryUrl && !this.mercuryJwt)
-            await this.setMercuryJwt()
-
         if (!this.mercuryUrl || !this.mercuryJwt)
             return
 
