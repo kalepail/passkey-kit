@@ -337,6 +337,7 @@ mod test {
                 0,
                 "signers",
                 vec!["address", "id", "pk", "date", "admin", "active"],
+                None,
             )
             .await;
         let _ = db
@@ -344,6 +345,7 @@ mod test {
                 0,
                 "adjacent",
                 vec!["contract", "address", "topics", "data", "date"],
+                None,
             )
             .await;
 

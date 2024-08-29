@@ -3,13 +3,14 @@ name = "smart-wallets-data"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
-zephyr-sdk = { version = "0.1.8" }
+zephyr-sdk = { version = "0.2.1" }
 stellar-strkey = "0.0.8"
 serde = { version = "1.0", features = ["derive"] }
-stellar-xdr = { version = "20.1.0", features = [
+stellar-xdr = { version = "21.2.0", features = [
     "next",
     "curr",
     "serde",
@@ -17,16 +18,9 @@ stellar-xdr = { version = "20.1.0", features = [
 ] }
 
 [dev-dependencies]
-zephyr-sdk = { version = "0.1.8", features = ["testutils"] }
+zephyr-sdk = { version = "0.2.1", features = ["testutils"] }
 tokio = { version = "1.0", features = ["full"] }
-ledger-meta-factory = { version = "0.1.1", features = [] }
-
-# [dev-dependencies.stellar-xdr]
-# version = "=20.1.0"
-# features = ["next", "curr", "serde", "base64"]
-
-[lib]
-crate-type = ["cdylib"]
+ledger-meta-factory = { version = "0.1.2", features = [] }
 
 [profile.release]
 opt-level = "z"
