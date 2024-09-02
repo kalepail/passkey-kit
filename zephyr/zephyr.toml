@@ -1,1 +1,53 @@
 name = "smart-wallets-data"
+
+[[tables]]
+name = "adjacent"
+force = false
+
+[[tables.columns]]
+name = "contract"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "address"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "topics"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "data"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "date"
+col_type = "BYTEA"
+
+[[tables]]
+name = "signers"
+force = false
+
+[[tables.columns]]
+name = "address"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "id"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "pk"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "date"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "admin"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "active"
+col_type = "BYTEA"
