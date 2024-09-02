@@ -1959,9 +1959,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-builtin-sdk-macros"
-version = "21.2.0"
+version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "44877373b3dc6c662377cb1600e3a62706d75e484b6064f9cd22e467c676b159"
+checksum = "2f57a68ef8777e28e274de0f3a88ad9a5a41d9a2eb461b4dd800b086f0e83b80"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -1971,9 +1971,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-common"
-version = "21.2.0"
+version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "590add16843a61b01844e19e89bccaaee6aa21dc76809017b0662c17dc139ee9"
+checksum = "2fd1c89463835fe6da996318156d39f424b4f167c725ec692e5a7a2d4e694b3d"
 dependencies = [
  "crate-git-revision",
  "ethnum",
@@ -1989,9 +1989,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-common-zephyr"
-version = "21.2.0"
+version = "21.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ab80053ee54b1995bdd6f2f7e3bac07eaf2c9beff2f3ebb318d88d15ebfe9f8"
+checksum = "cacafd1a16494a5793de13f4d164a3e63affbc88054b5bb2f65c3a98b090c908"
 dependencies = [
  "arbitrary",
  "crate-git-revision",
@@ -2008,9 +2008,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-guest"
-version = "21.2.0"
+version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05ec8dc43acdd6c7e7b371acf44fc1a7dac24934ae3b2f05fafd618818548176"
+checksum = "6bfb2536811045d5cd0c656a324cbe9ce4467eb734c7946b74410d90dea5d0ce"
 dependencies = [
  "soroban-env-common",
  "static_assertions",
@@ -2018,9 +2018,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-host"
-version = "21.2.0"
+version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e25aaffe0c62eb65e0e349f725b4b8b13ad0764d78a15aab5bbccb5c4797726"
+checksum = "2b7a32c28f281c423189f1298960194f0e0fc4eeb72378028171e556d8cd6160"
 dependencies = [
  "curve25519-dalek",
  "ecdsa",
@@ -2050,9 +2050,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-host-zephyr"
-version = "21.2.1"
+version = "21.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91ad17961d1b82740309eec012d0a46cc7f953d9c5bb95efe91d984bd959cfee"
+checksum = "ad27ced64b71d5a35d87d366e20ba1ae042c20bd0b047ce4861656b73cc78424"
 dependencies = [
  "backtrace",
  "curve25519-dalek",
@@ -2084,9 +2084,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-macros"
-version = "21.2.0"
+version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e16b761459fdf3c4b62b24df3941498d14e5246e6fadfb4774ed8114d243aa4"
+checksum = "242926fe5e0d922f12d3796cd7cd02dd824e5ef1caa088f45fce20b618309f64"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -2099,9 +2099,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-env-macros-zephyr"
-version = "21.2.0"
+version = "21.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ee6562f3dadbe7b547cf98cf0237244f4fc5e26fe8ddeb1d8127f3859cd4595"
+checksum = "72ff91cb5c13fccba05f49010c2cb0d2d1b1ae1c0c1594c1fa4a5eb81b7a9c73"
 dependencies = [
  "itertools",
  "proc-macro2",
@@ -2114,9 +2114,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.5.1"
+version = "21.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a46f8b134b1e0b517f70d24dd72399cd263fd18c3c7cfcb5e56ffc6de9dad0c3"
+checksum = "07a2c3aeb3dba21530133f7f1dc533f53d96abff0df6497a5a2fad8f0fbda200"
 dependencies = [
  "serde",
  "serde_json",
@@ -2128,9 +2128,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.5.1"
+version = "21.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "40db0cacbd6e87c97a320fd8d24e636ef488b5aacde8a6a918e10fedc4382662"
+checksum = "cab66a39d18a5d8ed60df8cb77fc51067ef45a69af3c8fec52b6bc3bf7190351"
 dependencies = [
  "bytes-lit",
  "rand",
@@ -2145,9 +2145,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.5.1"
+version = "21.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f24c6b0c46e41852a8603bb32d43cf6a4046ce65483f6383903ec653118cd90"
+checksum = "3d92e9fb43bc3ca5180ff7f115156e732817fe27f8328787991c5eb38b30c26c"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -2165,9 +2165,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-simulation-zephyr"
-version = "21.2.1"
+version = "21.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8bc79c01bf95fcab011194503985ff37d6f6cf770ad35f8672cd12c13d67cbd"
+checksum = "795582e054d4cb192e097acd41fec4c92f0dd2ac9dd99f171b50f9f80791f27b"
 dependencies = [
  "anyhow",
  "rand",
@@ -3064,9 +3064,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-sdk"
-version = "0.2.1"
+version = "0.2.2-rc2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00796b6f7f2921a93fbe3fe6e186fa098e1cfdfd8c455f3b33c4830c1b51408c"
+checksum = "15d15bc68d464e525c6e5f54e9f11983e350cde09efa3acd5fbbc0970e9ff727"
 dependencies = [
  "bincode",
  "charming-fork-zephyr",
@@ -3086,9 +3086,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-vm"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "636b858e40bf0798c9ddee01fb855a08dcdf0a650cd69b539d9b66eaf3843dd4"
+checksum = "cbd53f1cd8f3c39d3253e15a009e9f1e55b493e2e6c02b29225f81160bf42e5b"
 dependencies = [
  "anyhow",
  "bincode",
