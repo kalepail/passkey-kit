@@ -1,5 +1,9 @@
 name = "smart-wallets-data"
 
+# TODO, update with primary keys and indexes where applicable
+
+# --- GENERIC EVENTS ---
+
 [[tables]]
 name = "adjacent"
 force = false
@@ -23,6 +27,8 @@ col_type = "BYTEA"
 [[tables.columns]]
 name = "date"
 col_type = "BYTEA"
+
+# --- SIGNERS ---
 
 [[tables]]
 name = "signers"

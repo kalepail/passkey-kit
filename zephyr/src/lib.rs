@@ -9,6 +9,16 @@ use zephyr_sdk::{
 };
 
 #[derive(DatabaseDerive, Clone, Serialize)]
+#[with_name("adjacent")]
+pub struct AdjacentEvents {
+    contract: String,
+    address: String,
+    topics: ScVal,
+    data: ScVal,
+    date: u64,
+}
+
+#[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("signers")]
 pub struct Signers {
     address: String,
@@ -17,16 +27,6 @@ pub struct Signers {
     date: u64,
     admin: i32,
     active: i32,
-}
-
-#[derive(DatabaseDerive, Clone, Serialize)]
-#[with_name("adjacent")]
-pub struct AdjacentEvents {
-    contract: String,
-    address: String,
-    topics: ScVal,
-    data: ScVal,
-    date: u64,
 }
 
 fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
