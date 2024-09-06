@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use webauthn_wallet::KeyId;
 use zephyr_sdk::{
     prelude::*,
     soroban_sdk::{
@@ -8,15 +9,15 @@ use zephyr_sdk::{
     DatabaseDerive, EnvClient,
 };
 
-#[derive(DatabaseDerive, Clone, Serialize)]
-#[with_name("adjacent")]
-pub struct AdjacentEvents {
-    contract: String,
-    address: String,
-    topics: ScVal,
-    data: ScVal,
-    date: u64,
-}
+// #[derive(DatabaseDerive, Clone, Serialize)]
+// #[with_name("adjacent")]
+// pub struct AdjacentEvents {
+//     contract: String,
+//     address: String,
+//     topics: ScVal,
+//     data: ScVal,
+//     date: u64,
+// }
 
 #[derive(DatabaseDerive, Clone, Serialize)]
 #[with_name("signers")]
@@ -149,21 +150,21 @@ pub extern "C" fn on_close() {
         // if there are events where the address of the wallet is involved in, we track them.
         // This allows us to track all kinds of operations performed by the smart wallets (transfers,
         // swaps, deposits, etc).
-        {
-            let addresses = to_store(&existing_addresses, &event.topics, &event.data);
+        // {
+        //     let addresses = to_store(&existing_addresses, &event.topics, &event.data);
 
-            for address in addresses {
-                let event = AdjacentEvents {
-                    contract: stellar_strkey::Contract(event.contract).to_string(),
-                    topics: ScVal::Vec(Some(ScVec(event.topics.clone().try_into().unwrap()))),
-                    data: event.data.clone(),
-                    address,
-                    date: env.reader().ledger_timestamp(),
-                };
+        //     for address in addresses {
+        //         let event = AdjacentEvents {
+        //             contract: stellar_strkey::Contract(event.contract).to_string(),
+        //             topics: ScVal::Vec(Some(ScVec(event.topics.clone().try_into().unwrap()))),
+        //             data: event.data.clone(),
+        //             address,
+        //             date: env.reader().ledger_timestamp(),
+        //         };
 
-                env.put(&event)
-            }
-        };
+        //         env.put(&event)
+        //     }
+        // };
 
         if let Some(topic0) = event.topics.get(0) {
             let t0 = env.try_from_scval::<Symbol>(topic0);
@@ -175,10 +176,19 @@ pub extern "C" fn on_close() {
                     if let Ok(etype) = event_type {
                         if t0 == event_tag {
                             if etype == Symbol::new(env.soroban(), "add") {
-                                let id: Bytes = env.from_scval(&event.topics[2]);
-                                let id = bytes_to_vec(id);
-                                let pk: BytesN<65> = env.from_scval(&event.topics[3]);
-                                let pk = bytesn_to_vec(pk);
+                                let id = match env.from_scval::<KeyId>(&event.topics[2]) {
+                                    KeyId::Ed22519(public_key) => {
+                                        public_key.0.to_array().to_vec()
+                                    }
+                                    KeyId::Secp256r1(id) => {
+                                        id.0.to_alloc_vec()
+                                    }
+                                };
+                                let pk = if let Some(pk) = env.from_scval::<Option<BytesN<65>>>(&event.topics[3]) {
+                                    bytesn_to_vec(pk)
+                                } else {
+                                    vec![]
+                                };
                                 let date = env.reader().ledger_timestamp();
                                 let admin = env.from_scval::<bool>(&event.data) as i32;
 
@@ -280,18 +290,18 @@ pub extern "C" fn get_address_by_signer() {
     env.conclude(&signers)
 }
 
-#[no_mangle]
-pub extern "C" fn get_events_by_address() {
-    let env = EnvClient::empty();
-    let request: QueryByAddressRequest = env.read_request_body();
-    let events: Vec<AdjacentEvents> = env
-        .read_filter()
-        .column_equal_to("address", request.address)
-        .read()
-        .unwrap();
+// #[no_mangle]
+// pub extern "C" fn get_events_by_address() {
+//     let env = EnvClient::empty();
+//     let request: QueryByAddressRequest = env.read_request_body();
+//     let events: Vec<AdjacentEvents> = env
+//         .read_filter()
+//         .column_equal_to("address", request.address)
+//         .read()
+//         .unwrap();
 
-    env.conclude(&events)
-}
+//     env.conclude(&events)
+// }
 
 // TODO make a serverless function to deactivate signers by id
 

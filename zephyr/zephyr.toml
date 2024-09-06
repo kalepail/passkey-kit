@@ -1,32 +1,32 @@
-name = "smart-wallets-data"
+name = "smart-wallets-data-ms-ms"
 
 # TODO, update with primary keys and indexes where applicable
 
 # --- GENERIC EVENTS ---
 
-[[tables]]
-name = "adjacent"
-force = false
+# [[tables]]
+# name = "adjacent"
+# force = false
 
-[[tables.columns]]
-name = "contract"
-col_type = "BYTEA"
+# [[tables.columns]]
+# name = "contract"
+# col_type = "BYTEA"
 
-[[tables.columns]]
-name = "address"
-col_type = "BYTEA"
+# [[tables.columns]]
+# name = "address"
+# col_type = "BYTEA"
 
-[[tables.columns]]
-name = "topics"
-col_type = "BYTEA"
+# [[tables.columns]]
+# name = "topics"
+# col_type = "BYTEA"
 
-[[tables.columns]]
-name = "data"
-col_type = "BYTEA"
+# [[tables.columns]]
+# name = "data"
+# col_type = "BYTEA"
 
-[[tables.columns]]
-name = "date"
-col_type = "BYTEA"
+# [[tables.columns]]
+# name = "date"
+# col_type = "BYTEA"
 
 # --- SIGNERS ---
 

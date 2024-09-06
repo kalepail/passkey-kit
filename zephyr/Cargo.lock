@@ -1811,6 +1811,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-json-core"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b81787e655bd59cecadc91f7b6b8651330b2be6c33246039a65e5cd6f4e0828"
+dependencies = [
+ "ryu",
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.192"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1944,6 +1954,7 @@ dependencies = [
  "stellar-strkey",
  "stellar-xdr 21.2.0",
  "tokio",
+ "webauthn-wallet",
  "zephyr-sdk",
 ]
 
@@ -2818,6 +2829,16 @@ checksum = "77afa9a11836342370f4817622a2f0f418b134426d91a82dfb48f532d2ec13ef"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "webauthn-wallet"
+version = "0.4.0"
+source = "git+https://github.com/kalepail/passkey-kit?rev=1642c6e1ed2050678b6d28282a0ea4b505e62a48#1642c6e1ed2050678b6d28282a0ea4b505e62a48"
+dependencies = [
+ "serde",
+ "serde-json-core",
+ "soroban-sdk",
 ]
 
 [[package]]
