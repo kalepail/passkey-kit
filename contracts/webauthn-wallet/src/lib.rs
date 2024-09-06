@@ -15,7 +15,7 @@ mod test;
 pub struct Contract;
 
 #[contracterror]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[repr(u32)]
 pub enum Error {
     NotFound = 1,
@@ -26,6 +26,44 @@ pub enum Error {
     Secp256r1SignatureParse = 6,
     Secp256r1VerifyFailed = 7,
     JsonParseError = 8,
+}
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub struct Ed22519PublicKey(pub BytesN<32>);
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub struct Secp256r1Id(pub Bytes);
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum KeyId {
+    Ed22519(Ed22519PublicKey),
+    Secp256r1(Secp256r1Id),
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct Ed22519Signature {
+    pub public_key: Ed22519PublicKey,
+    pub signature: BytesN<64>,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub struct Secp256r1Signature {
+    pub id: Secp256r1Id,
+    pub authenticator_data: Bytes,
+    pub client_data_json: Bytes,
+    pub signature: BytesN<64>,
+}
+
+#[contracttype]
+#[derive(Clone)]
+pub enum Signature {
+    Ed22519(Ed22519Signature),
+    Secp256r1(Secp256r1Signature),
 }
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
@@ -180,44 +218,6 @@ fn update_admin_signer_count(env: &Env, add: bool) {
     env.storage()
         .instance()
         .set::<Symbol, i32>(&ADMIN_SIGNER_COUNT, &count);
-}
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Ed22519PublicKey(pub BytesN<32>);
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Secp256r1Id(pub Bytes);
-
-#[contracttype]
-#[derive(PartialEq)]
-pub enum KeyId {
-    Ed22519(Ed22519PublicKey),
-    Secp256r1(Secp256r1Id),
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub struct Ed22519Signature {
-    pub public_key: Ed22519PublicKey,
-    pub signature: BytesN<64>,
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub struct Secp256r1Signature {
-    pub id: Secp256r1Id,
-    pub authenticator_data: Bytes,
-    pub client_data_json: Bytes,
-    pub signature: BytesN<64>,
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub enum Signature {
-    Ed22519(Ed22519Signature),
-    Secp256r1(Secp256r1Signature),
 }
 
 // TODO do we need this? I don't understand it

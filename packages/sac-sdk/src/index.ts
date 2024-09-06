@@ -1,19 +1,34 @@
 import { Buffer } from "buffer";
+import { Address } from '@stellar/stellar-sdk';
 import {
   AssembledTransaction,
   Client as ContractClient,
   ClientOptions as ContractClientOptions,
+  Result,
   Spec as ContractSpec,
 } from '@stellar/stellar-sdk/contract';
 import type {
   u32,
+  i32,
+  u64,
+  i64,
+  u128,
   i128,
+  u256,
+  i256,
+  Option,
+  Typepoint,
+  Duration,
 } from '@stellar/stellar-sdk/contract';
+export * from '@stellar/stellar-sdk'
+export * as contract from '@stellar/stellar-sdk/contract'
+export * as rpc from '@stellar/stellar-sdk/rpc'
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
+
 
 export const networks = {
   testnet: {
@@ -40,7 +55,7 @@ export interface Client {
    * * `from` - The address holding the balance of tokens to be drawn from.
    * * `spender` - The address spending the tokens held by `from`.
    */
-  allowance: ({ from, spender }: { from: string, spender: string }, options?: {
+  allowance: ({from, spender}: {from: string, spender: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -65,7 +80,7 @@ export interface Client {
    * 
    * * `id` - The address for which token authorization is being checked.
    */
-  authorized: ({ id }: { id: string }, options?: {
+  authorized: ({id}: {id: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -108,7 +123,7 @@ export interface Client {
    * Emits an event with topics `["approve", from: Address,
    * spender: Address], data = [amount: i128, expiration_ledger: u32]`
    */
-  approve: ({ from, spender, amount, expiration_ledger }: { from: string, spender: string, amount: i128, expiration_ledger: u32 }, options?: {
+  approve: ({from, spender, amount, expiration_ledger}: {from: string, spender: string, amount: i128, expiration_ledger: u32}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -134,7 +149,7 @@ export interface Client {
    * * `id` - The address for which a balance is being queried. If the
    * address has no existing balance, returns 0.
    */
-  balance: ({ id }: { id: string }, options?: {
+  balance: ({id}: {id: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -169,7 +184,7 @@ export interface Client {
    * Emits an event with topics `["burn", from: Address], data = [amount:
    * i128]`
    */
-  burn: ({ from, amount }: { from: string, amount: i128 }, options?: {
+  burn: ({from, amount}: {from: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -211,7 +226,7 @@ export interface Client {
    * Emits an event with topics `["burn", from: Address], data = [amount:
    * i128]`
    */
-  burn_from: ({ spender, from, amount }: { spender: string, from: string, amount: i128 }, options?: {
+  burn_from: ({spender, from, amount}: {spender: string, from: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -244,7 +259,7 @@ export interface Client {
    * Emits an event with topics `["clawback", admin: Address, to: Address],
    * data = [amount: i128]`
    */
-  clawback: ({ from, amount }: { from: string, amount: i128 }, options?: {
+  clawback: ({from, amount}: {from: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -300,7 +315,7 @@ export interface Client {
    * Emits an event with topics `["mint", admin: Address, to: Address], data
    * = [amount: i128]`
    */
-  mint: ({ to, amount }: { to: string, amount: i128 }, options?: {
+  mint: ({to, amount}: {to: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -356,7 +371,7 @@ export interface Client {
    * Emits an event with topics `["set_admin", admin: Address], data =
    * [new_admin: Address]`
    */
-  set_admin: ({ new_admin }: { new_admin: string }, options?: {
+  set_admin: ({new_admin}: {new_admin: string}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -413,7 +428,7 @@ export interface Client {
    * Emits an event with topics `["set_authorized", id: Address], data =
    * [authorize: bool]`
    */
-  set_authorized: ({ id, authorize }: { id: string, authorize: boolean }, options?: {
+  set_authorized: ({id, authorize}: {id: string, authorize: boolean}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -471,7 +486,7 @@ export interface Client {
    * Emits an event with topics `["transfer", from: Address, to: Address],
    * data = [amount: i128]`
    */
-  transfer: ({ from, to, amount }: { from: string, to: string, amount: i128 }, options?: {
+  transfer: ({from, to, amount}: {from: string, to: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -513,7 +528,7 @@ export interface Client {
    * Emits an event with topics `["transfer", from: Address, to: Address],
    * data = [amount: i128]`
    */
-  transfer_from: ({ spender, from, to, amount }: { spender: string, from: string, to: string, amount: i128 }, options?: {
+  transfer_from: ({spender, from, to, amount}: {spender: string, from: string, to: string, amount: i128}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -529,11 +544,12 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<null>>
+
 }
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(["AAAAAAAAAYlSZXR1cm5zIHRoZSBhbGxvd2FuY2UgZm9yIGBzcGVuZGVyYCB0byB0cmFuc2ZlciBmcm9tIGBmcm9tYC4KClRoZSBhbW91bnQgcmV0dXJuZWQgaXMgdGhlIGFtb3VudCB0aGF0IHNwZW5kZXIgaXMgYWxsb3dlZCB0byB0cmFuc2ZlcgpvdXQgb2YgZnJvbSdzIGJhbGFuY2UuIFdoZW4gdGhlIHNwZW5kZXIgdHJhbnNmZXJzIGFtb3VudHMsIHRoZSBhbGxvd2FuY2UKd2lsbCBiZSByZWR1Y2VkIGJ5IHRoZSBhbW91bnQgdHJhbnNmZXJlZC4KCiMgQXJndW1lbnRzCgoqIGBmcm9tYCAtIFRoZSBhZGRyZXNzIGhvbGRpbmcgdGhlIGJhbGFuY2Ugb2YgdG9rZW5zIHRvIGJlIGRyYXduIGZyb20uCiogYHNwZW5kZXJgIC0gVGhlIGFkZHJlc3Mgc3BlbmRpbmcgdGhlIHRva2VucyBoZWxkIGJ5IGBmcm9tYC4AAAAAAAAJYWxsb3dhbmNlAAAAAAAAAgAAAAAAAAAEZnJvbQAAABMAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAEAAAAL",
+      new ContractSpec([ "AAAAAAAAAYlSZXR1cm5zIHRoZSBhbGxvd2FuY2UgZm9yIGBzcGVuZGVyYCB0byB0cmFuc2ZlciBmcm9tIGBmcm9tYC4KClRoZSBhbW91bnQgcmV0dXJuZWQgaXMgdGhlIGFtb3VudCB0aGF0IHNwZW5kZXIgaXMgYWxsb3dlZCB0byB0cmFuc2ZlcgpvdXQgb2YgZnJvbSdzIGJhbGFuY2UuIFdoZW4gdGhlIHNwZW5kZXIgdHJhbnNmZXJzIGFtb3VudHMsIHRoZSBhbGxvd2FuY2UKd2lsbCBiZSByZWR1Y2VkIGJ5IHRoZSBhbW91bnQgdHJhbnNmZXJlZC4KCiMgQXJndW1lbnRzCgoqIGBmcm9tYCAtIFRoZSBhZGRyZXNzIGhvbGRpbmcgdGhlIGJhbGFuY2Ugb2YgdG9rZW5zIHRvIGJlIGRyYXduIGZyb20uCiogYHNwZW5kZXJgIC0gVGhlIGFkZHJlc3Mgc3BlbmRpbmcgdGhlIHRva2VucyBoZWxkIGJ5IGBmcm9tYC4AAAAAAAAJYWxsb3dhbmNlAAAAAAAAAgAAAAAAAAAEZnJvbQAAABMAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAEAAAAL",
         "AAAAAAAAAIlSZXR1cm5zIHRydWUgaWYgYGlkYCBpcyBhdXRob3JpemVkIHRvIHVzZSBpdHMgYmFsYW5jZS4KCiMgQXJndW1lbnRzCgoqIGBpZGAgLSBUaGUgYWRkcmVzcyBmb3Igd2hpY2ggdG9rZW4gYXV0aG9yaXphdGlvbiBpcyBiZWluZyBjaGVja2VkLgAAAAAAAAphdXRob3JpemVkAAAAAAABAAAAAAAAAAJpZAAAAAAAEwAAAAEAAAAB",
         "AAAAAAAAA55TZXQgdGhlIGFsbG93YW5jZSBieSBgYW1vdW50YCBmb3IgYHNwZW5kZXJgIHRvIHRyYW5zZmVyL2J1cm4gZnJvbQpgZnJvbWAuCgpUaGUgYW1vdW50IHNldCBpcyB0aGUgYW1vdW50IHRoYXQgc3BlbmRlciBpcyBhcHByb3ZlZCB0byB0cmFuc2ZlciBvdXQgb2YKZnJvbSdzIGJhbGFuY2UuIFRoZSBzcGVuZGVyIHdpbGwgYmUgYWxsb3dlZCB0byB0cmFuc2ZlciBhbW91bnRzLCBhbmQKd2hlbiBhbiBhbW91bnQgaXMgdHJhbnNmZXJyZWQgdGhlIGFsbG93YW5jZSB3aWxsIGJlIHJlZHVjZWQgYnkgdGhlCmFtb3VudCB0cmFuc2ZlcmVkLgoKIyBBcmd1bWVudHMKCiogYGZyb21gIC0gVGhlIGFkZHJlc3MgaG9sZGluZyB0aGUgYmFsYW5jZSBvZiB0b2tlbnMgdG8gYmUgZHJhd24gZnJvbS4KKiBgc3BlbmRlcmAgLSBUaGUgYWRkcmVzcyBiZWluZyBhdXRob3JpemVkIHRvIHNwZW5kIHRoZSB0b2tlbnMgaGVsZCBieQpgZnJvbWAuCiogYGFtb3VudGAgLSBUaGUgdG9rZW5zIHRvIGJlIG1hZGUgYXZhaWxhYmxlIHRvIGBzcGVuZGVyYC4KKiBgZXhwaXJhdGlvbl9sZWRnZXJgIC0gVGhlIGxlZGdlciBudW1iZXIgd2hlcmUgdGhpcyBhbGxvd2FuY2UgZXhwaXJlcy4gQ2Fubm90CmJlIGxlc3MgdGhhbiB0aGUgY3VycmVudCBsZWRnZXIgbnVtYmVyIHVubGVzcyB0aGUgYW1vdW50IGlzIGJlaW5nIHNldCB0byAwLgpBbiBleHBpcmVkIGVudHJ5ICh3aGVyZSBleHBpcmF0aW9uX2xlZGdlciA8IHRoZSBjdXJyZW50IGxlZGdlciBudW1iZXIpCnNob3VsZCBiZSB0cmVhdGVkIGFzIGEgMCBhbW91bnQgYWxsb3dhbmNlLgoKIyBFdmVudHMKCkVtaXRzIGFuIGV2ZW50IHdpdGggdG9waWNzIGBbImFwcHJvdmUiLCBmcm9tOiBBZGRyZXNzLApzcGVuZGVyOiBBZGRyZXNzXSwgZGF0YSA9IFthbW91bnQ6IGkxMjgsIGV4cGlyYXRpb25fbGVkZ2VyOiB1MzJdYAAAAAAAB2FwcHJvdmUAAAAABAAAAAAAAAAEZnJvbQAAABMAAAAAAAAAB3NwZW5kZXIAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAAAAABFleHBpcmF0aW9uX2xlZGdlcgAAAAAAAAQAAAAA",
         "AAAAAAAAAJhSZXR1cm5zIHRoZSBiYWxhbmNlIG9mIGBpZGAuCgojIEFyZ3VtZW50cwoKKiBgaWRgIC0gVGhlIGFkZHJlc3MgZm9yIHdoaWNoIGEgYmFsYW5jZSBpcyBiZWluZyBxdWVyaWVkLiBJZiB0aGUKYWRkcmVzcyBoYXMgbm8gZXhpc3RpbmcgYmFsYW5jZSwgcmV0dXJucyAwLgAAAAdiYWxhbmNlAAAAAAEAAAAAAAAAAmlkAAAAAAATAAAAAQAAAAs=",
@@ -548,26 +564,26 @@ export class Client extends ContractClient {
         "AAAAAAAAAVBTZXRzIHdoZXRoZXIgdGhlIGFjY291bnQgaXMgYXV0aG9yaXplZCB0byB1c2UgaXRzIGJhbGFuY2UuIElmCmBhdXRob3JpemVkYCBpcyB0cnVlLCBgaWRgIHNob3VsZCBiZSBhYmxlIHRvIHVzZSBpdHMgYmFsYW5jZS4KCiMgQXJndW1lbnRzCgoqIGBpZGAgLSBUaGUgYWRkcmVzcyBiZWluZyAoZGUtKWF1dGhvcml6ZWQuCiogYGF1dGhvcml6ZWAgLSBXaGV0aGVyIG9yIG5vdCBgaWRgIGNhbiB1c2UgaXRzIGJhbGFuY2UuCgojIEV2ZW50cwoKRW1pdHMgYW4gZXZlbnQgd2l0aCB0b3BpY3MgYFsic2V0X2F1dGhvcml6ZWQiLCBpZDogQWRkcmVzc10sIGRhdGEgPQpbYXV0aG9yaXplOiBib29sXWAAAAAOc2V0X2F1dGhvcml6ZWQAAAAAAAIAAAAAAAAAAmlkAAAAAAATAAAAAAAAAAlhdXRob3JpemUAAAAAAAABAAAAAA==",
         "AAAAAAAAAFtSZXR1cm5zIHRoZSBzeW1ib2wgZm9yIHRoaXMgdG9rZW4uCgojIFBhbmljcwoKSWYgdGhlIGNvbnRyYWN0IGhhcyBub3QgeWV0IGJlZW4gaW5pdGlhbGl6ZWQuAAAAAAZzeW1ib2wAAAAAAAAAAAABAAAAEA==",
         "AAAAAAAAAWRUcmFuc2ZlciBgYW1vdW50YCBmcm9tIGBmcm9tYCB0byBgdG9gLgoKIyBBcmd1bWVudHMKCiogYGZyb21gIC0gVGhlIGFkZHJlc3MgaG9sZGluZyB0aGUgYmFsYW5jZSBvZiB0b2tlbnMgd2hpY2ggd2lsbCBiZQp3aXRoZHJhd24gZnJvbS4KKiBgdG9gIC0gVGhlIGFkZHJlc3Mgd2hpY2ggd2lsbCByZWNlaXZlIHRoZSB0cmFuc2ZlcnJlZCB0b2tlbnMuCiogYGFtb3VudGAgLSBUaGUgYW1vdW50IG9mIHRva2VucyB0byBiZSB0cmFuc2ZlcnJlZC4KCiMgRXZlbnRzCgpFbWl0cyBhbiBldmVudCB3aXRoIHRvcGljcyBgWyJ0cmFuc2ZlciIsIGZyb206IEFkZHJlc3MsIHRvOiBBZGRyZXNzXSwKZGF0YSA9IFthbW91bnQ6IGkxMjhdYAAAAAh0cmFuc2ZlcgAAAAMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAA==",
-        "AAAAAAAAAzNUcmFuc2ZlciBgYW1vdW50YCBmcm9tIGBmcm9tYCB0byBgdG9gLCBjb25zdW1pbmcgdGhlIGFsbG93YW5jZSB0aGF0CmBzcGVuZGVyYCBoYXMgb24gYGZyb21gJ3MgYmFsYW5jZS4gQXV0aG9yaXplZCBieSBzcGVuZGVyCihgc3BlbmRlci5yZXF1aXJlX2F1dGgoKWApLgoKVGhlIHNwZW5kZXIgd2lsbCBiZSBhbGxvd2VkIHRvIHRyYW5zZmVyIHRoZSBhbW91bnQgZnJvbSBmcm9tJ3MgYmFsYW5jZQppZiB0aGUgYW1vdW50IGlzIGxlc3MgdGhhbiBvciBlcXVhbCB0byB0aGUgYWxsb3dhbmNlIHRoYXQgdGhlIHNwZW5kZXIKaGFzIG9uIHRoZSBmcm9tJ3MgYmFsYW5jZS4gVGhlIHNwZW5kZXIncyBhbGxvd2FuY2Ugb24gZnJvbSdzIGJhbGFuY2UKd2lsbCBiZSByZWR1Y2VkIGJ5IHRoZSBhbW91bnQuCgojIEFyZ3VtZW50cwoKKiBgc3BlbmRlcmAgLSBUaGUgYWRkcmVzcyBhdXRob3JpemluZyB0aGUgdHJhbnNmZXIsIGFuZCBoYXZpbmcgaXRzCmFsbG93YW5jZSBjb25zdW1lZCBkdXJpbmcgdGhlIHRyYW5zZmVyLgoqIGBmcm9tYCAtIFRoZSBhZGRyZXNzIGhvbGRpbmcgdGhlIGJhbGFuY2Ugb2YgdG9rZW5zIHdoaWNoIHdpbGwgYmUKd2l0aGRyYXduIGZyb20uCiogYHRvYCAtIFRoZSBhZGRyZXNzIHdoaWNoIHdpbGwgcmVjZWl2ZSB0aGUgdHJhbnNmZXJyZWQgdG9rZW5zLgoqIGBhbW91bnRgIC0gVGhlIGFtb3VudCBvZiB0b2tlbnMgdG8gYmUgdHJhbnNmZXJyZWQuCgojIEV2ZW50cwoKRW1pdHMgYW4gZXZlbnQgd2l0aCB0b3BpY3MgYFsidHJhbnNmZXIiLCBmcm9tOiBBZGRyZXNzLCB0bzogQWRkcmVzc10sCmRhdGEgPSBbYW1vdW50OiBpMTI4XWAAAAAADXRyYW5zZmVyX2Zyb20AAAAAAAAEAAAAAAAAAAdzcGVuZGVyAAAAABMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAA=="]),
+        "AAAAAAAAAzNUcmFuc2ZlciBgYW1vdW50YCBmcm9tIGBmcm9tYCB0byBgdG9gLCBjb25zdW1pbmcgdGhlIGFsbG93YW5jZSB0aGF0CmBzcGVuZGVyYCBoYXMgb24gYGZyb21gJ3MgYmFsYW5jZS4gQXV0aG9yaXplZCBieSBzcGVuZGVyCihgc3BlbmRlci5yZXF1aXJlX2F1dGgoKWApLgoKVGhlIHNwZW5kZXIgd2lsbCBiZSBhbGxvd2VkIHRvIHRyYW5zZmVyIHRoZSBhbW91bnQgZnJvbSBmcm9tJ3MgYmFsYW5jZQppZiB0aGUgYW1vdW50IGlzIGxlc3MgdGhhbiBvciBlcXVhbCB0byB0aGUgYWxsb3dhbmNlIHRoYXQgdGhlIHNwZW5kZXIKaGFzIG9uIHRoZSBmcm9tJ3MgYmFsYW5jZS4gVGhlIHNwZW5kZXIncyBhbGxvd2FuY2Ugb24gZnJvbSdzIGJhbGFuY2UKd2lsbCBiZSByZWR1Y2VkIGJ5IHRoZSBhbW91bnQuCgojIEFyZ3VtZW50cwoKKiBgc3BlbmRlcmAgLSBUaGUgYWRkcmVzcyBhdXRob3JpemluZyB0aGUgdHJhbnNmZXIsIGFuZCBoYXZpbmcgaXRzCmFsbG93YW5jZSBjb25zdW1lZCBkdXJpbmcgdGhlIHRyYW5zZmVyLgoqIGBmcm9tYCAtIFRoZSBhZGRyZXNzIGhvbGRpbmcgdGhlIGJhbGFuY2Ugb2YgdG9rZW5zIHdoaWNoIHdpbGwgYmUKd2l0aGRyYXduIGZyb20uCiogYHRvYCAtIFRoZSBhZGRyZXNzIHdoaWNoIHdpbGwgcmVjZWl2ZSB0aGUgdHJhbnNmZXJyZWQgdG9rZW5zLgoqIGBhbW91bnRgIC0gVGhlIGFtb3VudCBvZiB0b2tlbnMgdG8gYmUgdHJhbnNmZXJyZWQuCgojIEV2ZW50cwoKRW1pdHMgYW4gZXZlbnQgd2l0aCB0b3BpY3MgYFsidHJhbnNmZXIiLCBmcm9tOiBBZGRyZXNzLCB0bzogQWRkcmVzc10sCmRhdGEgPSBbYW1vdW50OiBpMTI4XWAAAAAADXRyYW5zZmVyX2Zyb20AAAAAAAAEAAAAAAAAAAdzcGVuZGVyAAAAABMAAAAAAAAABGZyb20AAAATAAAAAAAAAAJ0bwAAAAAAEwAAAAAAAAAGYW1vdW50AAAAAAALAAAAAA==" ]),
       options
     )
   }
   public readonly fromJSON = {
     allowance: this.txFromJSON<i128>,
-    authorized: this.txFromJSON<boolean>,
-    approve: this.txFromJSON<null>,
-    balance: this.txFromJSON<i128>,
-    burn: this.txFromJSON<null>,
-    burn_from: this.txFromJSON<null>,
-    clawback: this.txFromJSON<null>,
-    decimals: this.txFromJSON<u32>,
-    mint: this.txFromJSON<null>,
-    name: this.txFromJSON<string>,
-    set_admin: this.txFromJSON<null>,
-    admin: this.txFromJSON<string>,
-    set_authorized: this.txFromJSON<null>,
-    symbol: this.txFromJSON<string>,
-    transfer: this.txFromJSON<null>,
-    transfer_from: this.txFromJSON<null>
+        authorized: this.txFromJSON<boolean>,
+        approve: this.txFromJSON<null>,
+        balance: this.txFromJSON<i128>,
+        burn: this.txFromJSON<null>,
+        burn_from: this.txFromJSON<null>,
+        clawback: this.txFromJSON<null>,
+        decimals: this.txFromJSON<u32>,
+        mint: this.txFromJSON<null>,
+        name: this.txFromJSON<string>,
+        set_admin: this.txFromJSON<null>,
+        admin: this.txFromJSON<string>,
+        set_authorized: this.txFromJSON<null>,
+        symbol: this.txFromJSON<string>,
+        transfer: this.txFromJSON<null>,
+        transfer_from: this.txFromJSON<null>
   }
 }

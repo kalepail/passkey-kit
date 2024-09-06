@@ -1,5 +1,5 @@
 import { Client as PasskeyClient } from 'passkey-kit-sdk'
-import { Client as FactoryClient } from 'passkey-factory-sdk'
+import { Client as FactoryClient, type Secp256r1Id } from 'passkey-factory-sdk'
 import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
@@ -47,7 +47,10 @@ export class PasskeyKit extends PasskeyBase {
 
         const { result, built } = await this.factory.deploy({
             salt: hash(keyId),
-            id: keyId,
+            id: {
+                tag: 'Secp256r1',
+                values: [[Buffer.from(keyId)] as Secp256r1Id]
+            },
             pk: publicKey
         })
 

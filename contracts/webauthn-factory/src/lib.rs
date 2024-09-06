@@ -3,23 +3,37 @@
 mod wallet {
     use soroban_sdk::auth::Context;
     soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm"
+        file = "../out/webauthn_wallet.wasm"
     );
 }
 
-use wallet::{Client, KeyId};
 use soroban_sdk::{
-    contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
+    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env, Symbol
 };
 
 #[contract]
 pub struct Contract;
 
 #[contracterror]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
+}
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub struct Ed22519PublicKey(pub BytesN<32>);
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub struct Secp256r1Id(pub Bytes);
+
+#[contracttype]
+#[derive(Clone, PartialEq)]
+pub enum KeyId {
+    Ed22519(Ed22519PublicKey),
+    Secp256r1(Secp256r1Id),
 }
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
@@ -61,7 +75,7 @@ impl Contract {
     pub fn deploy(
         env: Env,
         salt: BytesN<32>,
-        id: KeyId,
+        id: wallet::KeyId,
         pk: Option<BytesN<65>>,
     ) -> Result<Address, Error> {
         let wasm_hash = env
@@ -72,7 +86,12 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        Client::new(&env, &address).add(&id, &pk, &true);
+        // let id = match id {
+        //     KeyId::Ed22519(Ed22519PublicKey(public_key)) => wallet::KeyId::Ed22519(wallet::Ed22519PublicKey(public_key)),
+        //     KeyId::Secp256r1(Secp256r1Id(id)) => wallet::KeyId::Secp256r1(wallet::Secp256r1Id(id)),
+        // };
+
+        wallet::Client::new(&env, &address).add(&id, &pk, &true);
 
         let max_ttl = env.storage().max_ttl();
 
