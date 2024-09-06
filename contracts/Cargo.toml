@@ -7,14 +7,14 @@ members = [
 ]
 
 [workspace.dependencies.soroban-sdk]
-version = "21.2.0"
+version = "21.6.0"
 
 [workspace.dependencies.serde]
 version = "1"
 default-features = false
 
 [workspace.dependencies.serde-json-core]
-version = "0.5.1"
+version = "0.6.0"
 default-features = false
 
 [workspace.dependencies.stellar-xdr]

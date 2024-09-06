@@ -13,7 +13,7 @@ use soroban_sdk::{
     IntoVal,
 };
 
-use crate::{Contract, ContractClient, Error, Signature};
+use crate::{Contract, ContractClient, Error, KeyId, Secp256r1Id, Secp256r1Signature, Signature};
 
 mod factory {
     soroban_sdk::contractimport!(file = "../out/webauthn_factory.optimized.wasm");
@@ -58,7 +58,7 @@ fn test() {
     // let salt = env.crypto().sha256(&id);
 
     // factory_client.init(&passkkey_hash);
-    deployee_client.add(&id, &pk, &true);
+    deployee_client.add(&KeyId::Secp256r1(Secp256r1Id(id)), &Some(pk), &true);
 
     let signature_payload = BytesN::from_array(
         &env,
@@ -68,7 +68,14 @@ fn test() {
         ],
     );
 
-    let signature = Signature {
+    let signature = Signature::Secp256r1(Secp256r1Signature {
+        id: Secp256r1Id(Bytes::from_array(
+            &env,
+            &[
+                243, 248, 216, 74, 226, 218, 85, 102, 196, 167, 14, 151, 124, 42, 73, 136, 138,
+                102, 187, 140,
+            ],
+        )),
         authenticator_data: Bytes::from_array(
             &env,
             &[
@@ -90,13 +97,6 @@ fn test() {
                 34, 125,
             ],
         ),
-        id: Bytes::from_array(
-            &env,
-            &[
-                243, 248, 216, 74, 226, 218, 85, 102, 196, 167, 14, 151, 124, 42, 73, 136, 138,
-                102, 187, 140,
-            ],
-        ),
         signature: BytesN::from_array(
             &env,
             &[
@@ -106,7 +106,7 @@ fn test() {
                 144, 227, 11, 225, 74, 254, 191, 221, 103, 86,
             ],
         ),
-    };
+    });
 
     let result: Result<(), Result<Error, _>> = env.try_invoke_contract_check_auth(
         &deployee_address,

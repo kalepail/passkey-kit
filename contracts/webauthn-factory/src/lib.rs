@@ -1,11 +1,16 @@
 #![no_std]
+
 use soroban_sdk::{
-    contract, contracterror, contractimpl, symbol_short, Address, Bytes, BytesN, Env, Symbol,
+    contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
 };
+
+use wallet::KeyId;
 
 mod wallet {
     use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm");
+    soroban_sdk::contractimport!(
+        file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm"
+    );
 }
 
 #[contract]
@@ -54,7 +59,12 @@ impl Contract {
         Ok(())
     }
 
-    pub fn deploy(env: Env, salt: BytesN<32>, id: Bytes, pk: BytesN<65>) -> Result<Address, Error> {
+    pub fn deploy(
+        env: Env,
+        salt: BytesN<32>,
+        id: KeyId,
+        pk: Option<BytesN<65>>,
+    ) -> Result<Address, Error> {
         let wasm_hash = env
             .storage()
             .instance()

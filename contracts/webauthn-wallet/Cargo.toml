@@ -1,6 +1,6 @@
 [package]
 name = "webauthn-wallet"
-version = "0.3.1"
+version = "0.4.0"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
