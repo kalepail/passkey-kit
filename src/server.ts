@@ -49,7 +49,7 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: `Bearer ${this.mercuryJwt}`
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data',
+                project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
                         fname: "get_signers_by_address",
@@ -94,7 +94,7 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: `Bearer ${this.mercuryJwt}`
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data',
+                project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
                         fname: "get_address_by_signer",

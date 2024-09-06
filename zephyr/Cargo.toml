@@ -1,5 +1,5 @@
 [package]
-name = "smart-wallets-data"
+name = "smart-wallets-data-multi-signer-multi-sig"
 version = "0.1.0"
 edition = "2021"
 
