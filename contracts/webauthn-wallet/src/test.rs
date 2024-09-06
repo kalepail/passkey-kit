@@ -15,9 +15,9 @@ use soroban_sdk::{
 
 use crate::{Contract, ContractClient, Error, KeyId, Secp256r1Id, Secp256r1Signature, Signature};
 
-mod factory {
-    soroban_sdk::contractimport!(file = "../out/webauthn_factory.optimized.wasm");
-}
+// mod factory {
+//     soroban_sdk::contractimport!(file = "../out/webauthn_factory.optimized.wasm");
+// }
 
 // mod passkey {
 //     use soroban_sdk::auth::Context;
