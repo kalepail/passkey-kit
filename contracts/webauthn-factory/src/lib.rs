@@ -3,15 +3,7 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
 };
-
-use wallet::KeyId;
-
-mod wallet {
-    use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm"
-    );
-}
+use webauthn_wallet::{ContractClient as WalletClient, KeyId};
 
 #[contract]
 pub struct Contract;
@@ -73,7 +65,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        wallet::Client::new(&env, &address).add(&id, &pk, &true);
+        WalletClient::new(&env, &address).add(&id, &pk, &true);
 
         let max_ttl = env.storage().max_ttl();
 

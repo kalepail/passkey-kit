@@ -184,11 +184,11 @@ fn update_admin_signer_count(env: &Env, add: bool) {
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
-pub struct Ed22519PublicKey(BytesN<32>);
+pub struct Ed22519PublicKey(pub BytesN<32>);
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
-pub struct Secp256r1Id(Bytes);
+pub struct Secp256r1Id(pub Bytes);
 
 #[contracttype]
 #[derive(PartialEq)]

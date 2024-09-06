@@ -1,28 +1,15 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "webauthn-factory",
-    "webauthn-wallet",
-]
+members = ["webauthn-factory", "webauthn-wallet"]
 
-[workspace.dependencies.soroban-sdk]
-version = "21.6.0"
-
-[workspace.dependencies.serde]
-version = "1"
-default-features = false
-
-[workspace.dependencies.serde-json-core]
-version = "0.6.0"
-default-features = false
-
-[workspace.dependencies.stellar-xdr]
-version = "21.2.0" 
-default-features = false
-
-[workspace.dependencies.sha256]
-version = "1.5.0"
+[workspace.dependencies]
+soroban-sdk = { version = "21.6.0" }
+serde = { version = "1", default-features = false }
+serde-json-core = { version = "0.6.0", default-features = false }
+stellar-xdr = { version = "21.2.0", default-features = false }
+sha256 = { version = "1.5.0" }
+webauthn-wallet = { path = "webauthn-wallet" }
 
 [profile.release]
 opt-level = "z"
