@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 zephyr-sdk = { version = "0.2.2-rc2" }
 stellar-strkey = "0.0.8"
 serde = { version = "1.0", features = ["derive"] }
-webauthn-wallet = { git = "https://github.com/kalepail/passkey-kit", rev = "0919544db15ebdba9cf525cae261209c48eb61f4" }
+webauthn-wallet = { path = "../contracts/webauthn-wallet" }
 
 [dev-dependencies]
 zephyr-sdk = { version = "0.2.2-rc2", features = ["testutils"] }
