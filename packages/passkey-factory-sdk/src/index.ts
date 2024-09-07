@@ -44,7 +44,7 @@ export const Errors = {
 }
 export type Ed25519PublicKey = readonly [Buffer];
 export type Secp256r1Id = readonly [Buffer];
-export type KeyId = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
+export type Signer = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
 
 
 export interface Client {
@@ -71,7 +71,7 @@ export interface Client {
   /**
    * Construct and simulate a deploy transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  deploy: ({salt, id, pk}: {salt: Buffer, id: KeyId, pk: Option<Buffer>}, options?: {
+  deploy: ({salt, id, pk}: {salt: Buffer, id: Signer, pk: Option<Buffer>}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */

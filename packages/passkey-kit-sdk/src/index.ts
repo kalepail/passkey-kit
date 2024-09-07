@@ -56,7 +56,7 @@ export const Errors = {
 }
 export type Ed25519PublicKey = readonly [Buffer];
 export type Secp256r1Id = readonly [Buffer];
-export type KeyId = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
+export type Signer = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
 
 
 export interface Ed25519Signature {
@@ -79,7 +79,7 @@ export interface Client {
   /**
    * Construct and simulate a add transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  add: ({id, pk, admin}: {id: KeyId, pk: Option<Buffer>, admin: boolean}, options?: {
+  add: ({id, pk, admin}: {id: Signer, pk: Option<Buffer>, admin: boolean}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -99,7 +99,7 @@ export interface Client {
   /**
    * Construct and simulate a remove transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  remove: ({id}: {id: KeyId}, options?: {
+  remove: ({id}: {id: Signer}, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */

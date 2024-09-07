@@ -1,7 +1,12 @@
 // #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface}, contract, contracterror, contractimpl, crypto::Hash, panic_with_error, xdr::ScVal, Bytes, Env, FromVal, Vec
+    auth::{Context, ContractContext, CustomAccountInterface},
+    contract, contracterror, contractimpl,
+    crypto::Hash,
+    panic_with_error,
+    xdr::ScVal,
+    Bytes, Env, FromVal, Vec,
 };
 use webauthn_wallet::types::Signature;
 
@@ -35,10 +40,16 @@ impl CustomAccountInterface for Contract {
 
         for context in auth_contexts.iter() {
             match context {
-                Context::Contract(ContractContext { contract: root_contract, fn_name: __check_auth, args: root_args }) => {
+                Context::Contract(ContractContext {
+                    contract: root_contract,
+                    fn_name: __check_auth,
+                    args: root_args,
+                }) => {
                     let arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
-                    let arg_signatures: Vec<Signature> = Vec::from_val(&env, &root_args.get_unchecked(1));
-                    let arg_auth_contexts: Vec<Context> = Vec::from_val(&env, &root_args.get_unchecked(2));
+                    let arg_signatures: Vec<Signature> =
+                        Vec::from_val(&env, &root_args.get_unchecked(1));
+                    let arg_auth_contexts: Vec<Context> =
+                        Vec::from_val(&env, &root_args.get_unchecked(2));
 
                     println!("{:?}", arg_signature_payload);
 
@@ -48,8 +59,13 @@ impl CustomAccountInterface for Contract {
 
                     for context in arg_auth_contexts.iter() {
                         match context {
-                            Context::Contract(ContractContext { contract: sub_contract, fn_name, args: sub_args }) => {
-                                if sub_contract == root_contract { // This policy cannot authorize anything on the smart wallet (makes it safe for the policy to be an admin key)
+                            Context::Contract(ContractContext {
+                                contract: sub_contract,
+                                fn_name,
+                                args: sub_args,
+                            }) => {
+                                if sub_contract == root_contract {
+                                    // This policy cannot authorize anything on the smart wallet (makes it safe for the policy to be an admin key)
                                     panic_with_error!(&env, Error::NotPermitted)
                                 }
 

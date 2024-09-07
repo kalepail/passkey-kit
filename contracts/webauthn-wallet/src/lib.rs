@@ -1,9 +1,14 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, xdr::ToXdr, BytesN, Env, FromVal, Symbol, Vec
+    auth::{Context, ContractContext, CustomAccountInterface},
+    contract, contractimpl,
+    crypto::Hash,
+    panic_with_error, symbol_short,
+    xdr::ToXdr,
+    BytesN, Env, FromVal, Symbol, Vec,
 };
-use types::{Ed25519Signature, Error, KeyId, Secp256r1Signature, Signature};
+use types::{Ed25519Signature, Error, Secp256r1Signature, Signature, Signer};
 
 mod base64_url;
 pub mod types;
@@ -20,7 +25,7 @@ const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
 #[contractimpl]
 impl Contract {
     #[allow(unused_mut)] // `admin` actually is mutated so not sure why the IDE is yelling at me
-    pub fn add(env: Env, id: KeyId, pk: Option<BytesN<65>>, mut admin: bool) -> Result<(), Error> {
+    pub fn add(env: Env, id: Signer, pk: Option<BytesN<65>>, mut admin: bool) -> Result<(), Error> {
         if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
             env.current_contract_address().require_auth();
         } else {
@@ -30,33 +35,33 @@ impl Contract {
         let max_ttl = env.storage().max_ttl();
 
         if admin {
-            if env.storage().temporary().has::<KeyId>(&id) {
-                env.storage().temporary().remove::<KeyId>(&id);
+            if env.storage().temporary().has::<Signer>(&id) {
+                env.storage().temporary().remove::<Signer>(&id);
             }
 
             update_admin_signer_count(&env, true);
 
-            let key: KeyId;
+            let key: Signer;
 
             match &id {
-                KeyId::Policy(address) => {
-                    key = KeyId::Policy(address.clone());
+                Signer::Policy(address) => {
+                    key = Signer::Policy(address.clone());
 
                     // Policy keys must be added without a public key
                     if pk.is_some() {
                         panic_with_error!(env, Error::NotPermitted)
                     }
                 }
-                KeyId::Ed25519(public_key) => {
-                    key = KeyId::Ed25519(public_key.clone());
+                Signer::Ed25519(public_key) => {
+                    key = Signer::Ed25519(public_key.clone());
 
                     // Ed25519 keys must be added without a public key
                     if pk.is_some() {
                         panic_with_error!(env, Error::NotPermitted)
                     }
                 }
-                KeyId::Secp256r1(id) => {
-                    key = KeyId::Secp256r1(id.clone());
+                Signer::Secp256r1(id) => {
+                    key = Signer::Secp256r1(id.clone());
 
                     // Secp256r1 keys must be added with a public key
                     if pk.is_none() {
@@ -67,40 +72,40 @@ impl Contract {
 
             env.storage()
                 .persistent()
-                .set::<KeyId, Option<BytesN<65>>>(&key, &pk);
-            env.storage().persistent().extend_ttl::<KeyId>(
+                .set::<Signer, Option<BytesN<65>>>(&key, &pk);
+            env.storage().persistent().extend_ttl::<Signer>(
                 &key,
                 max_ttl - WEEK_OF_LEDGERS,
                 max_ttl,
             );
         } else {
-            if env.storage().persistent().has::<KeyId>(&id) {
+            if env.storage().persistent().has::<Signer>(&id) {
                 update_admin_signer_count(&env, false);
 
-                env.storage().persistent().remove::<KeyId>(&id);
+                env.storage().persistent().remove::<Signer>(&id);
             }
 
-            let key: KeyId;
+            let key: Signer;
 
             match &id {
-                KeyId::Policy(address) => {
-                    key = KeyId::Policy(address.clone());
+                Signer::Policy(address) => {
+                    key = Signer::Policy(address.clone());
 
                     // Policy keys must be added without a public key
                     if pk.is_some() {
                         panic_with_error!(env, Error::NotPermitted)
                     }
                 }
-                KeyId::Ed25519(public_key) => {
-                    key = KeyId::Ed25519(public_key.clone());
+                Signer::Ed25519(public_key) => {
+                    key = Signer::Ed25519(public_key.clone());
 
                     // Ed25519 keys must be added without a public key
                     if pk.is_some() {
                         panic_with_error!(env, Error::NotPermitted)
                     }
                 }
-                KeyId::Secp256r1(id) => {
-                    key = KeyId::Secp256r1(id.clone());
+                Signer::Secp256r1(id) => {
+                    key = Signer::Secp256r1(id.clone());
 
                     // Secp256r1 keys must be added with a public key
                     if pk.is_none() {
@@ -111,10 +116,12 @@ impl Contract {
 
             env.storage()
                 .temporary()
-                .set::<KeyId, Option<BytesN<65>>>(&key, &pk);
-            env.storage()
-                .temporary()
-                .extend_ttl::<KeyId>(&key, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+                .set::<Signer, Option<BytesN<65>>>(&key, &pk);
+            env.storage().temporary().extend_ttl::<Signer>(
+                &key,
+                max_ttl - WEEK_OF_LEDGERS,
+                max_ttl,
+            );
         }
 
         env.storage()
@@ -129,15 +136,15 @@ impl Contract {
 
         Ok(())
     }
-    pub fn remove(env: Env, id: KeyId) -> Result<(), Error> {
+    pub fn remove(env: Env, id: Signer) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        if env.storage().temporary().has::<KeyId>(&id) {
-            env.storage().temporary().remove::<KeyId>(&id);
-        } else if env.storage().persistent().has::<KeyId>(&id) {
+        if env.storage().temporary().has::<Signer>(&id) {
+            env.storage().temporary().remove::<Signer>(&id);
+        } else if env.storage().persistent().has::<Signer>(&id) {
             update_admin_signer_count(&env, false);
 
-            env.storage().persistent().remove::<KeyId>(&id);
+            env.storage().persistent().remove::<Signer>(&id);
         }
 
         let max_ttl = env.storage().max_ttl();
@@ -213,7 +220,7 @@ impl CustomAccountInterface for Contract {
 
             match signature {
                 Signature::Policy(policy) => {
-                    let key = KeyId::Policy(policy.clone());
+                    let key = Signer::Policy(policy.clone());
 
                     if let Some(prev_signature) = prev_signature {
                         check_signature_order(&env, prev_signature, &key);
@@ -231,7 +238,7 @@ impl CustomAccountInterface for Contract {
                         signature,
                     } = signature;
 
-                    let key = KeyId::Ed25519(public_key.clone());
+                    let key = Signer::Ed25519(public_key.clone());
 
                     if let Some(prev_signature) = prev_signature {
                         check_signature_order(&env, prev_signature, &key);
@@ -253,7 +260,7 @@ impl CustomAccountInterface for Contract {
                         signature,
                     } = signature;
 
-                    let key = KeyId::Secp256r1(id);
+                    let key = Signer::Secp256r1(id);
 
                     if let Some(prev_signature) = prev_signature {
                         check_signature_order(&env, prev_signature, &key);
@@ -300,38 +307,38 @@ impl CustomAccountInterface for Contract {
     }
 }
 
-fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
+fn check_signature_order(env: &Env, prev_signature: Signature, key: &Signer) {
     match prev_signature {
         Signature::Policy(prev_signature) => match key {
-            KeyId::Policy(address) => {
+            Signer::Policy(address) => {
                 if prev_signature.0.to_xdr(env) >= address.0.clone().to_xdr(env) {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Ed25519(public_key) => {
+            Signer::Ed25519(public_key) => {
                 if prev_signature.0.to_xdr(env) >= public_key.0.clone().into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Secp256r1(id) => {
+            Signer::Secp256r1(id) => {
                 if prev_signature.0.to_xdr(env) >= id.0 {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
         },
         Signature::Ed25519(prev_signature) => match key {
-            KeyId::Policy(address) => {
+            Signer::Policy(address) => {
                 // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
                 if address.0.clone().to_xdr(&env) <= prev_signature.public_key.0.into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Ed25519(public_key) => {
+            Signer::Ed25519(public_key) => {
                 if prev_signature.public_key.0 >= public_key.0 {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Secp256r1(id) => {
+            Signer::Secp256r1(id) => {
                 // inverted on purpose so .into() works
                 if id.0 <= prev_signature.public_key.0.into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
@@ -339,17 +346,17 @@ fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
             }
         },
         Signature::Secp256r1(prev_signature) => match key {
-            KeyId::Policy(address) => {
+            Signer::Policy(address) => {
                 if prev_signature.id.0 >= address.0.clone().to_xdr(&env) {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Ed25519(public_key) => {
+            Signer::Ed25519(public_key) => {
                 if prev_signature.id.0 >= public_key.0.clone().into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
-            KeyId::Secp256r1(id) => {
+            Signer::Secp256r1(id) => {
                 if prev_signature.id.0 >= id.0 {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
@@ -361,25 +368,29 @@ fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
 fn check_key(
     env: &Env,
     auth_contexts: &Vec<Context>,
-    id: KeyId,
+    id: Signer,
     max_ttl: u32,
 ) -> Option<BytesN<65>> {
     match env
         .storage()
         .temporary()
-        .get::<KeyId, Option<BytesN<65>>>(&id)
+        .get::<Signer, Option<BytesN<65>>>(&id)
     {
         Some(pk) => {
             // Error if a session signer is trying to perform protected actions
             for context in auth_contexts.iter() {
                 match context {
-                    Context::Contract(ContractContext { contract, fn_name, args }) => {
+                    Context::Contract(ContractContext {
+                        contract,
+                        fn_name,
+                        args,
+                    }) => {
                         if contract == env.current_contract_address() // if we're calling self
                             && ( // and
                                 fn_name != symbol_short!("remove") // the method isn't the only potentially available self command
                                 || ( // or we're not removing ourself
                                     fn_name == symbol_short!("remove") 
-                                    && KeyId::from_val(env, &args.get_unchecked(0)) != id
+                                    && Signer::from_val(env, &args.get_unchecked(0)) != id
                                 )
                             )
                         {
@@ -392,7 +403,7 @@ fn check_key(
 
             env.storage()
                 .temporary()
-                .extend_ttl::<KeyId>(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
+                .extend_ttl::<Signer>(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
             pk
         }
@@ -400,10 +411,10 @@ fn check_key(
             match env
                 .storage()
                 .persistent()
-                .get::<KeyId, Option<BytesN<65>>>(&id)
+                .get::<Signer, Option<BytesN<65>>>(&id)
             {
                 Some(pk) => {
-                    env.storage().persistent().extend_ttl::<KeyId>(
+                    env.storage().persistent().extend_ttl::<Signer>(
                         &id,
                         max_ttl - WEEK_OF_LEDGERS,
                         max_ttl,

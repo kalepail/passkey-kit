@@ -15,7 +15,7 @@
 	let keyId: string;
 	let contractId: string;
 	let admins: number;
-	let adminKeyId: string | undefined;
+	let adminSigner: string | undefined;
 	let balance: string;
 	let signers: {
 		id: string;
@@ -113,7 +113,7 @@
 				admin: keyAdmin,
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const xdr = await account.sign(built!, { keyId: adminSigner });
 			const res = await server.send(xdr);
 
 			console.log(res);
@@ -144,7 +144,7 @@
 				admin: keyAdmin,
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const xdr = await account.sign(built!, { keyId: adminSigner });
 			const res = await server.send(xdr);
 
 			console.log(res);
@@ -159,7 +159,7 @@
 				},
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const xdr = await account.sign(built!, { keyId: adminSigner });
 			const res = await server.send(xdr);
 
 			console.log(res);
@@ -198,7 +198,7 @@
 			amount: BigInt(10_000_000),
 		});
 
-		const tx = await account.sign(built!, { keyId: adminKeyId });
+		const tx = await account.sign(built!, { keyId: adminSigner });
 		const { operations } = new Transaction(tx, import.meta.env.VITE_networkPassphrase)
 		const secp256r1_auth = (operations[0] as Operation.InvokeHostFunction).auth![0]
 		const secp256r1_sig = scValToNative(secp256r1_auth.credentials().address().signature())
@@ -332,7 +332,7 @@
 		console.log(signers);
 
 		const adminKeys = signers.filter(({ admin }) => admin);
-		adminKeyId = (adminKeys.find(({ id }) => keyId === id) || adminKeys[0])
+		adminSigner = (adminKeys.find(({ id }) => keyId === id) || adminKeys[0])
 			.id;
 		admins = adminKeys.length;
 	}
@@ -385,7 +385,7 @@
 		{#each signers as { id, pk, admin, expired }}
 			<li>
 				<button disabled>
-					{#if adminKeyId === id}
+					{#if adminSigner === id}
 						{#if keyId === id}◉{:else}◎{/if}&nbsp;
 					{:else if keyId === id}
 						●&nbsp;
@@ -407,8 +407,8 @@
 					<button on:click={() => removeSigner(id)}>Remove</button>
 				{/if}
 
-				{#if admin && id !== adminKeyId}
-					<button on:click={() => (adminKeyId = id)}
+				{#if admin && id !== adminSigner}
+					<button on:click={() => (adminSigner = id)}
 						>Set Active Admin</button
 					>
 				{:else if expired && id === account.keyId}

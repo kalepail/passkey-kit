@@ -28,7 +28,7 @@ pub struct Secp256r1Id(pub Bytes);
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub enum KeyId {
+pub enum Signer {
     Policy(Policy),
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),

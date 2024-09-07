@@ -20,7 +20,7 @@ pub enum Error {
     AlreadyInitialized = 2,
 }
 
-// NOTE It seems dumb we have to dupe this stuff just to use the `wallet::KeyId` type as a function arg, but it wasn't working without this
+// NOTE It seems dumb we have to dupe this stuff just to use the `wallet::Signer` type as a function arg, but it wasn't working without this
 // https://discord.com/channels/897514728459468821/1281696488199553025
 ////
 #[contracttype]
@@ -33,7 +33,7 @@ pub struct Secp256r1Id(pub Bytes);
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
-pub enum KeyId {
+pub enum Signer {
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
@@ -78,7 +78,7 @@ impl Contract {
     pub fn deploy(
         env: Env,
         salt: BytesN<32>,
-        id: wallet::KeyId,
+        id: wallet::Signer,
         pk: Option<BytesN<65>>,
     ) -> Result<Address, Error> {
         let wasm_hash = env
