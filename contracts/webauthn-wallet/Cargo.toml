@@ -22,4 +22,8 @@ serde-json-core = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 stellar-xdr = { workspace = true, features = ["std", "curr"] }
 sha256 = { workspace = true }
-# webauthn-factory = { workspace = true }
+ed25519-dalek = { workspace = true }
+rand = { workspace = true }
+stellar-strkey = { workspace = true }
+sample-policy = { workspace = true }
+example-contract = { workspace = true }

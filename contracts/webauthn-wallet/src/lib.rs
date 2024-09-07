@@ -1,10 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, CustomAccountInterface},
-    contract, contractimpl,
-    crypto::Hash,
-    panic_with_error, symbol_short, BytesN, Env, FromVal, Symbol, Vec,
+    auth::{Context, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, xdr::ToXdr, BytesN, Env, FromVal, Symbol, Vec
 };
 use types::{Ed25519Signature, Error, KeyId, Secp256r1Signature, Signature};
 
@@ -42,6 +39,14 @@ impl Contract {
             let key: KeyId;
 
             match &id {
+                KeyId::Policy(address) => {
+                    key = KeyId::Policy(address.clone());
+
+                    // Policy keys must be added without a public key
+                    if pk.is_some() {
+                        panic_with_error!(env, Error::NotPermitted)
+                    }
+                }
                 KeyId::Ed25519(public_key) => {
                     key = KeyId::Ed25519(public_key.clone());
 
@@ -78,6 +83,14 @@ impl Contract {
             let key: KeyId;
 
             match &id {
+                KeyId::Policy(address) => {
+                    key = KeyId::Policy(address.clone());
+
+                    // Policy keys must be added without a public key
+                    if pk.is_some() {
+                        panic_with_error!(env, Error::NotPermitted)
+                    }
+                }
                 KeyId::Ed25519(public_key) => {
                     key = KeyId::Ed25519(public_key.clone());
 
@@ -199,6 +212,23 @@ impl CustomAccountInterface for Contract {
             }
 
             match signature {
+                Signature::Policy(policy) => {
+                    let key = KeyId::Policy(policy.clone());
+
+                    if let Some(prev_signature) = prev_signature {
+                        check_signature_order(&env, prev_signature, &key);
+                    }
+
+                    check_key(&env, &auth_contexts, key, max_ttl);
+
+                    // TODO Do we need to include any payload stuff here or is it the responsibility of the policy to check that?
+
+                    // policy.0.require_auth(); // Can't use this as I think it assumes passing forward the `__check_auth` args 
+                    // which includes `signature_payload` hash which would be difficult to pre-calc during the signature creation
+                    // it's possible that simulation would be able to gen this but I doubt it
+                    // yeah all we get for context is what we have here in this function, anything we want to pass forward we'll need to include in the args
+                    policy.0.require_auth_for_args(vec![&env]);
+                }
                 Signature::Ed25519(signature) => {
                     let Ed25519Signature {
                         public_key,
@@ -211,7 +241,7 @@ impl CustomAccountInterface for Contract {
                         check_signature_order(&env, prev_signature, &key);
                     }
 
-                    get_public_key(&env, &auth_contexts, key, max_ttl);
+                    check_key(&env, &auth_contexts, key, max_ttl);
 
                     env.crypto().ed25519_verify(
                         &public_key.0,
@@ -233,8 +263,8 @@ impl CustomAccountInterface for Contract {
                         check_signature_order(&env, prev_signature, &key);
                     }
 
-                    let pk = get_public_key(&env, &auth_contexts, key, max_ttl)
-                        .ok_or(Error::NotFound)?;
+                    let pk =
+                        check_key(&env, &auth_contexts, key, max_ttl).ok_or(Error::NotFound)?;
 
                     authenticator_data
                         .extend_from_array(&env.crypto().sha256(&client_data_json).to_array());
@@ -276,21 +306,48 @@ impl CustomAccountInterface for Contract {
 
 fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
     match prev_signature {
+        Signature::Policy(prev_signature) => match key {
+            KeyId::Policy(address) => {
+                if prev_signature.0.to_xdr(env) >= address.0.clone().to_xdr(env) {
+                    panic_with_error!(env, Error::BadSignatureOrder)
+                }
+            }
+            KeyId::Ed25519(public_key) => {
+                if prev_signature.0.to_xdr(env) >= public_key.0.clone().into() {
+                    panic_with_error!(env, Error::BadSignatureOrder)
+                }
+            }
+            KeyId::Secp256r1(id) => {
+                if prev_signature.0.to_xdr(env) >= id.0 {
+                    panic_with_error!(env, Error::BadSignatureOrder)
+                }
+            }
+        },
         Signature::Ed25519(prev_signature) => match key {
+            KeyId::Policy(address) => {
+                // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
+                if address.0.clone().to_xdr(&env) <= prev_signature.public_key.0.into() {
+                    panic_with_error!(env, Error::BadSignatureOrder)
+                }
+            }
             KeyId::Ed25519(public_key) => {
                 if prev_signature.public_key.0 >= public_key.0 {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
             KeyId::Secp256r1(id) => {
-                // if prev_signature.public_key.0.into() >= id.0 {
+                // inverted on purpose so .into() works
                 if id.0 <= prev_signature.public_key.0.into() {
-                    // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
         },
         Signature::Secp256r1(prev_signature) => match key {
+            KeyId::Policy(address) => {
+                if prev_signature.id.0 >= address.0.clone().to_xdr(&env) {
+                    panic_with_error!(env, Error::BadSignatureOrder)
+                }
+            }
             KeyId::Ed25519(public_key) => {
                 if prev_signature.id.0 >= public_key.0.clone().into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
@@ -305,7 +362,7 @@ fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
     }
 }
 
-fn get_public_key(
+fn check_key(
     env: &Env,
     auth_contexts: &Vec<Context>,
     id: KeyId,

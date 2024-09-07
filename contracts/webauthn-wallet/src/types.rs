@@ -1,4 +1,4 @@
-use soroban_sdk::{contracterror, contracttype, Bytes, BytesN};
+use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -16,6 +16,10 @@ pub enum Error {
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
+pub struct Policy(pub Address);
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Ed25519PublicKey(pub BytesN<32>);
 
 #[contracttype]
@@ -25,6 +29,7 @@ pub struct Secp256r1Id(pub Bytes);
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum KeyId {
+    Policy(Policy),
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
@@ -48,6 +53,7 @@ pub struct Secp256r1Signature {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signature {
+    Policy(Policy),
     Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
 }
