@@ -13,12 +13,12 @@ use soroban_sdk::{
     IntoVal,
 };
 
-use crate::{Contract, ContractClient, Error, KeyId, Secp256r1Id, Secp256r1Signature, Signature};
+use crate::{
+    types::Secp256r1Id, Contract, ContractClient, Error, KeyId, Secp256r1Signature, Signature,
+};
 
 mod factory {
-    soroban_sdk::contractimport!(
-        file = "../out/webauthn_factory.wasm"
-    );
+    soroban_sdk::contractimport!(file = "../out/webauthn_factory.wasm");
 }
 
 // mod passkey {

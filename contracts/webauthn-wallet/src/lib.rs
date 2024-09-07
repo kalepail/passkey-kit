@@ -2,69 +2,19 @@
 
 use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
-    contract, contracterror, contractimpl, contracttype,
+    contract, contractimpl,
     crypto::Hash,
-    panic_with_error, symbol_short, Bytes, BytesN, Env, FromVal, Symbol, Vec,
+    panic_with_error, symbol_short, BytesN, Env, FromVal, Symbol, Vec,
 };
+use types::{Ed25519Signature, Error, KeyId, Secp256r1Signature, Signature};
 
 mod base64_url;
+mod types;
 
 mod test;
 
 #[contract]
 pub struct Contract;
-
-#[contracterror]
-#[derive(Copy, Clone, Debug)]
-#[repr(u32)]
-pub enum Error {
-    NotFound = 1,
-    NotPermitted = 2,
-    BadSignatureOrder = 3,
-    ClientDataJsonChallengeIncorrect = 4,
-    Secp256r1PublicKeyParse = 5,
-    Secp256r1SignatureParse = 6,
-    Secp256r1VerifyFailed = 7,
-    JsonParseError = 8,
-}
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Ed25519PublicKey(pub BytesN<32>);
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Secp256r1Id(pub Bytes);
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub enum KeyId {
-    Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id),
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub struct Ed25519Signature {
-    pub public_key: Ed25519PublicKey,
-    pub signature: BytesN<64>,
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub struct Secp256r1Signature {
-    pub authenticator_data: Bytes,
-    pub client_data_json: Bytes,
-    pub id: Secp256r1Id,
-    pub signature: BytesN<64>,
-}
-
-#[contracttype]
-#[derive(Clone)]
-pub enum Signature {
-    Ed25519(Ed25519Signature),
-    Secp256r1(Secp256r1Signature),
-}
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
@@ -334,7 +284,8 @@ fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
             }
             KeyId::Secp256r1(id) => {
                 // if prev_signature.public_key.0.into() >= id.0 {
-                if id.0 <= prev_signature.public_key.0.into() { // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
+                if id.0 <= prev_signature.public_key.0.into() {
+                    // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
