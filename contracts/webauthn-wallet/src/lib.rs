@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, xdr::ToXdr, BytesN, Env, FromVal, Symbol, Vec
+    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, xdr::ToXdr, BytesN, Env, FromVal, Symbol, Vec
 };
 use types::{Ed25519Signature, Error, KeyId, Secp256r1Signature, Signature};
 
@@ -223,11 +223,7 @@ impl CustomAccountInterface for Contract {
 
                     // TODO Do we need to include any payload stuff here or is it the responsibility of the policy to check that?
 
-                    // policy.0.require_auth(); // Can't use this as I think it assumes passing forward the `__check_auth` args 
-                    // which includes `signature_payload` hash which would be difficult to pre-calc during the signature creation
-                    // it's possible that simulation would be able to gen this but I doubt it
-                    // yeah all we get for context is what we have here in this function, anything we want to pass forward we'll need to include in the args
-                    policy.0.require_auth_for_args(vec![&env]);
+                    policy.0.require_auth();
                 }
                 Signature::Ed25519(signature) => {
                     let Ed25519Signature {
@@ -377,13 +373,13 @@ fn check_key(
             // Error if a session signer is trying to perform protected actions
             for context in auth_contexts.iter() {
                 match context {
-                    Context::Contract(c) => {
-                        if c.contract == env.current_contract_address() // if we're calling self
+                    Context::Contract(ContractContext { contract, fn_name, args }) => {
+                        if contract == env.current_contract_address() // if we're calling self
                             && ( // and
-                                c.fn_name != symbol_short!("remove") // the method isn't the only potentially available self command
+                                fn_name != symbol_short!("remove") // the method isn't the only potentially available self command
                                 || ( // or we're not removing ourself
-                                    c.fn_name == symbol_short!("remove") 
-                                    && KeyId::from_val(env, &c.args.get_unchecked(0)) != id
+                                    fn_name == symbol_short!("remove") 
+                                    && KeyId::from_val(env, &args.get_unchecked(0)) != id
                                 )
                             )
                         {
