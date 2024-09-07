@@ -1,7 +1,7 @@
 use soroban_sdk::{contracterror, contracttype, Bytes, BytesN};
 
 #[contracterror]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
     NotFound = 1,
@@ -15,29 +15,29 @@ pub enum Error {
 }
 
 #[contracttype]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Ed25519PublicKey(pub BytesN<32>);
 
 #[contracttype]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Secp256r1Id(pub Bytes);
 
 #[contracttype]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum KeyId {
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Ed25519Signature {
     pub public_key: Ed25519PublicKey,
     pub signature: BytesN<64>,
 }
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Secp256r1Signature {
     pub authenticator_data: Bytes,
     pub client_data_json: Bytes,
@@ -46,7 +46,7 @@ pub struct Secp256r1Signature {
 }
 
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Signature {
     Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
