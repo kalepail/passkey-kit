@@ -9,7 +9,7 @@ pnpm publish --no-git-checks
 
 export JWT=???
 mercury-cli --jwt $JWT --local false --mainnet false deploy
-mercury-cli --jwt $JWT --local false --mainnet false catchup --contracts "CBZIEARBL4YTUPC64L7U76WD44L4GBIDJKE4G25XI4SPVIRON4626JKA" # don't forget to subscribe to the contract first
+mercury-cli --jwt $JWT --local false --mainnet false catchup --contracts "CBZIEARBL4YTUPC64L7U76WD44L4GBIDJKE4G25XI4SPVIRON4626JKA"
 curl -X GET https://api.mercurydata.app/catchups/4
 curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_signers_by_address", "arguments": "{\"address\": \"CCXIUFR243N7QWKXY44LZO3DVUXHAVBEEJWFGNGNVVB44VJXIYWVGNTR\"}"}}}'
 curl -X POST https://api.mercurydata.app/zephyr/execute -H "Authorization: Bearer $MERCURY_JWT" -H 'Content-Type: application/json' -d '{"mode":{"Function": {"fname": "get_address_by_signer", "arguments": "{\"id\": [78,127,30,69,248,174,95,168,47,59,161,168,51,120,117,135,112,133,232,92]}"}}}'

@@ -7,20 +7,16 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-zephyr-sdk = { version = "0.2.2-rc2" }
-stellar-strkey = "0.0.8"
+zephyr-sdk = { version = "0.2.2-rc4" }
+stellar-strkey = "0.0.10"
 serde = { version = "1.0", features = ["derive"] }
 webauthn-wallet = { path = "../contracts/webauthn-wallet" }
 
 [dev-dependencies]
-zephyr-sdk = { version = "0.2.2-rc2", features = ["testutils"] }
+zephyr-sdk = { version = "0.2.2-rc4", features = ["testutils"] }
 tokio = { version = "1.0", features = ["full"] }
 ledger-meta-factory = { version = "0.1.2", features = [] }
-stellar-xdr = { version = "21.2.0", features = [
-    "curr",
-    "serde",
-    "base64",
-] }
+stellar-xdr = { version = "21.2.0", features = ["curr", "serde", "base64"] }
 
 [profile.release]
 opt-level = "z"

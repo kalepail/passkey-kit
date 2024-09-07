@@ -32,7 +32,7 @@ name = "smart-wallets-data-multi-signer-multi-sig"
 
 [[tables]]
 name = "signers"
-force = true
+force = false
 
 [[tables.columns]]
 name = "address"
