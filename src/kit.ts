@@ -1,12 +1,13 @@
-import { Client as PasskeyClient } from 'passkey-kit-sdk'
-import { Client as FactoryClient, type Secp256r1Id } from 'passkey-factory-sdk'
+import { Client as PasskeyClient, type Secp256r1Id, type Secp256r1Signature, type Signature } from 'passkey-kit-sdk'
+import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+
+export const DEFAULT_LTL = 12
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -49,10 +50,16 @@ export class PasskeyKit extends PasskeyBase {
             salt: hash(keyId),
             id: {
                 tag: 'Secp256r1',
-                values: [[Buffer.from(keyId)] as Secp256r1Id]
+                values: [[Buffer.from(keyId)]]
             },
             pk: publicKey
         })
+
+        if (result.isErr())
+            throw new Error(result.unwrapErr().message)
+        
+        if (!built)
+            throw new Error('Failed to create wallet')
 
         const contractId = result.unwrap()
 
@@ -65,7 +72,7 @@ export class PasskeyKit extends PasskeyBase {
         return {
             keyId,
             contractId,
-            xdr: built?.toXDR()
+            xdr: built.toXDR()
         }
     }
 
@@ -160,7 +167,7 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         if (!contractId)
-            throw new Error('No `contractId` was found')
+            throw new Error('Failed to connect wallet')
 
         this.wallet = new PasskeyClient({
             contractId,
@@ -182,7 +189,7 @@ export class PasskeyKit extends PasskeyBase {
             ledgersToLive?: number
         }
     ) {
-        let { keyId, rpId, ledgersToLive = DEFAULT_TIMEOUT } = options || {}
+        let { keyId, rpId, ledgersToLive = DEFAULT_LTL } = options || {}
 
         const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
         const credentials = entry.credentials().address();
@@ -190,7 +197,7 @@ export class PasskeyKit extends PasskeyBase {
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
                 nonce: credentials.nonce(),
-                signatureExpirationLedger: lastLedger + ledgersToLive,
+                signatureExpirationLedger: lastLedger + ledgersToLive, // TODO maybe if folks set `ledgersToLive` that should be the TTL vs the extension from `lastLedger`. Will make it easier to coordinate multisig
                 invocation: entry.rootInvocation()
             })
         )
@@ -225,25 +232,46 @@ export class PasskeyKit extends PasskeyBase {
             base64url.toBuffer(authenticationResponse.response.signature)
         );
 
+        // const t: Signature = {
+        //     tag: 'Secp256r1',
+        //     values: [{
+        //         authenticator_data: base64url.toBuffer(authenticationResponse.response.authenticatorData),
+        //         client_data_json: base64url.toBuffer(authenticationResponse.response.clientDataJSON),
+        //         id: [base64url.toBuffer(authenticationResponse.id)],
+        //         signature
+        //     }]
+        // }
+
+        // const test = this.wallet!.spec.nativeToScVal(t, )
+
+        const sig = xdr.ScVal.scvVec([
+            xdr.ScVal.scvVec([
+                xdr.ScVal.scvSymbol('Secp256r1'),
+                xdr.ScVal.scvMap([
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('authenticator_data'),
+                        val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.authenticatorData)),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('client_data_json'),
+                        val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.clientDataJSON)),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('id'),
+                        val: xdr.ScVal.scvVec([
+                            xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id))
+                        ]),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('signature'),
+                        val: xdr.ScVal.scvBytes(signature),
+                    }),
+                ])  
+            ])
+        ])
+
         credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
-        credentials.signature(xdr.ScVal.scvMap([
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('authenticator_data'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.authenticatorData)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('client_data_json'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.clientDataJSON)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('id'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('signature'),
-                val: xdr.ScVal.scvBytes(signature),
-            }),
-        ]))
+        credentials.signature(sig)
 
         return entry
     }

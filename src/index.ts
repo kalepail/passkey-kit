@@ -1,5 +1,5 @@
 import { PasskeyServer } from "./server"
-import { PasskeyKit } from "./kit"
+import { PasskeyKit, DEFAULT_LTL } from "./kit"
 import { SACClient } from "./sac"
 
-export { PasskeyServer, PasskeyKit, SACClient }
+export { PasskeyServer, PasskeyKit, SACClient, DEFAULT_LTL }

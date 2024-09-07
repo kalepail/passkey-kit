@@ -8,6 +8,9 @@
 		native,
 		server,
 	} from "./lib/common";
+    import { Keypair, nativeToScVal, Operation, scValToNative, Transaction, xdr } from "@stellar/stellar-sdk";
+    import { signAuthEntry } from "./lib/sign-auth-entry";
+    import { DEFAULT_LTL } from "passkey-kit";
 
 	let keyId: string;
 	let contractId: string;
@@ -72,7 +75,7 @@
 			await getWalletBalance();
 			await getWalletSigners();
 		} catch (err: any) {
-			alert(err.message)
+			// alert(err.message)
 		}
 	}
 	async function reset() {
@@ -102,7 +105,10 @@
 			}
 
 			const { built } = await account.wallet!.add({
-				id,
+				id: {
+					tag: 'Secp256r1',
+					values: [[id]]
+				},
 				pk,
 				admin: keyAdmin,
 			});
@@ -120,10 +126,37 @@
 			alert(err.message)
 		}
 	}
+	async function addEd25519Signer() {
+		// GBVQMKYWGELU6IKLK2U6EIIHTNW5LIUYJE7FUQPG4FAB3QQ3KAINFVYS
+		const pubkey = 'GBVQMKYWGELU6IKLK2U6EIIHTNW5LIUYJE7FUQPG4FAB3QQ3KAINFVYS' // prompt('Enter public key');
+
+		if (pubkey) {
+			const keypair = Keypair.fromPublicKey(pubkey);
+
+			console.log(keypair.rawPublicKey());
+
+			const { built } = await account.wallet!.add({
+				id: {
+					tag: 'Ed25519',
+					values: [[keypair.rawPublicKey()]]
+				},
+				pk: undefined,
+				admin: keyAdmin,
+			});
+
+			const xdr = await account.sign(built!, { keyId: adminKeyId });
+			const res = await server.send(xdr);
+
+			console.log(res);
+		}
+	}
 	async function removeSigner(signer: string) {
 		try {
 			const { built } = await account.wallet!.remove({
-				id: base64url.toBuffer(signer),
+				id: {
+					tag: 'Secp256r1',
+					values: [[base64url.toBuffer(signer)]]
+				},
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminKeyId });
@@ -154,6 +187,124 @@
 
 		await getWalletBalance();
 	}
+
+
+	async function multiSigTransfer() {
+		const keypair = Keypair.fromSecret('SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W');
+
+		const { built } = await native.transfer({
+			to: account.factory.options.contractId,
+			from: contractId,
+			amount: BigInt(10_000_000),
+		});
+
+		const tx = await account.sign(built!, { keyId: adminKeyId });
+		const { operations } = new Transaction(tx, import.meta.env.VITE_networkPassphrase)
+		const secp256r1_auth = (operations[0] as Operation.InvokeHostFunction).auth![0]
+		const secp256r1_sig = scValToNative(secp256r1_auth.credentials().address().signature())
+
+		const entry = (built!.operations[0] as Operation.InvokeHostFunction).auth![0];
+		const ed25519_auth = await signAuthEntry(
+			entry,
+			keypair,
+			secp256r1_auth.credentials().address().signatureExpirationLedger(),
+			import.meta.env.VITE_networkPassphrase
+		)
+		const ed25519_sig = scValToNative(ed25519_auth.credentials().address().signature())		
+
+		const big_sig = xdr.ScVal.scvVec([
+			xdr.ScVal.scvVec([
+                xdr.ScVal.scvSymbol('Ed25519'),
+				xdr.ScVal.scvMap([
+					new xdr.ScMapEntry({
+						key: xdr.ScVal.scvSymbol('public_key'),
+						val: xdr.ScVal.scvVec([
+							xdr.ScVal.scvBytes(ed25519_sig[0][1].public_key[0])
+						]),
+					}),
+					new xdr.ScMapEntry({
+						key: xdr.ScVal.scvSymbol('signature'),
+						val: xdr.ScVal.scvBytes(ed25519_sig[0][1].signature),
+					}),
+				])
+			]),
+			xdr.ScVal.scvVec([
+				xdr.ScVal.scvSymbol('Secp256r1'),
+				xdr.ScVal.scvMap([
+					new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('authenticator_data'),
+                        val: xdr.ScVal.scvBytes(secp256r1_sig[0][1].authenticator_data),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('client_data_json'),
+                        val: xdr.ScVal.scvBytes(secp256r1_sig[0][1].client_data_json),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('id'),
+                        val: xdr.ScVal.scvVec([
+                            xdr.ScVal.scvBytes(secp256r1_sig[0][1].id[0])
+                        ]),
+                    }),
+                    new xdr.ScMapEntry({
+                        key: xdr.ScVal.scvSymbol('signature'),
+                        val: xdr.ScVal.scvBytes(secp256r1_sig[0][1].signature),
+                    }),
+				])
+			]),
+		]);
+
+		entry.credentials().address().signatureExpirationLedger(secp256r1_auth.credentials().address().signatureExpirationLedger())
+		entry.credentials().address().signature(big_sig)
+
+		console.log(built?.toXDR());
+
+		const res = await server.send(built!.toXDR());
+
+		console.log(res);
+
+		await getWalletBalance();
+	}
+
+
+	async function ed25519Transfer() {
+		// SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W
+		const secret = 'SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W' // prompt('Enter secret key');
+
+		if (secret) {
+			const keypair = Keypair.fromSecret(secret);
+
+			const { built } = await native.transfer({
+				to: account.factory.options.contractId,
+				from: contractId,
+				amount: BigInt(10_000_000),
+			});
+
+			const { sequence } = await account.rpc.getLatestLedger()
+
+			for (const op of built!.operations) {
+				const auths = (op as Operation.InvokeHostFunction).auth
+
+				if (auths?.length) {
+					for (let i in auths) {
+						auths[i] = await signAuthEntry(
+							auths[i],
+							keypair,
+							sequence + DEFAULT_LTL,
+							import.meta.env.VITE_networkPassphrase
+						)
+					}
+				}
+        	}
+
+			console.log(built?.toXDR());
+
+			const res = await server.send(built!.toXDR());
+
+			console.log(res);
+
+			await getWalletBalance();
+		}
+	}
 	async function walletTransfer(signer: string) {
 		const { built } = await native.transfer({
 			to: account.factory.options.contractId,
@@ -163,6 +314,8 @@
 
 		const xdr = await account.sign(built!, { keyId: signer });
 		const res = await server.send(xdr);
+
+		console.log(built?.toXDR());
 
 		console.log(res);
 
@@ -199,6 +352,9 @@
 
 		<button on:click={fundWallet}>Add Funds</button>
 		<button on:click={getWalletBalance}>Get Balance</button>
+		<button on:click={addEd25519Signer}>Add Ed25519 Signer</button>
+		<button on:click={ed25519Transfer}>Ed25519 Transfer</button>
+		<button on:click={multiSigTransfer}>Multisig Transfer</button>
 
 		<form on:submit|preventDefault>
 			<ul style="list-style: none; padding: 0;">

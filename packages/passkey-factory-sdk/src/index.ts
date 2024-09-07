@@ -33,7 +33,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CATNVPSKQA7L2U77FQRY3UOL7RP67TWG4TZQ6DN3OHJQZQI5BSSLLLZO",
+    contractId: "CDGB6ADQPTZOVIYKITZK2P3J2UGZSHTV7KXHIG2OTLS2J4N65NL5FYGC",
   }
 } as const
 
@@ -42,9 +42,9 @@ export const Errors = {
 
   2: {message:"AlreadyInitialized"}
 }
-export type Ed22519PublicKey = readonly [Buffer];
+export type Ed25519PublicKey = readonly [Buffer];
 export type Secp256r1Id = readonly [Buffer];
-export type KeyId = {tag: "Ed22519", values: readonly [Ed22519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
+export type KeyId = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
 
 
 export interface Client {
@@ -93,9 +93,9 @@ export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
       new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAg==",
-        "AAAAAQAAAAAAAAAAAAAAEEVkMjI1MTlQdWJsaWNLZXkAAAABAAAAAAAAAAEwAAAAAAAD7gAAACA=",
+        "AAAAAQAAAAAAAAAAAAAAEEVkMjU1MTlQdWJsaWNLZXkAAAABAAAAAAAAAAEwAAAAAAAD7gAAACA=",
         "AAAAAQAAAAAAAAAAAAAAC1NlY3AyNTZyMUlkAAAAAAEAAAAAAAAAATAAAAAAAAAO",
-        "AAAAAgAAAAAAAAAAAAAABUtleUlkAAAAAAAAAgAAAAEAAAAAAAAAB0VkMjI1MTkAAAAAAQAAB9AAAAAQRWQyMjUxOVB1YmxpY0tleQAAAAEAAAAAAAAACVNlY3AyNTZyMQAAAAAAAAEAAAfQAAAAC1NlY3AyNTZyMUlkAA==",
+        "AAAAAgAAAAAAAAAAAAAABUtleUlkAAAAAAAAAgAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAQAAB9AAAAAQRWQyNTUxOVB1YmxpY0tleQAAAAEAAAAAAAAACVNlY3AyNTZyMQAAAAAAAAEAAAfQAAAAC1NlY3AyNTZyMUlkAA==",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAADAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAAAmlkAAAAAAfQAAAABUtleUlkAAAAAAAAAAAAAAJwawAAAAAD6AAAA+4AAABBAAAAAQAAA+kAAAATAAAAAw==" ]),
       options

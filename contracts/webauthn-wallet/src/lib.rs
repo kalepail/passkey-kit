@@ -30,7 +30,7 @@ pub enum Error {
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
-pub struct Ed22519PublicKey(pub BytesN<32>);
+pub struct Ed25519PublicKey(pub BytesN<32>);
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
@@ -39,30 +39,30 @@ pub struct Secp256r1Id(pub Bytes);
 #[contracttype]
 #[derive(Clone, PartialEq)]
 pub enum KeyId {
-    Ed22519(Ed22519PublicKey),
+    Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
 
 #[contracttype]
 #[derive(Clone)]
-pub struct Ed22519Signature {
-    pub public_key: Ed22519PublicKey,
+pub struct Ed25519Signature {
+    pub public_key: Ed25519PublicKey,
     pub signature: BytesN<64>,
 }
 
 #[contracttype]
 #[derive(Clone)]
 pub struct Secp256r1Signature {
-    pub id: Secp256r1Id,
     pub authenticator_data: Bytes,
     pub client_data_json: Bytes,
+    pub id: Secp256r1Id,
     pub signature: BytesN<64>,
 }
 
 #[contracttype]
 #[derive(Clone)]
 pub enum Signature {
-    Ed22519(Ed22519Signature),
+    Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
 }
 
@@ -92,8 +92,8 @@ impl Contract {
             let key: KeyId;
 
             match &id {
-                KeyId::Ed22519(public_key) => {
-                    key = KeyId::Ed22519(public_key.clone());
+                KeyId::Ed25519(public_key) => {
+                    key = KeyId::Ed25519(public_key.clone());
 
                     // Ed25519 keys must be added without a public key
                     if pk.is_some() {
@@ -128,8 +128,8 @@ impl Contract {
             let key: KeyId;
 
             match &id {
-                KeyId::Ed22519(public_key) => {
-                    key = KeyId::Ed22519(public_key.clone());
+                KeyId::Ed25519(public_key) => {
+                    key = KeyId::Ed25519(public_key.clone());
 
                     // Ed25519 keys must be added without a public key
                     if pk.is_some() {
@@ -249,13 +249,13 @@ impl CustomAccountInterface for Contract {
             }
 
             match signature {
-                Signature::Ed22519(signature) => {
-                    let Ed22519Signature {
+                Signature::Ed25519(signature) => {
+                    let Ed25519Signature {
                         public_key,
                         signature,
                     } = signature;
 
-                    let key = KeyId::Ed22519(public_key.clone());
+                    let key = KeyId::Ed25519(public_key.clone());
 
                     if let Some(prev_signature) = prev_signature {
                         check_signature_order(&env, prev_signature, &key);
@@ -271,13 +271,13 @@ impl CustomAccountInterface for Contract {
                 }
                 Signature::Secp256r1(signature) => {
                     let Secp256r1Signature {
-                        id,
                         mut authenticator_data,
                         client_data_json,
+                        id,
                         signature,
                     } = signature;
 
-                    let key = KeyId::Secp256r1(id.clone());
+                    let key = KeyId::Secp256r1(id);
 
                     if let Some(prev_signature) = prev_signature {
                         check_signature_order(&env, prev_signature, &key);
@@ -326,20 +326,21 @@ impl CustomAccountInterface for Contract {
 
 fn check_signature_order(env: &Env, prev_signature: Signature, key: &KeyId) {
     match prev_signature {
-        Signature::Ed22519(prev_signature) => match key {
-            KeyId::Ed22519(public_key) => {
+        Signature::Ed25519(prev_signature) => match key {
+            KeyId::Ed25519(public_key) => {
                 if prev_signature.public_key.0 >= public_key.0 {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
             KeyId::Secp256r1(id) => {
-                if id.0 > prev_signature.public_key.0.into() {
+                // if prev_signature.public_key.0.into() >= id.0 {
+                if id.0 <= prev_signature.public_key.0.into() { // Since we're using .into() we need the Bytes value to be first, thus we invert the comparison
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }
             }
         },
         Signature::Secp256r1(prev_signature) => match key {
-            KeyId::Ed22519(public_key) => {
+            KeyId::Ed25519(public_key) => {
                 if prev_signature.id.0 >= public_key.0.clone().into() {
                     panic_with_error!(env, Error::BadSignatureOrder)
                 }

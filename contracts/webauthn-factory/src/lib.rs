@@ -23,7 +23,7 @@ pub enum Error {
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
-pub struct Ed22519PublicKey(pub BytesN<32>);
+pub struct Ed25519PublicKey(pub BytesN<32>);
 
 #[contracttype]
 #[derive(Clone, PartialEq)]
@@ -32,7 +32,7 @@ pub struct Secp256r1Id(pub Bytes);
 #[contracttype]
 #[derive(Clone, PartialEq)]
 pub enum KeyId {
-    Ed22519(Ed22519PublicKey),
+    Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
 
@@ -87,7 +87,7 @@ impl Contract {
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
         // let id = match id {
-        //     KeyId::Ed22519(Ed22519PublicKey(public_key)) => wallet::KeyId::Ed22519(wallet::Ed22519PublicKey(public_key)),
+        //     KeyId::Ed25519(Ed25519PublicKey(public_key)) => wallet::KeyId::Ed25519(wallet::Ed25519PublicKey(public_key)),
         //     KeyId::Secp256r1(Secp256r1Id(id)) => wallet::KeyId::Secp256r1(wallet::Secp256r1Id(id)),
         // };
 
