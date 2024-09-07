@@ -29,112 +29,112 @@ pub struct Signers {
     active: i32,
 }
 
-fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
-    let mut addresses: Vec<String> = Vec::new();
+// fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
+//     let mut addresses: Vec<String> = Vec::new();
 
-    for topic in topics.to_vec() {
-        for address in existing_addresses {
-            if find_address_in_scval(
-                &topic,
-                Contract::from_string(&address).unwrap().0,
-            ) {
-                addresses.push(address.clone())
-            }
-        }
-    }
+//     for topic in topics.to_vec() {
+//         for address in existing_addresses {
+//             if find_address_in_scval(
+//                 &topic,
+//                 Contract::from_string(&address).unwrap().0,
+//             ) {
+//                 addresses.push(address.clone())
+//             }
+//         }
+//     }
 
-    for address in existing_addresses {
-        if find_address_in_scval(
-            data,
-            Contract::from_string(&address).unwrap().0,
-        ) {
-            addresses.push(address.clone())
-        }
-    }
+//     for address in existing_addresses {
+//         if find_address_in_scval(
+//             data,
+//             Contract::from_string(&address).unwrap().0,
+//         ) {
+//             addresses.push(address.clone())
+//         }
+//     }
 
-    addresses
-}
+//     addresses
+// }
 
-fn find_address_in_scval(val: &ScVal, address: [u8; 32]) -> bool {
-    match val {
-        ScVal::Address(object) => match object {
-            ScAddress::Account(pubkey) => {
-                if let PublicKey::PublicKeyTypeEd25519(pubkey) = &pubkey.0 {
-                    return pubkey.0 == address;
-                }
-            }
-            ScAddress::Contract(hash) => {
-                return hash.0 == address;
-            }
-        },
-        ScVal::Vec(Some(scvec)) => {
-            for val in scvec.0.to_vec() {
-                if find_address_in_scval(&val, address) {
-                    return true;
-                }
-            }
-        }
-        ScVal::Map(Some(scmap)) => {
-            for kv in scmap.0.to_vec() {
-                if find_address_in_scval(&kv.key, address)
-                    || find_address_in_scval(&kv.val, address)
-                {
-                    return true;
-                }
-            }
-        }
-        _ => {}
-    }
+// fn find_address_in_scval(val: &ScVal, address: [u8; 32]) -> bool {
+//     match val {
+//         ScVal::Address(object) => match object {
+//             ScAddress::Account(pubkey) => {
+//                 if let PublicKey::PublicKeyTypeEd25519(pubkey) = &pubkey.0 {
+//                     return pubkey.0 == address;
+//                 }
+//             }
+//             ScAddress::Contract(hash) => {
+//                 return hash.0 == address;
+//             }
+//         },
+//         ScVal::Vec(Some(scvec)) => {
+//             for val in scvec.0.to_vec() {
+//                 if find_address_in_scval(&val, address) {
+//                     return true;
+//                 }
+//             }
+//         }
+//         ScVal::Map(Some(scmap)) => {
+//             for kv in scmap.0.to_vec() {
+//                 if find_address_in_scval(&kv.key, address)
+//                     || find_address_in_scval(&kv.val, address)
+//                 {
+//                     return true;
+//                 }
+//             }
+//         }
+//         _ => {}
+//     }
 
-    false
-}
+//     false
+// }
 
-#[test]
-fn find_val() {
-    let scval = ScVal::Address(ScAddress::Contract(Hash([3; 32])));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
+// #[test]
+// fn find_val() {
+//     let scval = ScVal::Address(ScAddress::Contract(Hash([3; 32])));
+//     assert!(find_address_in_scval(&scval, [3; 32]));
+//     assert!(!find_address_in_scval(&scval, [2; 32]));
 
-    let scval = ScVal::Vec(Some(ScVec(
-        [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
-            .try_into()
-            .unwrap(),
-    )));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
+//     let scval = ScVal::Vec(Some(ScVec(
+//         [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
+//             .try_into()
+//             .unwrap(),
+//     )));
+//     assert!(find_address_in_scval(&scval, [3; 32]));
+//     assert!(!find_address_in_scval(&scval, [2; 32]));
 
-    let scval = ScVal::Vec(Some(ScVec(
-        [ScVal::Vec(Some(ScVec(
-            [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
-                .try_into()
-                .unwrap(),
-        )))]
-        .try_into()
-        .unwrap(),
-    )));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
-}
+//     let scval = ScVal::Vec(Some(ScVec(
+//         [ScVal::Vec(Some(ScVec(
+//             [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
+//                 .try_into()
+//                 .unwrap(),
+//         )))]
+//         .try_into()
+//         .unwrap(),
+//     )));
+//     assert!(find_address_in_scval(&scval, [3; 32]));
+//     assert!(!find_address_in_scval(&scval, [2; 32]));
+// }
 
-fn bytes_to_vec(bytes: Bytes) -> Vec<u8> {
-    let mut result = Vec::new();
+// fn bytes_to_vec(bytes: Bytes) -> Vec<u8> {
+//     let mut result = Vec::new();
 
-    for byte in bytes.iter() {
-        result.push(byte);
-    }
+//     for byte in bytes.iter() {
+//         result.push(byte);
+//     }
 
-    result
-}
+//     result
+// }
 
-fn bytesn_to_vec(bytes: BytesN<65>) -> Vec<u8> {
-    let mut result = Vec::new();
+// fn bytesn_to_vec(bytes: BytesN<65>) -> Vec<u8> {
+//     let mut result = Vec::new();
 
-    for byte in bytes.iter() {
-        result.push(byte);
-    }
+//     for byte in bytes.iter() {
+//         result.push(byte);
+//     }
 
-    result
-}
+//     result
+// }
 
 #[no_mangle]
 pub extern "C" fn on_close() {
@@ -187,7 +187,7 @@ pub extern "C" fn on_close() {
                                     }
                                 };
                                 let pk = if let Some(pk) = env.from_scval::<Option<BytesN<65>>>(&event.topics[3]) {
-                                    bytesn_to_vec(pk)
+                                    pk.to_array().to_vec()
                                 } else {
                                     vec![]
                                 };
@@ -282,8 +282,6 @@ pub extern "C" fn get_signers_by_address() {
         .read()
         .unwrap();
 
-    let signers = env.read::<Signers>();
-
     env.conclude(signers)
 }
 
@@ -297,8 +295,6 @@ pub extern "C" fn get_address_by_signer() {
         .column_equal_to("active", 1)
         .read()
         .unwrap();
-
-    let signers = env.read::<Signers>();
 
     // TODO we only need to return unique contract addresses not everything
 
