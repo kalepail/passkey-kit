@@ -9,7 +9,7 @@ use soroban_sdk::{
 use types::{Ed25519Signature, Error, KeyId, Secp256r1Signature, Signature};
 
 mod base64_url;
-mod types;
+pub mod types;
 
 mod test;
 
