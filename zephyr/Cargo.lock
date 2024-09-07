@@ -2809,7 +2809,7 @@ dependencies = [
 [[package]]
 name = "webauthn-wallet"
 version = "0.4.0"
-source = "git+https://github.com/kalepail/passkey-kit?rev=d5ff1f4bbbffab16400ba046979f11ebc2dcf7d2#d5ff1f4bbbffab16400ba046979f11ebc2dcf7d2"
+source = "git+https://github.com/kalepail/passkey-kit?rev=0919544db15ebdba9cf525cae261209c48eb61f4#0919544db15ebdba9cf525cae261209c48eb61f4"
 dependencies = [
  "serde",
  "serde-json-core",
