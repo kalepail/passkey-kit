@@ -20,9 +20,6 @@ import type {
   Typepoint,
   Duration,
 } from '@stellar/stellar-sdk/contract';
-export * from '@stellar/stellar-sdk'
-export * as contract from '@stellar/stellar-sdk/contract'
-export * as rpc from '@stellar/stellar-sdk/rpc'
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
@@ -38,25 +35,25 @@ export const networks = {
 } as const
 
 export const Errors = {
-  1: {message:"NotFound"},
+  1: { message: "NotFound" },
 
-  2: {message:"NotPermitted"},
+  2: { message: "NotPermitted" },
 
-  3: {message:"BadSignatureOrder"},
+  3: { message: "BadSignatureOrder" },
 
-  4: {message:"ClientDataJsonChallengeIncorrect"},
+  4: { message: "ClientDataJsonChallengeIncorrect" },
 
-  5: {message:"Secp256r1PublicKeyParse"},
+  5: { message: "Secp256r1PublicKeyParse" },
 
-  6: {message:"Secp256r1SignatureParse"},
+  6: { message: "Secp256r1SignatureParse" },
 
-  7: {message:"Secp256r1VerifyFailed"},
+  7: { message: "Secp256r1VerifyFailed" },
 
-  8: {message:"JsonParseError"}
+  8: { message: "JsonParseError" }
 }
 export type Ed25519PublicKey = readonly [Buffer];
 export type Secp256r1Id = readonly [Buffer];
-export type Signer = {tag: "Ed25519", values: readonly [Ed25519PublicKey]} | {tag: "Secp256r1", values: readonly [Secp256r1Id]};
+export type Signer = { tag: "Ed25519", values: readonly [Ed25519PublicKey] } | { tag: "Secp256r1", values: readonly [Secp256r1Id] };
 
 
 export interface Ed25519Signature {
@@ -72,14 +69,14 @@ export interface Secp256r1Signature {
   signature: Buffer;
 }
 
-export type Signature = {tag: "Ed25519", values: readonly [Ed25519Signature]} | {tag: "Secp256r1", values: readonly [Secp256r1Signature]};
+export type Signature = { tag: "Ed25519", values: readonly [Ed25519Signature] } | { tag: "Secp256r1", values: readonly [Secp256r1Signature] };
 
 
 export interface Client {
   /**
    * Construct and simulate a add transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  add: ({id, pk, admin}: {id: Signer, pk: Option<Buffer>, admin: boolean}, options?: {
+  add: ({ id, pk, admin }: { id: Signer, pk: Option<Buffer>, admin: boolean }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -99,7 +96,7 @@ export interface Client {
   /**
    * Construct and simulate a remove transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  remove: ({id}: {id: Signer}, options?: {
+  remove: ({ id }: { id: Signer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -119,7 +116,7 @@ export interface Client {
   /**
    * Construct and simulate a update transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
-  update: ({hash}: {hash: Buffer}, options?: {
+  update: ({ hash }: { hash: Buffer }, options?: {
     /**
      * The fee to pay for the transaction. Default: BASE_FEE
      */
@@ -140,7 +137,7 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACAAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAAxOb3RQZXJtaXR0ZWQAAAACAAAAAAAAABFCYWRTaWduYXR1cmVPcmRlcgAAAAAAAAMAAAAAAAAAIENsaWVudERhdGFKc29uQ2hhbGxlbmdlSW5jb3JyZWN0AAAABAAAAAAAAAAXU2VjcDI1NnIxUHVibGljS2V5UGFyc2UAAAAABQAAAAAAAAAXU2VjcDI1NnIxU2lnbmF0dXJlUGFyc2UAAAAABgAAAAAAAAAVU2VjcDI1NnIxVmVyaWZ5RmFpbGVkAAAAAAAABwAAAAAAAAAOSnNvblBhcnNlRXJyb3IAAAAAAAg=",
+      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACAAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAAxOb3RQZXJtaXR0ZWQAAAACAAAAAAAAABFCYWRTaWduYXR1cmVPcmRlcgAAAAAAAAMAAAAAAAAAIENsaWVudERhdGFKc29uQ2hhbGxlbmdlSW5jb3JyZWN0AAAABAAAAAAAAAAXU2VjcDI1NnIxUHVibGljS2V5UGFyc2UAAAAABQAAAAAAAAAXU2VjcDI1NnIxU2lnbmF0dXJlUGFyc2UAAAAABgAAAAAAAAAVU2VjcDI1NnIxVmVyaWZ5RmFpbGVkAAAAAAAABwAAAAAAAAAOSnNvblBhcnNlRXJyb3IAAAAAAAg=",
         "AAAAAQAAAAAAAAAAAAAAEEVkMjU1MTlQdWJsaWNLZXkAAAABAAAAAAAAAAEwAAAAAAAD7gAAACA=",
         "AAAAAQAAAAAAAAAAAAAAC1NlY3AyNTZyMUlkAAAAAAEAAAAAAAAAATAAAAAAAAAO",
         "AAAAAgAAAAAAAAAAAAAABUtleUlkAAAAAAAAAgAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAQAAB9AAAAAQRWQyNTUxOVB1YmxpY0tleQAAAAEAAAAAAAAACVNlY3AyNTZyMQAAAAAAAAEAAAfQAAAAC1NlY3AyNTZyMUlkAA==",
@@ -150,13 +147,13 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAADYWRkAAAAAAMAAAAAAAAAAmlkAAAAAAfQAAAABUtleUlkAAAAAAAAAAAAAAJwawAAAAAD6AAAA+4AAABBAAAAAAAAAAVhZG1pbgAAAAAAAAEAAAABAAAD6QAAA+0AAAAAAAAAAw==",
         "AAAAAAAAAAAAAAAGcmVtb3ZlAAAAAAABAAAAAAAAAAJpZAAAAAAH0AAAAAVLZXlJZAAAAAAAAAEAAAPpAAAD7QAAAAAAAAAD",
         "AAAAAAAAAAAAAAAGdXBkYXRlAAAAAAABAAAAAAAAAARoYXNoAAAD7gAAACAAAAABAAAD6QAAA+0AAAAAAAAAAw==",
-        "AAAAAAAAAAAAAAAMX19jaGVja19hdXRoAAAAAwAAAAAAAAARc2lnbmF0dXJlX3BheWxvYWQAAAAAAAPuAAAAIAAAAAAAAAAKc2lnbmF0dXJlcwAAAAAD6gAAB9AAAAAJU2lnbmF0dXJlAAAAAAAAAAAAAA1hdXRoX2NvbnRleHRzAAAAAAAD6gAAB9AAAAAHQ29udGV4dAAAAAABAAAD6QAAA+0AAAAAAAAAAw==" ]),
+        "AAAAAAAAAAAAAAAMX19jaGVja19hdXRoAAAAAwAAAAAAAAARc2lnbmF0dXJlX3BheWxvYWQAAAAAAAPuAAAAIAAAAAAAAAAKc2lnbmF0dXJlcwAAAAAD6gAAB9AAAAAJU2lnbmF0dXJlAAAAAAAAAAAAAA1hdXRoX2NvbnRleHRzAAAAAAAD6gAAB9AAAAAHQ29udGV4dAAAAAABAAAD6QAAA+0AAAAAAAAAAw=="]),
       options
     )
   }
   public readonly fromJSON = {
     add: this.txFromJSON<Result<void>>,
-        remove: this.txFromJSON<Result<void>>,
-        update: this.txFromJSON<Result<void>>
+    remove: this.txFromJSON<Result<void>>,
+    update: this.txFromJSON<Result<void>>
   }
 }
