@@ -11,6 +11,7 @@
     import { Keypair, nativeToScVal, Operation, scValToNative, Transaction, xdr } from "@stellar/stellar-sdk";
     import { signAuthEntry } from "./lib/sign-auth-entry";
     import { DEFAULT_LTL } from "passkey-kit";
+    import { lexicographicalSortNumbers } from "./lib/utils";
 
 	let keyId: string;
 	let contractId: string;
@@ -148,6 +149,8 @@
 			const res = await server.send(xdr);
 
 			console.log(res);
+
+			await getWalletSigners();
 		}
 	}
 	async function removeSigner(signer: string) {
@@ -212,8 +215,9 @@
 		)
 		const ed25519_sig = scValToNative(ed25519_auth.credentials().address().signature())		
 
-		const big_sig = xdr.ScVal.scvVec([
-			xdr.ScVal.scvVec([
+		// Order this lexicographically by signer bytes
+		const signatures: [number[], xdr.ScVal][] = [
+			[ed25519_sig[0][1].public_key[0], xdr.ScVal.scvVec([
                 xdr.ScVal.scvSymbol('Ed25519'),
 				xdr.ScVal.scvMap([
 					new xdr.ScMapEntry({
@@ -227,8 +231,8 @@
 						val: xdr.ScVal.scvBytes(ed25519_sig[0][1].signature),
 					}),
 				])
-			]),
-			xdr.ScVal.scvVec([
+			])],
+			[secp256r1_sig[0][1].id[0], xdr.ScVal.scvVec([
 				xdr.ScVal.scvSymbol('Secp256r1'),
 				xdr.ScVal.scvMap([
 					new xdr.ScMapEntry({
@@ -250,11 +254,13 @@
                         val: xdr.ScVal.scvBytes(secp256r1_sig[0][1].signature),
                     }),
 				])
-			]),
-		]);
+			])]
+		]
+
+		const big_sig = lexicographicalSortNumbers(signatures).map(([, sig]) => sig);
 
 		entry.credentials().address().signatureExpirationLedger(secp256r1_auth.credentials().address().signatureExpirationLedger())
-		entry.credentials().address().signature(big_sig)
+		entry.credentials().address().signature(xdr.ScVal.scvVec(big_sig))
 
 		console.log(built?.toXDR());
 
