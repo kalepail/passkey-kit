@@ -9,7 +9,7 @@ use zephyr_sdk::{
     utils::{address_from_str, address_to_alloc_string},
     DatabaseDerive, EnvClient, 
 };
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]
@@ -183,8 +183,8 @@ pub extern "C" fn get_signers_by_address() {
                 signer = String::from("Ed25519");
             }
             Signer::Secp256r1(secp256r1) => {
-                id_parsed = URL_SAFE.encode(secp256r1.0.to_alloc_vec());
-                pk_parsed = Some(URL_SAFE.encode(env.from_scval::<Bytes>(&pk).to_alloc_vec()));
+                id_parsed = URL_SAFE_NO_PAD.encode(secp256r1.0.to_alloc_vec());
+                pk_parsed = Some(URL_SAFE_NO_PAD.encode(env.from_scval::<Bytes>(&pk).to_alloc_vec()));
                 signer = String::from("Secp256r1");
             }
         }
@@ -227,7 +227,7 @@ pub extern "C" fn get_address_by_signer() {
         let id = BytesN::from_array(&env.soroban(), &slice);
         id_scval = env.to_scval(Signer::Ed25519(Ed25519PublicKey(id)));
     } else if signer == "Secp256r1" {
-        let id = URL_SAFE.decode(id).unwrap();
+        let id = URL_SAFE_NO_PAD.decode(id).unwrap();
         let id = Bytes::from_slice(&env.soroban(), id.as_slice());
         id_scval = env.to_scval(Signer::Secp256r1(Secp256r1Id(id)));
     } else {

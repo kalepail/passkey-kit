@@ -1,5 +1,4 @@
 import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
-import base64url from "base64url"
 import { PasskeyBase } from "./base"
 
 export class PasskeyServer extends PasskeyBase {
@@ -116,7 +115,7 @@ export class PasskeyServer extends PasskeyBase {
                 throw await res.json()
             })
 
-        return res[0]?.address as string | undefined
+        return res || undefined as string | undefined
     }
 
     /* TODO 
