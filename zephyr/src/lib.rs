@@ -227,7 +227,7 @@ pub extern "C" fn get_address_by_signer() {
         let id = BytesN::from_array(&env.soroban(), &slice);
         id_scval = env.to_scval(Signer::Ed25519(Ed25519PublicKey(id)));
     } else if signer == "Secp256r1" {
-        let id = hex::decode(id).unwrap();
+        let id = URL_SAFE.decode(id).unwrap();
         let id = Bytes::from_slice(&env.soroban(), id.as_slice());
         id_scval = env.to_scval(Signer::Secp256r1(Secp256r1Id(id)));
     } else {

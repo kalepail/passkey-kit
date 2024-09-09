@@ -75,12 +75,15 @@ export class PasskeyServer extends PasskeyBase {
                     signer.expired = true
                 }
             }
-
-            signer.id = base64url(signer.id)
-            signer.pk = base64url(signer.pk)
         }
 
-        return signers as { id: string, pk: string, admin: boolean, expired?: boolean }[]
+        return signers as { 
+            id: string, 
+            pk: string, 
+            type: string, 
+            admin: boolean, 
+            expired?: boolean 
+        }[]
     }
 
     public async getContractId(keyId: string) {
@@ -99,7 +102,8 @@ export class PasskeyServer extends PasskeyBase {
                     Function: {
                         fname: "get_address_by_signer",
                         arguments: JSON.stringify({
-                            id: [...base64url.toBuffer(keyId)]
+                            id: keyId,
+                            type: 'Secp256r1'
                         })
                     }
                 }

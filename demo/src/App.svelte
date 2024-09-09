@@ -21,6 +21,7 @@
 	let signers: {
 		id: string;
 		pk: string;
+		type: string;
 		admin: boolean;
 		expired?: boolean | undefined;
 	}[] = [];
@@ -153,13 +154,16 @@
 			await getWalletSigners();
 		}
 	}
-	async function removeSigner(signer: string) {
+	async function removeSigner(signer: string, type: string) {
 		try {
 			const { built } = await account.wallet!.remove({
-				id: {
+				id: type === 'Secp256r1' ? {
 					tag: 'Secp256r1',
 					values: [[base64url.toBuffer(signer)]]
-				},
+				} : {
+					tag: 'Ed25519',
+					values: [[Keypair.fromPublicKey(signer).rawPublicKey()]]
+				}
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminSigner });
@@ -388,7 +392,7 @@
 	{/if}
 
 	<ul>
-		{#each signers as { id, pk, admin, expired }}
+		{#each signers as { id, pk, type, admin, expired }}
 			<li>
 				<button disabled>
 					{#if adminSigner === id}
@@ -410,7 +414,7 @@
 				>
 
 				{#if (!admin || admins > 1) && id !== keyId}
-					<button on:click={() => removeSigner(id)}>Remove</button>
+					<button on:click={() => removeSigner(id, type)}>Remove</button>
 				{/if}
 
 				{#if admin && id !== adminSigner}
