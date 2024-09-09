@@ -4,40 +4,33 @@ use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contracterror, contractimpl,
     crypto::Hash,
-    panic_with_error,
-    xdr::ScVal,
-    Bytes, Env, FromVal, Vec,
+    panic_with_error, Bytes, Env, FromVal, Vec,
 };
-use webauthn_wallet::types::Signature;
-
-#[contract]
-pub struct Contract;
-
-#[contractimpl]
-impl Contract {}
+use webauthn_wallet::types::{Ed25519Signature, Signature, Signer};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
-    NotPermitted = 1,
+    NotFound = 1,
+    NotPermitted = 2,
 }
+
+#[contract]
+pub struct Contract;
 
 #[contractimpl]
 impl CustomAccountInterface for Contract {
     type Error = Error;
-    type Signature = ScVal;
+    type Signature = Vec<Signature>;
 
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
-        signature_payload: Hash<32>,
-        signature: ScVal,
+        root_signature_payload: Hash<32>,
+        root_signatures: Vec<Signature>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // println!("{:?}", signature_payload.to_array()); // Not signing anything so no need to use this
-        // println!("{:?}", signature); // ScVal::Void
-
         for context in auth_contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
@@ -50,6 +43,7 @@ impl CustomAccountInterface for Contract {
                         Vec::from_val(&env, &root_args.get_unchecked(1));
                     let arg_auth_contexts: Vec<Context> =
                         Vec::from_val(&env, &root_args.get_unchecked(2));
+                    let arg_signers: Vec<Signer> = Vec::from_val(&env, &root_args.get_unchecked(3));
 
                     println!("{:?}", arg_signature_payload);
 
@@ -81,6 +75,36 @@ impl CustomAccountInterface for Contract {
                             }
                             _ => {}
                         }
+                    }
+
+                    'signer: for signer in arg_signers.iter() {
+                        match signer {
+                            Signer::Ed25519(signer_public_key) => {
+                                for signature in root_signatures.iter() {
+                                    match signature {
+                                        Signature::Ed25519(signature) => {
+                                            let Ed25519Signature {
+                                                public_key: signature_public_key,
+                                                signature,
+                                            } = signature;
+
+                                            if signer_public_key == signature_public_key {
+                                                env.crypto().ed25519_verify(
+                                                    &signer_public_key.0,
+                                                    &root_signature_payload.clone().into(),
+                                                    &signature,
+                                                );
+                                                break 'signer;
+                                            }
+                                        }
+                                        _ => panic_with_error!(&env, Error::NotPermitted),
+                                    }
+                                }
+                            }
+                            _ => panic_with_error!(&env, Error::NotPermitted),
+                        }
+
+                        panic_with_error!(&env, Error::NotFound)
                     }
                 }
                 _ => {}
