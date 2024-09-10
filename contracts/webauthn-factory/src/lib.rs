@@ -61,7 +61,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        Client::new(&env, &address).add(&signer, &true);
+        Client::new(&env, &address).add(&signer);
 
         let max_ttl = env.storage().max_ttl();
 

@@ -50,7 +50,12 @@ export class PasskeyKit extends PasskeyBase {
             salt: hash(keyId),
             signer: {
                 tag: 'Secp256r1',
-                values: [[keyId], [publicKey]]
+                values: [
+                    [keyId], 
+                    [publicKey],
+                    {tag: 'Persistent', values: undefined}, 
+                    {tag: 'Admin', values: undefined}
+                ]
             },
         })
 

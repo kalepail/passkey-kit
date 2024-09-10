@@ -78,10 +78,10 @@ export class PasskeyServer extends PasskeyBase {
         }
 
         return signers as { 
+            kind: string,
             key: string, 
             val: string, 
-            type: string, 
-            admin: boolean, 
+            type: string,
             expired?: boolean 
         }[]
     }

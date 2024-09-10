@@ -1,12 +1,8 @@
-use soroban_sdk::{auth::Context, contracterror, contracttype, Address, Bytes, BytesN, Vec};
+use soroban_sdk::auth::Context;
 
 #[soroban_sdk::contractclient(name = "Client")]
 pub trait Contract {
-    fn add(
-        env: soroban_sdk::Env,
-        signer: Signer,
-        admin: bool,
-    ) -> Result<(), soroban_sdk::Error>;
+    fn add(env: soroban_sdk::Env, signer: Signer) -> Result<(), soroban_sdk::Error>;
     fn remove(
         env: soroban_sdk::Env,
         signer_key: SignerKey,
@@ -22,79 +18,74 @@ pub trait Contract {
         auth_contexts: soroban_sdk::Vec<Context>,
     ) -> Result<(), soroban_sdk::Error>;
 }
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Policy(pub Address);
-
-#[contracttype(export = false)]
+pub struct Policy(pub soroban_sdk::Address);
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Ed25519PublicKey(pub BytesN<32>);
-
-#[contracttype(export = false)]
+pub struct Ed25519PublicKey(pub soroban_sdk::BytesN<32>);
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Secp256r1Id(pub Bytes);
-
-#[contracttype(export = false)]
+pub struct Secp256r1Id(pub soroban_sdk::Bytes);
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Secp256r1PublicKey(pub BytesN<65>);
-
-#[contracttype(export = false)]
+pub struct Secp256r1PublicKey(pub soroban_sdk::BytesN<65>);
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Ed25519Signature {
     pub public_key: Ed25519PublicKey,
-    pub signature: BytesN<64>,
+    pub signature: soroban_sdk::BytesN<64>,
 }
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Secp256r1Signature {
-    pub authenticator_data: Bytes,
-    pub client_data_json: Bytes,
+    pub authenticator_data: soroban_sdk::Bytes,
+    pub client_data_json: soroban_sdk::Bytes,
     pub id: Secp256r1Id,
-    pub signature: BytesN<64>,
+    pub signature: soroban_sdk::BytesN<64>,
 }
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SignerStorage {
+    Persistent,
+    Temporary,
+}
+#[soroban_sdk::contracttype(export = false)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub enum SignerType {
+    Admin,
+    Basic,
+    Policy,
+}
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SignerKey {
     Policy(Policy),
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
-
-#[contracttype(export = false)]
-#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
-pub enum PolicySigner {
-    Policy(Policy),
-    Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id, Secp256r1PublicKey),
-}
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum SignerVal {
-    Policy(Vec<PolicySigner>),
-    Secp256r1(Secp256r1PublicKey),
+    Policy(SignerType),
+    Ed25519(SignerType),
+    Secp256r1(Secp256r1PublicKey, SignerType),
 }
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Signer {
-    Policy(Policy, Vec<PolicySigner>),
-    Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id, Secp256r1PublicKey),
+    Policy(Policy, SignerStorage, SignerType),
+    Ed25519(Ed25519PublicKey, SignerStorage, SignerType),
+    Secp256r1(Secp256r1Id, Secp256r1PublicKey, SignerStorage, SignerType),
 }
-
-#[contracttype(export = false)]
+#[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Signature {
     Policy(Policy),
     Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
 }
-
-#[contracterror(export = false)]
+#[soroban_sdk::contracterror(export = false)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Error {
     NotFound = 1,

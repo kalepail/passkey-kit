@@ -26,4 +26,3 @@ ed25519-dalek = { workspace = true }
 rand = { workspace = true }
 stellar-strkey = { workspace = true }
 sample-policy = { workspace = true }
-example-contract = { workspace = true }

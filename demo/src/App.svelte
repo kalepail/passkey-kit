@@ -22,21 +22,25 @@
 	import { DEFAULT_LTL } from "passkey-kit";
 	import { lexicographicalSortNumbers } from "./lib/utils";
 
+	// TODO need to support two toggles: 
+	// - between temp and persistent 
+	// - and admin, basic and policy
+
 	let keyId: string;
 	let contractId: string;
 	let admins: number;
 	let adminSigner: string | undefined;
 	let balance: string;
 	let signers: {
-		key: string;
-		val: string;
-		type: string;
-		admin: boolean;
-		expired?: boolean | undefined;
+		kind: string,
+		key: string, 
+		val: string, 
+		type: string,
+		expired?: boolean 
 	}[] = [];
 
 	let keyName: string = "";
-	let keyAdmin: boolean = false;
+	// let keyAdmin: boolean = false;
 
 	if (localStorage.hasOwnProperty("sp:keyId")) {
 		keyId = localStorage.getItem("sp:keyId")!;
@@ -104,7 +108,7 @@
 			if (publicKey && keyId) {
 				id = base64url.toBuffer(keyId);
 				pk = base64url.toBuffer(publicKey);
-				keyAdmin = false;
+				// keyAdmin = false;
 			} else {
 				if (!keyName) return;
 
@@ -120,9 +124,14 @@
 			const { built } = await account.wallet!.add({
 				signer: {
 					tag: "Secp256r1",
-					values: [[id], [pk]],
+					values: [
+						[id], 
+						[pk], 
+						{ tag: "Temporary", values: undefined }, 
+						{ tag: "Basic", values: undefined }
+					],
 				},
-				admin: keyAdmin,
+				// admin: keyAdmin,
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminSigner });
@@ -133,7 +142,7 @@
 			await getWalletSigners();
 
 			keyName = "";
-			keyAdmin = false;
+			// keyAdmin = false;
 		} catch (err: any) {
 			alert(err.message);
 		}
@@ -149,9 +158,13 @@
 			const { built } = await account.wallet!.add({
 				signer: {
 					tag: "Ed25519",
-					values: [[keypair.rawPublicKey()]],
+					values: [
+						[keypair.rawPublicKey()],
+						{ tag: "Temporary", values: undefined },
+						{ tag: "Basic", values: undefined },
+					],
 				},
-				admin: keyAdmin,
+				// admin: keyAdmin,
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminSigner });
@@ -177,23 +190,11 @@
 					tag: "Policy",
 					values: [
 						[sample_policy],
-						[
-							{
-								tag: "Ed25519",
-								values: [[keypair.rawPublicKey()]],
-							},
-							// TODO test this, also curious what multiple policy signers mean, do they all need to sign? I guess it's up to the policy
-							// {
-							// 	tag: "Secp256r1",
-							// 	values: [
-							// 		[base64url.toBuffer(keyId)], 
-							// 		[base64url.toBuffer(signers.find(({ key }) => key === keyId)!.val)]
-							// 	],
-							// } 
-						],
+						{ tag: "Temporary", values: undefined },
+						{ tag: "Basic", values: undefined },
 					],
 				},
-				admin: keyAdmin,
+				// admin: keyAdmin,
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminSigner });
@@ -614,7 +615,7 @@
 		signers = await server.getSigners(contractId);
 		console.log(signers);
 
-		const adminKeys = signers.filter(({ admin }) => admin);
+		const adminKeys = signers.filter(({ type }) => type === "Admin");
 		adminSigner = (
 			adminKeys.find(({ key }) => keyId === key) || adminKeys[0]
 		).key;
@@ -654,7 +655,7 @@
 						bind:value={keyName}
 					/>
 				</li>
-				<li>
+				<!-- <li>
 					<label for="admin">Make admin?</label>
 					<input
 						type="checkbox"
@@ -662,7 +663,7 @@
 						name="admin"
 						bind:checked={keyAdmin}
 					/>
-				</li>
+				</li> -->
 				<li>
 					<button on:click={() => addSigner()}>Add Signer</button>
 				</li>
@@ -671,7 +672,7 @@
 	{/if}
 
 	<ul>
-		{#each signers as { key, val, type, admin, expired }}
+		{#each signers as { key, val, type, expired }}
 			<li>
 				<button disabled>
 					{#if adminSigner === key}
@@ -679,7 +680,7 @@
 					{:else if keyId === key}
 						●&nbsp;
 					{/if}
-					{#if admin}
+					{#if type === "Admin"}
 						ADMIN
 					{:else}
 						SESSION
@@ -692,13 +693,13 @@
 					>Transfer 1 XLM</button
 				>
 
-				{#if (!admin || admins > 1) && key !== keyId}
+				{#if (type !== "Admin" || admins > 1) && key !== keyId}
 					<button on:click={() => removeSigner(key, type)}
 						>Remove</button
 					>
 				{/if}
 
-				{#if admin && key !== adminSigner}
+				{#if type === "Admin" && key !== adminSigner}
 					<button on:click={() => (adminSigner = key)}
 						>Set Active Admin</button
 					>

@@ -47,9 +47,5 @@ name = "val"
 col_type = "BYTEA"
 
 [[tables.columns]]
-name = "admin"
-col_type = "BYTEA"
-
-[[tables.columns]]
 name = "active"
 col_type = "BYTEA"
