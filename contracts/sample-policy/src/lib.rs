@@ -1,77 +1,101 @@
-// #![no_std]
+#![no_std]
 
 use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contracterror, contractimpl,
     crypto::Hash,
-    panic_with_error,
-    xdr::ScVal,
-    Bytes, Env, FromVal, Vec,
+    panic_with_error, symbol_short, vec, Address, Bytes, Env, FromVal, String, Vec,
 };
-use webauthn_wallet::types::Signature;
+use webauthn_wallet_interface::Signature;
 
-#[contract]
-pub struct Contract;
-
-#[contractimpl]
-impl Contract {}
+pub mod webauthn_wallet_interface;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
-    NotPermitted = 1,
+    NotFound = 1,
+    NotPermitted = 2,
 }
+
+#[contract]
+pub struct Contract;
 
 #[contractimpl]
 impl CustomAccountInterface for Contract {
     type Error = Error;
-    type Signature = ScVal;
+    type Signature = Vec<Signature>;
+
+    // TODO test scenario with multiple root_auth_contexts and multiple arg_auth_contexts
 
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
-        signature_payload: Hash<32>,
-        signature: ScVal,
-        auth_contexts: Vec<Context>,
+        _root_signature_payload: Hash<32>,
+        _root_signatures: Vec<Signature>,
+        root_auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // println!("{:?}", signature_payload.to_array()); // Not signing anything so no need to use this
-        // println!("{:?}", signature); // ScVal::Void
+        let native_sacs = vec![
+            &env,
+            Address::from_string(&String::from_str(
+                &env,
+                "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN",
+            )), // rust
+            Address::from_string(&String::from_str(
+                &env,
+                "CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT",
+            )), // futurenet
+            Address::from_string(&String::from_str(
+                &env,
+                "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            )), // testnet
+            Address::from_string(&String::from_str(
+                &env,
+                "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
+            )), // mainnet
+        ];
 
-        for context in auth_contexts.iter() {
+        for context in root_auth_contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
-                    contract: root_contract,
-                    fn_name: __check_auth,
+                    contract: _root_contract, // will be the contract that called the policy the "smart wallet"
+                    fn_name: _root_fn_name,   // will always be "__check_auth"
                     args: root_args,
                 }) => {
-                    let arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
+                    let _arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
                     let arg_signatures: Vec<Signature> =
                         Vec::from_val(&env, &root_args.get_unchecked(1));
                     let arg_auth_contexts: Vec<Context> =
                         Vec::from_val(&env, &root_args.get_unchecked(2));
 
-                    println!("{:?}", arg_signature_payload);
-
-                    for signature in arg_signatures.iter() {
-                        println!("{:?}", signature);
+                    // these will be the smart wallet signatures that triggered this __check_auth policy call
+                    if arg_signatures.len() <= 1 {
+                        panic_with_error!(&env, Error::NotPermitted)
                     }
 
                     for context in arg_auth_contexts.iter() {
                         match context {
                             Context::Contract(ContractContext {
                                 contract: sub_contract,
-                                fn_name,
+                                fn_name: sub_fn_name,
                                 args: sub_args,
                             }) => {
-                                if sub_contract == root_contract {
-                                    // This policy cannot authorize anything on the smart wallet (makes it safe for the policy to be an admin key)
+                                if !native_sacs.contains(&sub_contract) {
+                                    // This policy can only authorize native XLM contracts
                                     panic_with_error!(&env, Error::NotPermitted)
                                 }
 
-                                println!("{:?}", sub_contract); // the example contract
-                                println!("{:?}", fn_name); // "call"
-                                println!("{:?}", sub_args); // any arguments passed to the example contract function
+                                if sub_fn_name != symbol_short!("transfer") {
+                                    // This policy can only authorize the transfer method
+                                    panic_with_error!(&env, Error::NotPermitted)
+                                }
+
+                                let amount = i128::from_val(&env, &sub_args.get_unchecked(2));
+
+                                if amount > 10_000_000 {
+                                    // This policy can only authorize transfers of 1 XLM or less
+                                    panic_with_error!(&env, Error::NotPermitted)
+                                }
 
                                 /* For the colorglyph use case we would want to
                                     - limit approval to the colorglyph contract
@@ -79,11 +103,11 @@ impl CustomAccountInterface for Contract {
                                     - ensure there's at least one Ed25519 signer in the `arg_auth_contexts`
                                 */
                             }
-                            _ => {}
+                            _ => panic_with_error!(&env, Error::NotPermitted),
                         }
                     }
                 }
-                _ => {}
+                _ => panic_with_error!(&env, Error::NotPermitted),
             }
         }
 

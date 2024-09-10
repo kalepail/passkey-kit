@@ -1,5 +1,6 @@
 import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
 import { PasskeyBase } from "./base"
+import base64url from "base64url"
 
 export class PasskeyServer extends PasskeyBase {
     public launchtubeUrl: string | undefined
@@ -69,7 +70,7 @@ export class PasskeyServer extends PasskeyBase {
         for (const signer of signers) {
             if (!signer.admin) {
                 try {
-                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(signer.id), SorobanRpc.Durability.Temporary)
+                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(base64url.toBuffer(signer.key)), SorobanRpc.Durability.Temporary)
                 } catch {
                     signer.expired = true
                 }
@@ -77,10 +78,10 @@ export class PasskeyServer extends PasskeyBase {
         }
 
         return signers as { 
-            id: string, 
-            pk: string, 
-            type: string, 
-            admin: boolean, 
+            kind: string,
+            key: string, 
+            val: string, 
+            type: string,
             expired?: boolean 
         }[]
     }
@@ -101,7 +102,7 @@ export class PasskeyServer extends PasskeyBase {
                     Function: {
                         fname: "get_address_by_signer",
                         arguments: JSON.stringify({
-                            id: keyId,
+                            key: keyId,
                             type: 'Secp256r1'
                         })
                     }

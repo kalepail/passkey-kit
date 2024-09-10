@@ -1,14 +1,10 @@
 #![no_std]
 
-mod wallet {
-    use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(file = "../out/webauthn_wallet.wasm");
-}
-
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, Address, Bytes, BytesN, Env,
-    Symbol,
+    contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
 };
+use webauthn_wallet_interface::{Client, Signer};
+pub mod webauthn_wallet_interface;
 
 #[contract]
 pub struct Contract;
@@ -19,25 +15,6 @@ pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
 }
-
-// NOTE It seems dumb we have to dupe this stuff just to use the `wallet::Signer` type as a function arg, but it wasn't working without this
-// https://discord.com/channels/897514728459468821/1281696488199553025
-////
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Ed25519PublicKey(pub BytesN<32>);
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub struct Secp256r1Id(pub Bytes);
-
-#[contracttype]
-#[derive(Clone, PartialEq)]
-pub enum Signer {
-    Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id),
-}
-////
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
@@ -75,12 +52,7 @@ impl Contract {
         Ok(())
     }
 
-    pub fn deploy(
-        env: Env,
-        salt: BytesN<32>,
-        id: wallet::Signer,
-        pk: Option<BytesN<65>>,
-    ) -> Result<Address, Error> {
+    pub fn deploy(env: Env, salt: BytesN<32>, signer: Signer) -> Result<Address, Error> {
         let wasm_hash = env
             .storage()
             .instance()
@@ -89,7 +61,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        wallet::Client::new(&env, &address).add(&id, &pk, &true);
+        Client::new(&env, &address).add(&signer);
 
         let max_ttl = env.storage().max_ttl();
 
