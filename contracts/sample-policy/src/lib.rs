@@ -1,10 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface},
-    contract, contracterror, contractimpl,
-    crypto::Hash,
-    panic_with_error, Bytes, Env, FromVal, Vec,
+    auth::{Context, ContractContext, CustomAccountInterface}, contract, contracterror, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, Address, Bytes, Env, FromVal, String, Vec
 };
 use webauthn_wallet_interface::{Ed25519Signature, Signature, Signer};
 
@@ -35,13 +32,22 @@ impl CustomAccountInterface for Contract {
         root_signatures: Vec<Signature>,
         root_auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
+        let native_sacs = vec![
+            &env,
+            Address::from_string(&String::from_str(&env, "CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT")), // futurenet
+            Address::from_string(&String::from_str(&env, "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC")), // testnet
+            Address::from_string(&String::from_str(&env, "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA")), // mainnet
+        ]; 
+
         for context in root_auth_contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
-                    contract: root_contract,
-                    fn_name: __check_auth,
+                    contract: root_contract, // will be the contract that called the policy the "smart wallet"
+                    fn_name: _root_fn_name, // will always be "__check_auth"
                     args: root_args,
                 }) => {
+                    // This is what cause the initial require auth into the "smart wallet" in the first place. 
+                    // TODO I am concerned this payload is never cryptographically signed for or verified
                     let arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
                     let arg_signatures: Vec<Signature> =
                         Vec::from_val(&env, &root_args.get_unchecked(1));
@@ -51,21 +57,42 @@ impl CustomAccountInterface for Contract {
 
                     // println!("{:?}", arg_signature_payload);
 
-                    for signature in arg_signatures.iter() {
+                    // this will be the policy signature that triggered this __check_auth policy call
+                    // aka `env.current_contract_address()`
+                    // TODO should the `arg_signers` be signing the `arg_signature_payload` and getting verified in this loop?
+                    // for signature in arg_signatures.iter() {
                         // println!("{:?}", signature);
-                    }
+                    // }
 
                     for context in arg_auth_contexts.iter() {
                         match context {
                             Context::Contract(ContractContext {
                                 contract: sub_contract,
-                                fn_name,
+                                fn_name: sub_fn_name,
                                 args: sub_args,
                             }) => {
                                 if sub_contract == root_contract {
                                     // This policy cannot authorize anything on the smart wallet (makes it safe for the policy to be an admin key)
                                     panic_with_error!(&env, Error::NotPermitted)
                                 }
+
+                                // TODO make this policy for native contracts only for transfers of <= 1 XLM
+                                // if !native_sacs.contains(&sub_contract) {
+                                //     // This policy can only authorize native XLM contracts
+                                //     panic_with_error!(&env, Error::NotPermitted)
+                                // }
+
+                                // if sub_fn_name != symbol_short!("transfer") {
+                                //     // This policy can only authorize the transfer method
+                                //     panic_with_error!(&env, Error::NotPermitted)
+                                // }
+
+                                // let amount = i128::from_val(&env, &sub_args.get_unchecked(2));
+                                
+                                // if amount > 10_000_000 {
+                                //     // This policy can only authorize transfers of 1 XLM or less
+                                //     panic_with_error!(&env, Error::NotPermitted)
+                                // }
 
                                 // println!("{:?}", sub_contract); // the example contract
                                 // println!("{:?}", fn_name); // "call"

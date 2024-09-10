@@ -231,6 +231,8 @@ export class PasskeyKit extends PasskeyBase {
             base64url.toBuffer(authenticationResponse.response.signature)
         );
 
+        // TODO No idea how to make this work
+        // https://discord.com/channels/@me/1025113063583666246/1281789018979438672
         // const t: Signature = {
         //     tag: 'Secp256r1',
         //     values: [{

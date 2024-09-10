@@ -30,39 +30,6 @@ use crate::{
 };
 
 #[test]
-fn test_ed25519() {
-    let env = Env::default();
-
-    let wallet_address = env.register_contract(None, Contract);
-    let wallet_client = ContractClient::new(&env, &wallet_address);
-
-    let keypair = Keypair::from_bytes(&[
-        88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
-        200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
-        247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
-        208, 144, 53, 12, 91, 78,
-    ])
-    .unwrap();
-
-    let address = Strkey::PublicKeyEd25519(ed25519::PublicKey(keypair.public.to_bytes()));
-    let address = Bytes::from_slice(&env, address.to_string().as_bytes());
-    let address = Address::from_string_bytes(&address);
-
-    let address_bytes = address.to_xdr(&env);
-    let address_bytes = address_bytes.slice(address_bytes.len() - 32..);
-    let mut address_array = [0u8; 32];
-    address_bytes.copy_into_slice(&mut address_array);
-    let address_bytes = BytesN::from_array(&env, &address_array);
-
-    wallet_client.add(
-        &Signer::Ed25519(Ed25519PublicKey(address_bytes.clone())),
-        &true,
-    );
-
-    // TODO add some usage of the wallet via the ed25519 signer
-}
-
-#[test]
 fn test_sample_policy() {
     let env = Env::default();
 
@@ -212,7 +179,6 @@ fn test_sample_policy() {
             ]
             .try_into()
             .unwrap(),
-            // args: VecM::default(),
         }),
         sub_invocations: VecM::default(),
     };
@@ -239,6 +205,10 @@ fn test_sample_policy() {
 
     let res = example_contract_client
         .set_auths(&[
+            // TODO where is the protection for this call?
+            // Where does this actually get signed for?
+            // How is this technically/cryptographically safe?
+            // Probably from the fact that all the args of auth 1 are baked into auth 2
             SorobanAuthorizationEntry {
                 credentials: SorobanCredentials::Address(SorobanAddressCredentials {
                     address: wallet_address.clone().try_into().unwrap(),
@@ -253,7 +223,6 @@ fn test_sample_policy() {
                     address: sample_policy_address.clone().try_into().unwrap(),
                     nonce: 2,
                     signature: std::vec![signature].try_into().unwrap(),
-                    // signature: ScVal::Vec(Some(ScVec(VecM::default()))),
                     signature_expiration_ledger,
                 }),
                 root_invocation: __check_auth_invocation,
@@ -262,6 +231,39 @@ fn test_sample_policy() {
         .call(&wallet_address);
 
     println!("\n{:?}\n", res);
+}
+
+#[test]
+fn test_ed25519() {
+    let env = Env::default();
+
+    let wallet_address = env.register_contract(None, Contract);
+    let wallet_client = ContractClient::new(&env, &wallet_address);
+
+    let keypair = Keypair::from_bytes(&[
+        88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
+        200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
+        247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
+        208, 144, 53, 12, 91, 78,
+    ])
+    .unwrap();
+
+    let address = Strkey::PublicKeyEd25519(ed25519::PublicKey(keypair.public.to_bytes()));
+    let address = Bytes::from_slice(&env, address.to_string().as_bytes());
+    let address = Address::from_string_bytes(&address);
+
+    let address_bytes = address.to_xdr(&env);
+    let address_bytes = address_bytes.slice(address_bytes.len() - 32..);
+    let mut address_array = [0u8; 32];
+    address_bytes.copy_into_slice(&mut address_array);
+    let address_bytes = BytesN::from_array(&env, &address_array);
+
+    wallet_client.add(
+        &Signer::Ed25519(Ed25519PublicKey(address_bytes.clone())),
+        &true,
+    );
+
+    // TODO add some usage of the wallet via the ed25519 signer
 }
 
 #[test]

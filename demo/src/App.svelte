@@ -182,6 +182,14 @@
 								tag: "Ed25519",
 								values: [[keypair.rawPublicKey()]],
 							},
+							// TODO test this, also curious what multiple policy signers mean, do they all need to sign? I guess it's up to the policy
+							// {
+							// 	tag: "Secp256r1",
+							// 	values: [
+							// 		[base64url.toBuffer(keyId)], 
+							// 		[base64url.toBuffer(signers.find(({ key }) => key === keyId)!.val)]
+							// 	],
+							// } 
 						],
 					],
 				},
@@ -506,6 +514,9 @@
 								xdr.ScVal.scvBytes(keypair.rawPublicKey()),
 							]),
 						]),
+						// TODO we're testing policy multisig so I need to push in the secp256r1 key here
+						// This does bring up a tricky point though that I need to know the id and pk at the time of signing.
+						// Probably fine but traditionally the secp256r1 pk is hard to find client side
 					]),
 				],
 			});
@@ -574,7 +585,9 @@
 		}
 	}
 	async function walletTransfer(signer: string, type: string) {
-		if (type === "Ed25519") {
+		if (type === "Policy") {
+			return policySigTransfer();
+		} else if (type === "Ed25519") {
 			return ed25519Transfer();
 		}
 

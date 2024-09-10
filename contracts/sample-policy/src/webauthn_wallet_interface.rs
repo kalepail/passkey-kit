@@ -1,4 +1,27 @@
-use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Vec};
+use soroban_sdk::{auth::Context, contracterror, contracttype, Address, Bytes, BytesN, Vec};
+
+#[soroban_sdk::contractclient(name = "Client")]
+pub trait Contract {
+    fn add(
+        env: soroban_sdk::Env,
+        signer: Signer,
+        admin: bool,
+    ) -> Result<(), soroban_sdk::Error>;
+    fn remove(
+        env: soroban_sdk::Env,
+        signer_key: SignerKey,
+    ) -> Result<(), soroban_sdk::Error>;
+    fn update(
+        env: soroban_sdk::Env,
+        hash: soroban_sdk::BytesN<32>,
+    ) -> Result<(), soroban_sdk::Error>;
+    fn __check_auth(
+        env: soroban_sdk::Env,
+        signature_payload: soroban_sdk::BytesN<32>,
+        signatures: soroban_sdk::Vec<Signature>,
+        auth_contexts: soroban_sdk::Vec<Context>,
+    ) -> Result<(), soroban_sdk::Error>;
+}
 
 #[contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
