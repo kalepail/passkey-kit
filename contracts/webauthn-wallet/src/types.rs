@@ -28,25 +28,36 @@ pub struct Secp256r1Id(pub Bytes);
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
+pub struct Secp256r1PublicKey(pub BytesN<65>);
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SignerKey {
     Policy(Policy),
     Ed25519(Ed25519PublicKey),
     Secp256r1(Secp256r1Id),
 }
-
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub enum Signer {
-    Policy(Policy, Vec<Signer>),
+pub enum PolicySigner {
+    Policy(Policy),
     Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id, BytesN<65>),
+    Secp256r1(Secp256r1Id, Secp256r1PublicKey), // TODO, not convinced we actually need to save the id
 }
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerVal {
-    Policy(Vec<Signer>),
-    Secp256r1(BytesN<65>),
+    Policy(Vec<PolicySigner>),
+    Secp256r1(Secp256r1PublicKey),
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum Signer {
+    Policy(Policy, Vec<PolicySigner>),
+    Ed25519(Ed25519PublicKey),
+    Secp256r1(Secp256r1Id, Secp256r1PublicKey), // TODO, not convinced we actually need to save the id
 }
 
 #[contracttype]

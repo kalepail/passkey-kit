@@ -38,12 +38,12 @@ col_type = "BYTEA"
 index = true
 
 [[tables.columns]]
-name = "id"
+name = "key"
 col_type = "BYTEA"
 index = true
 
 [[tables.columns]]
-name = "pk"
+name = "val"
 col_type = "BYTEA"
 
 [[tables.columns]]

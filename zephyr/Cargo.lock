@@ -1934,6 +1934,7 @@ dependencies = [
  "hex",
  "ledger-meta-factory",
  "serde",
+ "serde_json",
  "stellar-strkey 0.0.10",
  "tokio",
  "webauthn-wallet",

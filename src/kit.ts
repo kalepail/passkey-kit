@@ -48,11 +48,10 @@ export class PasskeyKit extends PasskeyBase {
 
         const { result, built } = await this.factory.deploy({
             salt: hash(keyId),
-            id: {
+            signer: {
                 tag: 'Secp256r1',
-                values: [[Buffer.from(keyId)]]
+                values: [[keyId], [publicKey]]
             },
-            pk: publicKey
         })
 
         if (result.isErr())

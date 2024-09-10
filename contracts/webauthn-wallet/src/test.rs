@@ -5,6 +5,7 @@ extern crate std;
 
 use ed25519_dalek::{Keypair, Signer as _};
 use soroban_sdk::{
+    testutils::Address as _,
     auth::{Context, ContractContext},
     symbol_short, vec,
     xdr::{
@@ -21,8 +22,8 @@ use sample_policy::Contract as PolicyContract;
 
 use crate::{
     types::{
-        Ed25519PublicKey, Ed25519Signature, Error, Policy, Secp256r1Id, Secp256r1Signature,
-        Signature, Signer,
+        Ed25519PublicKey, Ed25519Signature, Error, Policy, PolicySigner, Secp256r1Id,
+        Secp256r1PublicKey, Secp256r1Signature, Signature, Signer,
     },
     Contract, ContractClient,
 };
@@ -103,7 +104,7 @@ fn test_sample_policy() {
                     Policy(sample_policy_address.clone()),
                     vec![
                         &env,
-                        Signer::Ed25519(Ed25519PublicKey(address_bytes.clone()))
+                        PolicySigner::Ed25519(Ed25519PublicKey(address_bytes.clone()))
                     ]
                 )
                 .try_into()
@@ -151,7 +152,7 @@ fn test_sample_policy() {
                 Policy(sample_policy_address.clone()),
                 vec![
                     &env,
-                    Signer::Ed25519(Ed25519PublicKey(address_bytes.clone())),
+                    PolicySigner::Ed25519(Ed25519PublicKey(address_bytes.clone())),
                 ],
             ),
             &false,
@@ -296,7 +297,10 @@ fn test_secp256r1() {
     // let salt = env.crypto().sha256(&id);
 
     // factory_client.init(&passkkey_hash);
-    deployee_client.add(&Signer::Secp256r1(Secp256r1Id(id), pk), &true);
+    deployee_client.add(
+        &Signer::Secp256r1(Secp256r1Id(id), Secp256r1PublicKey(pk)),
+        &true,
+    );
 
     let signature_payload = BytesN::from_array(
         &env,

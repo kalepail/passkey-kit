@@ -96,15 +96,15 @@ impl Contract {
 
         Ok(())
     }
-    pub fn remove(env: Env, id: SignerKey) -> Result<(), Error> {
+    pub fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        if env.storage().temporary().has::<SignerKey>(&id) {
-            env.storage().temporary().remove::<SignerKey>(&id);
-        } else if env.storage().persistent().has::<SignerKey>(&id) {
+        if env.storage().temporary().has::<SignerKey>(&signer_key) {
+            env.storage().temporary().remove::<SignerKey>(&signer_key);
+        } else if env.storage().persistent().has::<SignerKey>(&signer_key) {
             update_admin_signer_count(&env, false);
 
-            env.storage().persistent().remove::<SignerKey>(&id);
+            env.storage().persistent().remove::<SignerKey>(&signer_key);
         }
 
         let max_ttl = env.storage().max_ttl();
@@ -114,7 +114,7 @@ impl Contract {
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
         env.events()
-            .publish((EVENT_TAG, symbol_short!("remove"), id), ());
+            .publish((EVENT_TAG, symbol_short!("remove"), signer_key), ());
 
         Ok(())
     }
@@ -160,6 +160,8 @@ struct ClientDataJson<'a> {
 impl CustomAccountInterface for Contract {
     type Error = Error;
     type Signature = Vec<Signature>;
+
+    // TODO test scenario with multiple auth_contexts (get via cross contract call) (also explore how this is related to sub_invocations)
 
     #[allow(non_snake_case)]
     fn __check_auth(
@@ -253,7 +255,7 @@ impl CustomAccountInterface for Contract {
                         .extend_from_array(&env.crypto().sha256(&client_data_json).to_array());
 
                     env.crypto().secp256r1_verify(
-                        &public_key,
+                        &public_key.0,
                         &env.crypto().sha256(&authenticator_data),
                         &signature,
                     );

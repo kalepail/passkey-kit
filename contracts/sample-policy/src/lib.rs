@@ -1,4 +1,4 @@
-// #![no_std]
+#![no_std]
 
 use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
@@ -6,7 +6,9 @@ use soroban_sdk::{
     crypto::Hash,
     panic_with_error, Bytes, Env, FromVal, Vec,
 };
-use webauthn_wallet::types::{Ed25519Signature, Signature, Signer};
+use webauthn_wallet_interface::{Ed25519Signature, Signature, Signer};
+
+pub mod webauthn_wallet_interface;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -24,14 +26,16 @@ impl CustomAccountInterface for Contract {
     type Error = Error;
     type Signature = Vec<Signature>;
 
+    // TODO test scenario with multiple root_auth_contexts and multiple arg_auth_contexts
+
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
         root_signature_payload: Hash<32>,
         root_signatures: Vec<Signature>,
-        auth_contexts: Vec<Context>,
+        root_auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        for context in auth_contexts.iter() {
+        for context in root_auth_contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
                     contract: root_contract,
@@ -45,10 +49,10 @@ impl CustomAccountInterface for Contract {
                         Vec::from_val(&env, &root_args.get_unchecked(2));
                     let arg_signers: Vec<Signer> = Vec::from_val(&env, &root_args.get_unchecked(3));
 
-                    println!("{:?}", arg_signature_payload);
+                    // println!("{:?}", arg_signature_payload);
 
                     for signature in arg_signatures.iter() {
-                        println!("{:?}", signature);
+                        // println!("{:?}", signature);
                     }
 
                     for context in arg_auth_contexts.iter() {
@@ -63,9 +67,9 @@ impl CustomAccountInterface for Contract {
                                     panic_with_error!(&env, Error::NotPermitted)
                                 }
 
-                                println!("{:?}", sub_contract); // the example contract
-                                println!("{:?}", fn_name); // "call"
-                                println!("{:?}", sub_args); // any arguments passed to the example contract function
+                                // println!("{:?}", sub_contract); // the example contract
+                                // println!("{:?}", fn_name); // "call"
+                                // println!("{:?}", sub_args); // any arguments passed to the example contract function
 
                                 /* For the colorglyph use case we would want to
                                     - limit approval to the colorglyph contract
