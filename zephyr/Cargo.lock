@@ -359,6 +359,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "data-encoding"
+version = "2.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8566979429cf69b49a5c740c60791108e86440e8be149bbea4fe54d2c32d6e2"
+
+[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,7 +1008,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "700dfbfff902831b7ef43b007f2ca2ce7b3d8a5400fccc922526d1cac0adad8e"
 dependencies = [
  "anyhow",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "stellar-xdr 21.2.0",
 ]
 
@@ -1924,10 +1930,12 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 name = "smart-wallets-data-multi-signer-multi-sig"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "hex",
  "ledger-meta-factory",
  "serde",
- "stellar-strkey",
- "stellar-xdr 21.2.0",
+ "serde_json",
+ "stellar-strkey 0.0.10",
  "tokio",
  "webauthn-wallet",
  "zephyr-sdk",
@@ -2030,7 +2038,7 @@ dependencies = [
  "soroban-env-common",
  "soroban-wasmi",
  "static_assertions",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "wasmparser",
 ]
 
@@ -2064,7 +2072,7 @@ dependencies = [
  "soroban-env-common-zephyr",
  "soroban-wasmi",
  "static_assertions",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "wasmparser",
 ]
 
@@ -2126,7 +2134,7 @@ dependencies = [
  "soroban-env-host",
  "soroban-ledger-snapshot",
  "soroban-sdk-macros",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
 ]
 
 [[package]]
@@ -2238,6 +2246,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "stellar-strkey"
+version = "0.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ecda1f64c0a1427563b0b35aa771b66c6ce508f02b18effcae1d0ab1261d014"
+dependencies = [
+ "crate-git-revision",
+ "data-encoding",
+ "thiserror",
+]
+
+[[package]]
 name = "stellar-xdr"
 version = "20.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2249,7 +2268,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_with",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
 ]
 
 [[package]]
@@ -2265,7 +2284,7 @@ dependencies = [
  "hex",
  "serde",
  "serde_with",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
 ]
 
 [[package]]
@@ -2809,7 +2828,6 @@ dependencies = [
 [[package]]
 name = "webauthn-wallet"
 version = "0.4.0"
-source = "git+https://github.com/kalepail/passkey-kit?rev=d5ff1f4bbbffab16400ba046979f11ebc2dcf7d2#d5ff1f4bbbffab16400ba046979f11ebc2dcf7d2"
 dependencies = [
  "serde",
  "serde-json-core",
@@ -2994,9 +3012,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-sdk"
-version = "0.2.2-rc2"
+version = "0.2.2-rc4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15d15bc68d464e525c6e5f54e9f11983e350cde09efa3acd5fbbc0970e9ff727"
+checksum = "045a0cfc356e9eca04288fd0d932b64c629fb48b39b8c99dfcceaaf144815680"
 dependencies = [
  "bincode",
  "charming-fork-zephyr",
@@ -3006,7 +3024,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "soroban-sdk",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "stellar-xdr 20.1.0",
  "thiserror",
  "wee_alloc",
@@ -3016,9 +3034,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-vm"
-version = "0.1.9"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbd53f1cd8f3c39d3253e15a009e9f1e55b493e2e6c02b29225f81160bf42e5b"
+checksum = "ea41592dd5d112f5e4be8e1f5e75604ad9bd3523ec2bc327a12fb9a8156a8db1"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3038,7 +3056,7 @@ dependencies = [
  "soroban-env-host-zephyr",
  "soroban-env-macros-zephyr",
  "soroban-simulation-zephyr",
- "stellar-strkey",
+ "stellar-strkey 0.0.8",
  "stellar-xdr 21.2.0",
  "thiserror",
  "tokio",

@@ -1,6 +1,6 @@
 import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
-import base64url from "base64url"
 import { PasskeyBase } from "./base"
+import base64url from "base64url"
 
 export class PasskeyServer extends PasskeyBase {
     public launchtubeUrl: string | undefined
@@ -70,17 +70,20 @@ export class PasskeyServer extends PasskeyBase {
         for (const signer of signers) {
             if (!signer.admin) {
                 try {
-                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(signer.id), SorobanRpc.Durability.Temporary)
+                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(base64url.toBuffer(signer.key)), SorobanRpc.Durability.Temporary)
                 } catch {
                     signer.expired = true
                 }
             }
-
-            signer.id = base64url(signer.id)
-            signer.pk = base64url(signer.pk)
         }
 
-        return signers as { id: string, pk: string, admin: boolean, expired?: boolean }[]
+        return signers as { 
+            kind: string,
+            key: string, 
+            val: string, 
+            type: string,
+            expired?: boolean 
+        }[]
     }
 
     public async getContractId(keyId: string) {
@@ -99,7 +102,8 @@ export class PasskeyServer extends PasskeyBase {
                     Function: {
                         fname: "get_address_by_signer",
                         arguments: JSON.stringify({
-                            id: [...base64url.toBuffer(keyId)]
+                            key: keyId,
+                            type: 'Secp256r1'
                         })
                     }
                 }
@@ -112,7 +116,7 @@ export class PasskeyServer extends PasskeyBase {
                 throw await res.json()
             })
 
-        return res[0]?.address as string | undefined
+        return res || undefined as string | undefined
     }
 
     /* TODO 

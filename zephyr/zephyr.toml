@@ -1,7 +1,5 @@
 name = "smart-wallets-data-multi-signer-multi-sig"
 
-# TODO, update with primary keys and indexes where applicable
-
 # --- GENERIC EVENTS ---
 
 # [[tables]]
@@ -37,21 +35,15 @@ force = false
 [[tables.columns]]
 name = "address"
 col_type = "BYTEA"
+index = true
 
 [[tables.columns]]
-name = "id"
+name = "key"
 col_type = "BYTEA"
+index = true
 
 [[tables.columns]]
-name = "pk"
-col_type = "BYTEA"
-
-[[tables.columns]]
-name = "date"
-col_type = "BYTEA"
-
-[[tables.columns]]
-name = "admin"
+name = "val"
 col_type = "BYTEA"
 
 [[tables.columns]]

@@ -3,31 +3,264 @@
 use std::println;
 extern crate std;
 
-use soroban_sdk::{
-    // testutils::{Address as _, BytesN as _},
-    // token, Address,
-    vec,
-    Bytes,
-    BytesN,
-    Env,
-    IntoVal,
-};
-
 use crate::{
-    types::Secp256r1Id, Contract, ContractClient, Error, KeyId, Secp256r1Signature, Signature,
+    types::{
+        Ed25519PublicKey, Ed25519Signature, Error, Policy, Secp256r1Id, Secp256r1PublicKey,
+        Secp256r1Signature, Signature, Signer, SignerStorage, SignerType,
+    },
+    Contract, ContractClient,
 };
-
-mod factory {
-    soroban_sdk::contractimport!(file = "../out/webauthn_factory.wasm");
-}
-
-// mod passkey {
-//     use soroban_sdk::auth::Context;
-//     soroban_sdk::contractimport!(file = "../out/webauthn_wallet.optimized.wasm");
-// }
+use ed25519_dalek::{Keypair, Signer as _};
+use sample_policy::Contract as PolicyContract;
+use soroban_sdk::{
+    auth::{Context, ContractContext},
+    symbol_short,
+    testutils::Address as _,
+    token, vec,
+    xdr::{
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
+        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
+    },
+    Address, Bytes, BytesN, Env, IntoVal,
+};
+use stellar_strkey::{ed25519, Strkey};
 
 #[test]
-fn test() {
+fn test_sample_policy() {
+    let env = Env::default();
+
+    let wallet_address = env.register_contract(None, Contract);
+    let wallet_client = ContractClient::new(&env, &wallet_address);
+
+    let keypair = Keypair::from_bytes(&[
+        88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
+        200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
+        247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
+        208, 144, 53, 12, 91, 78,
+    ])
+    .unwrap();
+
+    let address = Strkey::PublicKeyEd25519(ed25519::PublicKey(keypair.public.to_bytes()));
+    let address = Bytes::from_slice(&env, address.to_string().as_bytes());
+    let address = Address::from_string_bytes(&address);
+
+    let address_bytes = address.to_xdr(&env);
+    let address_bytes = address_bytes.slice(address_bytes.len() - 32..);
+    let mut address_array = [0u8; 32];
+    address_bytes.copy_into_slice(&mut address_array);
+    let address_bytes = BytesN::from_array(&env, &address_array);
+
+    wallet_client.add(&Signer::Ed25519(
+        Ed25519PublicKey(address_bytes.clone()),
+        SignerStorage::Persistent,
+        SignerType::Admin,
+    ));
+
+    let sample_policy_address = env.register_contract(None, PolicyContract);
+
+    let signature_expiration_ledger = env.ledger().sequence();
+    let root_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: wallet_address.clone().try_into().unwrap(),
+            function_name: "add".try_into().unwrap(),
+            args: std::vec![Signer::Policy(
+                Policy(sample_policy_address.clone()),
+                SignerStorage::Persistent,
+                SignerType::Admin,
+            )
+            .try_into()
+            .unwrap(),]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
+    let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+        network_id: env.ledger().network_id().to_array().into(),
+        nonce: 0,
+        signature_expiration_ledger,
+        invocation: root_invocation.clone(),
+    });
+    let payload = payload.to_xdr(Limits::none()).unwrap();
+    let payload = Bytes::from_slice(&env, payload.as_slice());
+    let payload = env.crypto().sha256(&payload);
+
+    let signature: ScVal = Signature::Ed25519(Ed25519Signature {
+        public_key: Ed25519PublicKey(address_bytes.clone()),
+        signature: BytesN::from_array(
+            &env,
+            &keypair.sign(payload.to_array().as_slice()).to_bytes(),
+        ),
+    })
+    .try_into()
+    .unwrap();
+
+    wallet_client
+        .set_auths(&[SorobanAuthorizationEntry {
+            credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                address: wallet_address.clone().try_into().unwrap(),
+                nonce: 0,
+                signature_expiration_ledger,
+                signature: std::vec![signature,].try_into().unwrap(),
+            }),
+            root_invocation,
+        }])
+        .add(&Signer::Policy(
+            Policy(sample_policy_address.clone()),
+            SignerStorage::Persistent,
+            SignerType::Admin,
+        ));
+
+    // The real fun begins here
+
+    let sac_admin = Address::generate(&env);
+    let sac = env.register_stellar_asset_contract_v2(sac_admin);
+    let sac_address = sac.address();
+    let sac_admin_client = token::StellarAssetClient::new(&env, &sac_address);
+    let sac_client = token::Client::new(&env, &sac_address);
+
+    sac_admin_client
+        .mock_all_auths()
+        .mint(&wallet_address, &10_000_000);
+
+    let root_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: sac_address.clone().try_into().unwrap(),
+            function_name: "transfer".try_into().unwrap(),
+            args: std::vec![
+                wallet_address.clone().try_into().unwrap(),
+                sac_address.clone().try_into().unwrap(),
+                10_000_000i128.try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
+    let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+        network_id: env.ledger().network_id().to_array().into(),
+        nonce: 1,
+        signature_expiration_ledger,
+        invocation: root_invocation.clone(),
+    });
+    let payload = payload.to_xdr(Limits::none()).unwrap();
+    let payload = Bytes::from_slice(&env, payload.as_slice());
+    let payload = env.crypto().sha256(&payload);
+
+    let signature_policy = Signature::Policy(Policy(sample_policy_address.clone()));
+    let signature_policy_scval: ScVal = signature_policy.clone().try_into().unwrap();
+
+    let signature_ed25519 = Signature::Ed25519(Ed25519Signature {
+        public_key: Ed25519PublicKey(address_bytes.clone()),
+        signature: BytesN::from_array(
+            &env,
+            &keypair.sign(payload.to_array().as_slice()).to_bytes(),
+        ),
+    });
+    let signature_ed25519_scval: ScVal = signature_ed25519.clone().try_into().unwrap();
+
+    let __check_auth_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: wallet_address.clone().try_into().unwrap(),
+            function_name: "__check_auth".try_into().unwrap(),
+            args: std::vec![
+                payload.to_bytes().try_into().unwrap(),
+                vec![&env, signature_policy, signature_ed25519]
+                    .try_into()
+                    .unwrap(),
+                vec![
+                    &env,
+                    Context::Contract(ContractContext {
+                        contract: sac_address.clone(),
+                        fn_name: symbol_short!("transfer"),
+                        args: vec![
+                            &env,
+                            wallet_address.to_val(),
+                            sac_address.to_val(),
+                            10_000_000i128.into_val(&env)
+                        ]
+                        .into_val(&env),
+                    })
+                ]
+                .try_into()
+                .unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
+    sac_client
+        .set_auths(&[
+            // TODO where is the protection for this call?
+            // Where does this actually get signed for?
+            // How is this technically/cryptographically safe?
+            // Probably from the fact that all the args of auth 1 are baked into auth 2
+            SorobanAuthorizationEntry {
+                credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                    address: wallet_address.clone().try_into().unwrap(),
+                    nonce: 1,
+                    signature_expiration_ledger,
+                    signature: std::vec![signature_policy_scval, signature_ed25519_scval,]
+                        .try_into()
+                        .unwrap(),
+                }),
+                root_invocation,
+            },
+            SorobanAuthorizationEntry {
+                credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+                    address: sample_policy_address.clone().try_into().unwrap(),
+                    nonce: 2,
+                    signature: ScVal::Vec(Some(ScVec::default())),
+                    signature_expiration_ledger,
+                }),
+                root_invocation: __check_auth_invocation,
+            },
+        ])
+        .transfer(&wallet_address, &sac_address, &10_000_000);
+}
+
+#[test]
+fn test_ed25519() {
+    let env = Env::default();
+
+    let wallet_address = env.register_contract(None, Contract);
+    let wallet_client = ContractClient::new(&env, &wallet_address);
+
+    let keypair = Keypair::from_bytes(&[
+        88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
+        200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
+        247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
+        208, 144, 53, 12, 91, 78,
+    ])
+    .unwrap();
+
+    let address = Strkey::PublicKeyEd25519(ed25519::PublicKey(keypair.public.to_bytes()));
+    let address = Bytes::from_slice(&env, address.to_string().as_bytes());
+    let address = Address::from_string_bytes(&address);
+
+    let address_bytes = address.to_xdr(&env);
+    let address_bytes = address_bytes.slice(address_bytes.len() - 32..);
+    let mut address_array = [0u8; 32];
+    address_bytes.copy_into_slice(&mut address_array);
+    let address_bytes = BytesN::from_array(&env, &address_array);
+
+    wallet_client.add(&Signer::Ed25519(
+        Ed25519PublicKey(address_bytes.clone()),
+        SignerStorage::Persistent,
+        SignerType::Admin,
+    ));
+
+    // TODO add some usage of the wallet via the ed25519 signer
+    // maybe an asset transfer
+}
+
+#[test]
+fn test_secp256r1() {
     let env = Env::default();
     // let contract_id = env.register_contract(None, Contract);
     // let client = ContractClient::new(&env, &contract_id);
@@ -60,7 +293,12 @@ fn test() {
     // let salt = env.crypto().sha256(&id);
 
     // factory_client.init(&passkkey_hash);
-    deployee_client.add(&KeyId::Secp256r1(Secp256r1Id(id)), &Some(pk), &true);
+    deployee_client.add(&Signer::Secp256r1(
+        Secp256r1Id(id),
+        Secp256r1PublicKey(pk),
+        SignerStorage::Persistent,
+        SignerType::Admin,
+    ));
 
     let signature_payload = BytesN::from_array(
         &env,
@@ -110,12 +348,12 @@ fn test() {
         ),
     });
 
-    let result: Result<(), Result<Error, _>> = env.try_invoke_contract_check_auth(
+    let res: Result<(), Result<Error, _>> = env.try_invoke_contract_check_auth(
         &deployee_address,
         &signature_payload,
-        signature.into_val(&env),
+        vec![&env, signature].into_val(&env),
         &vec![&env],
     );
 
-    println!("{:?}", result);
+    assert_eq!(res, Ok(()));
 }

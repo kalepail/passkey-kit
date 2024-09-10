@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["webauthn-factory", "webauthn-wallet"]
+members = ["webauthn-factory", "webauthn-wallet", "sample-policy"]
 
 [workspace.dependencies]
 soroban-sdk = { version = "21.6.0" }
@@ -9,8 +9,12 @@ serde = { version = "1", default-features = false }
 serde-json-core = { version = "0.6.0", default-features = false }
 stellar-xdr = { version = "21.2.0", default-features = false }
 sha256 = { version = "1.5.0" }
-# webauthn-wallet = { path = "webauthn-wallet" }
-# webauthn-factory = { path = "webauthn-factory" }
+ed25519-dalek = { version = "1.0.1" }
+rand = { version = "0.8.5" }
+stellar-strkey = { version = "0.0.10" }
+sample-policy = { path = "sample-policy" }
+webauthn-wallet = { path = "webauthn-wallet" }
+webauthn-factory = { path = "webauthn-factory" }
 
 [profile.release]
 opt-level = "z"

@@ -48,11 +48,15 @@ export class PasskeyKit extends PasskeyBase {
 
         const { result, built } = await this.factory.deploy({
             salt: hash(keyId),
-            id: {
+            signer: {
                 tag: 'Secp256r1',
-                values: [[Buffer.from(keyId)]]
+                values: [
+                    [keyId], 
+                    [publicKey],
+                    {tag: 'Persistent', values: undefined}, 
+                    {tag: 'Admin', values: undefined}
+                ]
             },
-            pk: publicKey
         })
 
         if (result.isErr())
@@ -232,6 +236,8 @@ export class PasskeyKit extends PasskeyBase {
             base64url.toBuffer(authenticationResponse.response.signature)
         );
 
+        // TODO No idea how to make this work
+        // https://discord.com/channels/@me/1025113063583666246/1281789018979438672
         // const t: Signature = {
         //     tag: 'Secp256r1',
         //     values: [{
