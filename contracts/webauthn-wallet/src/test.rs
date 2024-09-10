@@ -5,9 +5,10 @@ extern crate std;
 
 use ed25519_dalek::{Keypair, Signer as _};
 use soroban_sdk::{
-    testutils::Address as _,
     auth::{Context, ContractContext},
-    symbol_short, vec,
+    symbol_short,
+    testutils::Address as _,
+    vec,
     xdr::{
         HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
         SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,

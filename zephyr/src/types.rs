@@ -1,5 +1,9 @@
 use serde::Serialize;
-use zephyr_sdk::{soroban_sdk::xdr::{ScVal, ReadXdr}, DatabaseDerive, DatabaseInteract, EnvClient, Condition, prelude::{Limits, WriteXdr}};
+use zephyr_sdk::{
+    prelude::{Limits, WriteXdr},
+    soroban_sdk::xdr::{ReadXdr, ScVal},
+    Condition, DatabaseDerive, DatabaseInteract, EnvClient,
+};
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]

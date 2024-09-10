@@ -1,15 +1,19 @@
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize, Serializer};
 use stellar_strkey::{ed25519, Contract, Strkey};
 use types::{Signers, SignersActive, SignersAddress, SignersKeyValAdmin, SignersValAdminActive};
-use webauthn_wallet::types::{Ed25519PublicKey, Policy, PolicySigner, Secp256r1Id, SignerKey, SignerVal};
+use webauthn_wallet::types::{
+    Ed25519PublicKey, Policy, PolicySigner, Secp256r1Id, SignerKey, SignerVal,
+};
 use zephyr_sdk::{
     soroban_sdk::{
-        self, symbol_short, xdr::{ScVal, ToXdr}, Address, Bytes, BytesN, Symbol
+        self, symbol_short,
+        xdr::{ScVal, ToXdr},
+        Address, Bytes, BytesN, Symbol,
     },
     utils::{address_from_str, address_to_alloc_string},
-    EnvClient, 
+    EnvClient,
 };
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 
 mod types;
 
@@ -67,7 +71,7 @@ pub extern "C" fn on_close() {
                                         address,
                                         key: key.clone(),
                                         val,
-                                        admin,                   
+                                        admin,
                                         active: ScVal::Bool(true),
                                     };
 
@@ -152,9 +156,9 @@ pub extern "C" fn get_signers_by_address() {
         let key_parsed: String;
         let val = env.from_scval::<Option<SignerVal>>(&val);
         let mut val_parsed: Option<StringOrVecOfStrings> = None;
-        let signer: String; 
+        let signer: String;
         let admin = env.from_scval::<bool>(&admin);
-        
+
         match key {
             SignerKey::Policy(policy) => {
                 signer = String::from("Policy");
@@ -162,7 +166,8 @@ pub extern "C" fn get_signers_by_address() {
             }
             SignerKey::Ed25519(ed25519) => {
                 signer = String::from("Ed25519");
-                key_parsed = Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.0.to_array())).to_string();
+                key_parsed =
+                    Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.0.to_array())).to_string();
             }
             SignerKey::Secp256r1(secp256r1) => {
                 signer = String::from("Secp256r1");
@@ -173,26 +178,39 @@ pub extern "C" fn get_signers_by_address() {
         if let Some(val) = val {
             match val {
                 SignerVal::Policy(policy) => {
-                    let policy_strings: Vec<String> = policy.iter().map(|policy| {
-                        match policy {
-                            PolicySigner::Policy(policy) => {
-                                // TODO untested
-                                address_to_alloc_string(&env, policy.0)
+                    let policy_strings: Vec<String> = policy
+                        .iter()
+                        .map(|policy| {
+                            match policy {
+                                PolicySigner::Policy(policy) => {
+                                    // TODO untested
+                                    address_to_alloc_string(&env, policy.0)
+                                }
+                                PolicySigner::Ed25519(ed25519_public_key) => {
+                                    Strkey::PublicKeyEd25519(ed25519::PublicKey(
+                                        ed25519_public_key.0.to_array(),
+                                    ))
+                                    .to_string()
+                                }
+                                PolicySigner::Secp256r1(secp256r1_id, secp256r1_public_key) => {
+                                    // TODO untested
+                                    format!(
+                                        "{}:{}",
+                                        URL_SAFE_NO_PAD.encode(secp256r1_id.0.to_alloc_vec()),
+                                        URL_SAFE_NO_PAD
+                                            .encode(secp256r1_public_key.0.to_array().to_vec())
+                                    )
+                                }
                             }
-                            PolicySigner::Ed25519(ed25519_public_key) => {
-                                Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519_public_key.0.to_array())).to_string()
-                            }
-                            PolicySigner::Secp256r1(secp256r1_id, secp256r1_public_key) => {
-                                // TODO untested
-                                format!("{}:{}", URL_SAFE_NO_PAD.encode(secp256r1_id.0.to_alloc_vec()), URL_SAFE_NO_PAD.encode(secp256r1_public_key.0.to_array().to_vec()))
-                            }
-                        }
-                    }).collect();
+                        })
+                        .collect();
 
                     val_parsed = Some(StringOrVecOfStrings::Vec(policy_strings));
                 }
                 SignerVal::Secp256r1(secp256r1) => {
-                    val_parsed = Some(StringOrVecOfStrings::String(URL_SAFE_NO_PAD.encode(secp256r1.0.to_array())));
+                    val_parsed = Some(StringOrVecOfStrings::String(
+                        URL_SAFE_NO_PAD.encode(secp256r1.0.to_array()),
+                    ));
                 }
             }
         }
