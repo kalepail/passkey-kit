@@ -7,7 +7,6 @@ use soroban_sdk::{
     panic_with_error, symbol_short, vec, Address, Bytes, Env, FromVal, String, Vec,
 };
 use webauthn_wallet_interface::Signature;
-
 pub mod webauthn_wallet_interface;
 
 #[contracterror]
@@ -25,13 +24,11 @@ impl CustomAccountInterface for Contract {
     type Error = Error;
     type Signature = Vec<Signature>;
 
-    // TODO test scenario with multiple root_auth_contexts and multiple arg_auth_contexts
-
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
-        _root_signature_payload: Hash<32>,
-        _root_signatures: Vec<Signature>,
+        root_signature_payload: Hash<32>,
+        root_signatures: Vec<Signature>,
         root_auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
         let native_sacs = vec![
@@ -39,29 +36,29 @@ impl CustomAccountInterface for Contract {
             Address::from_string(&String::from_str(
                 &env,
                 "CCABDO7UZXYE4W6GVSEGSNNZTKSLFQGKXXQTH6OX7M7GKZ4Z6CUJNGZN",
-            )), // rust
+            )), // Rust test
             Address::from_string(&String::from_str(
                 &env,
                 "CB64D3G7SM2RTH6JSGG34DDTFTQ5CFDKVDZJZSODMCX4NJ2HV2KN7OHT",
-            )), // futurenet
+            )), // Futurenet
             Address::from_string(&String::from_str(
                 &env,
                 "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-            )), // testnet
+            )), // Testnet
             Address::from_string(&String::from_str(
                 &env,
                 "CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA",
-            )), // mainnet
+            )), // Mainnet
         ];
 
         for context in root_auth_contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
-                    contract: _root_contract, // will be the contract that called the policy the "smart wallet"
-                    fn_name: _root_fn_name,   // will always be "__check_auth"
+                    contract: root_contract, // will be the contract that called the policy the smart wallet
+                    fn_name: root_fn_name,   // will always be "__check_auth"
                     args: root_args,
                 }) => {
-                    let _arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
+                    let arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
                     // these will be the smart wallet signatures that triggered this __check_auth policy call
                     let arg_signatures: Vec<Signature> =
                         Vec::from_val(&env, &root_args.get_unchecked(1));
@@ -69,7 +66,17 @@ impl CustomAccountInterface for Contract {
                         Vec::from_val(&env, &root_args.get_unchecked(2));
 
                     // Ensure there are more signatures than just this policy (so another policy, ed25519 or secp256r1)
-                    if arg_signatures.len() <= 1 {
+                    // CRITICALLY important at least in the case of this sample policy otherwise anyone could drain your smart wallet without any need for cryptographic validation
+                    'check: loop {
+                        for signature in arg_signatures.iter() {
+                            // Going even a step further to ensure there's a non-policy signature (so an Ed25519 or Secp256r1)
+                            match signature {
+                                Signature::Ed25519(_) => break 'check,
+                                Signature::Secp256r1(_) => break 'check,
+                                _ => {},
+                            }
+                        }
+
                         panic_with_error!(&env, Error::NotPermitted)
                     }
 
@@ -96,12 +103,6 @@ impl CustomAccountInterface for Contract {
                                     // This policy can only authorize transfers of 1 XLM or less
                                     panic_with_error!(&env, Error::NotPermitted)
                                 }
-
-                                /* For the colorglyph use case we would want to
-                                    - limit approval to the colorglyph contract
-                                    - limit method to "colors_mine" and "glyph_mint"
-                                    - ensure there's at least one Ed25519 signer in the `arg_auth_contexts`
-                                */
                             }
                             _ => panic_with_error!(&env, Error::NotPermitted),
                         }

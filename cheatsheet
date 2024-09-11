@@ -4,6 +4,9 @@ npm publish --workspaces
 # Install passkey-kit
 pnpm publish --no-git-checks
 
+# Stellar commands
+stellar contract bindings rust --wasm target/wasm32-unknown-unknown/release/webauthn_wallet.wasm
+
 # Mercury commands
 # https://test.mercurydata.app/
 

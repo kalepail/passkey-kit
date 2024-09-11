@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 use stellar_strkey::{ed25519, Contract, Strkey};
 use types::{Signers, SignersActive, SignersAddress, SignersKeyVal, SignersValActive};
 use webauthn_wallet::types::{
-    Ed25519PublicKey, Policy, Secp256r1Id, SignerKey, SignerType, SignerVal
+    Ed25519PublicKey, Policy, Secp256r1Id, SignerKey, SignerType, SignerVal,
 };
 use zephyr_sdk::{
     soroban_sdk::{
-        self, symbol_short, xdr::{ScVal, ToXdr}, Address, Bytes, BytesN, Symbol
+        self, symbol_short,
+        xdr::{ScVal, ToXdr},
+        Address, Bytes, BytesN, Symbol,
     },
     utils::{address_from_str, address_to_alloc_string},
     EnvClient,
@@ -133,7 +135,8 @@ pub extern "C" fn get_signers_by_address() {
             }
             SignerKey::Ed25519(ed25519) => {
                 kind_parsed = String::from("Ed25519");
-                key_parsed = Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.0.to_array())).to_string();
+                key_parsed =
+                    Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.0.to_array())).to_string();
             }
             SignerKey::Secp256r1(secp256r1) => {
                 kind_parsed = String::from("Secp256r1");
@@ -158,7 +161,7 @@ pub extern "C" fn get_signers_by_address() {
             key: key_parsed,
             val: val_parsed,
             signer_type: type_parsed,
-            kind: kind_parsed
+            kind: kind_parsed,
         })
     }
 
@@ -167,17 +170,11 @@ pub extern "C" fn get_signers_by_address() {
 
 fn process_signer_type(signer_type: SignerType) -> String {
     match signer_type {
-        SignerType::Admin => {
-            String::from("Admin")
-        }
-        SignerType::Basic => {
-            String::from("Basic")
-        }
-        SignerType::Policy => {
-            String::from("Policy")
-        }
+        SignerType::Admin => String::from("Admin"),
+        SignerType::Basic => String::from("Basic"),
+        SignerType::Policy => String::from("Policy"),
     }
-} 
+}
 
 #[derive(Deserialize)]
 pub struct AddressBySignerRequest {

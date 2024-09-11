@@ -87,10 +87,11 @@ pub enum Signature {
 pub enum Error {
     NotFound = 1,
     NotPermitted = 2,
-    BadSignatureOrder = 3,
-    ClientDataJsonChallengeIncorrect = 4,
-    Secp256r1PublicKeyParse = 5,
-    Secp256r1SignatureParse = 6,
-    Secp256r1VerifyFailed = 7,
-    JsonParseError = 8,
+    TooManySignatures = 3,
+    BadSignatureOrder = 4,
+    ClientDataJsonChallengeIncorrect = 5,
+    Secp256r1PublicKeyParse = 6,
+    Secp256r1SignatureParse = 7,
+    Secp256r1VerifyFailed = 8,
+    JsonParseError = 9,
 }

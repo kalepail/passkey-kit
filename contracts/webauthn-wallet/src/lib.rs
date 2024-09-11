@@ -247,6 +247,11 @@ impl CustomAccountInterface for Contract {
         signatures: Vec<Signature>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
+        if signatures.len() > 20 {
+            panic_with_error!(env, Error::TooManySignatures)
+        }
+
+        let mut authorizations: [u8; 20] = [0u8; 20];
         let max_ttl = env.storage().max_ttl();
 
         for i in 0..signatures.len() {
@@ -257,14 +262,14 @@ impl CustomAccountInterface for Contract {
                 check_signature_order(&env, &signature, previous_signature);
             }
 
+            let signer_key: SignerKey;
+            let signer_val: SignerVal;
+
             match signature {
                 Signature::Policy(policy) => {
-                    let signer_key = SignerKey::Policy(policy.clone());
-                    let (signer_val, ..) =
-                        get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
-                            .ok_or(Error::NotFound)?;
-
-                    check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
+                    signer_key = SignerKey::Policy(policy.clone());
+                    (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
+                        .ok_or(Error::NotFound)?;
 
                     policy.0.require_auth();
                 }
@@ -274,12 +279,9 @@ impl CustomAccountInterface for Contract {
                         signature,
                     } = signature;
 
-                    let signer_key = SignerKey::Ed25519(public_key.clone());
-                    let (signer_val, ..) =
-                        get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
-                            .ok_or(Error::NotFound)?;
-
-                    check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
+                    signer_key = SignerKey::Ed25519(public_key.clone());
+                    (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
+                        .ok_or(Error::NotFound)?;
 
                     env.crypto().ed25519_verify(
                         &public_key.0,
@@ -295,14 +297,11 @@ impl CustomAccountInterface for Contract {
                         signature,
                     } = signature;
 
-                    let signer_key = SignerKey::Secp256r1(id);
-                    let (signer_val, ..) =
-                        get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
-                            .ok_or(Error::NotFound)?;
+                    signer_key = SignerKey::Secp256r1(id);
+                    (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl))
+                        .ok_or(Error::NotFound)?;
 
-                    check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
-
-                    let public_key = if let SignerVal::Secp256r1(public_key, ..) = signer_val {
+                    let public_key = if let SignerVal::Secp256r1(public_key, ..) = &signer_val {
                         public_key
                     } else {
                         panic_with_error!(env, Error::NotFound)
@@ -336,6 +335,15 @@ impl CustomAccountInterface for Contract {
                     }
                 }
             }
+
+            let is_self_authorized =
+                is_authorized_val(&env, &auth_contexts, &signer_key, &signer_val);
+            authorizations[i as usize] = is_self_authorized as u8;
+        }
+
+        // Trying to do something none of the signatures permit
+        if !authorizations.iter().any(|&x| x == 1) {
+            panic_with_error!(env, Error::NotPermitted)
         }
 
         env.storage()
@@ -448,112 +456,73 @@ fn check_signature_order(env: &Env, signature: &Signature, prev_signature: Signa
     }
 }
 
-fn check_signer_val(
+fn is_authorized_val(
     env: &Env,
-    signatures: &Vec<Signature>,
     auth_contexts: &Vec<Context>,
     signer_key: &SignerKey,
     signer_val: &SignerVal,
-) {
+) -> bool {
     match signer_val {
         SignerVal::Policy(signer_type) => {
-            check_signer_type(env, signatures, auth_contexts, signer_key, signer_type);
+            is_authorized_type(env, auth_contexts, signer_key, signer_type)
         }
         SignerVal::Ed25519(signer_type) => {
-            check_signer_type(env, signatures, auth_contexts, signer_key, signer_type);
+            is_authorized_type(env, auth_contexts, signer_key, signer_type)
         }
         SignerVal::Secp256r1(_, signer_type) => {
-            check_signer_type(env, signatures, auth_contexts, signer_key, signer_type);
+            is_authorized_type(env, auth_contexts, signer_key, signer_type)
         }
     }
 }
 
-fn check_signer_type(
+fn is_authorized_type(
     env: &Env,
-    signatures: &Vec<Signature>,
     auth_contexts: &Vec<Context>,
     signer_key: &SignerKey,
     signer_type: &SignerType,
-) {
+) -> bool {
     match signer_type {
-        SignerType::Admin => {
-            // Admins can do anything
-        }
+        SignerType::Admin => true,
         SignerType::Basic => {
             // Error if a Basic signer is trying to perform protected actions
-            for context in auth_contexts.iter() {
-                match context {
-                    Context::Contract(ContractContext {
-                        contract,
-                        fn_name,
-                        args,
-                    }) => {
-                        if contract == env.current_contract_address() // if we're calling self
-                            && ( // and
-                                fn_name != symbol_short!("remove") // we're calling any function besides remove
-                                || SignerKey::from_val(env, &args.get_unchecked(0)) != *signer_key // or we are calling remove but not on our own signer_key
-                            )
-                        {
-                            panic_with_error!(env, Error::NotPermitted)
+            'outer: loop {
+                for context in auth_contexts.iter() {
+                    match context {
+                        Context::Contract(ContractContext {
+                            contract,
+                            fn_name,
+                            args,
+                        }) => {
+                            if contract == env.current_contract_address() // if we're calling self
+                                && ( // and
+                                    fn_name != symbol_short!("remove") // we're calling any function besides remove
+                                    || SignerKey::from_val(env, &args.get_unchecked(0)) != *signer_key // or we are calling remove but not on our own signer_key
+                                )
+                            {
+                                break 'outer false;
+                            }
                         }
-                    }
-                    Context::CreateContractHostFn(_) => {
-                        // Don't block contract creation from Basic signers
+                        Context::CreateContractHostFn(_) => {}
                     }
                 }
+                break 'outer true;
             }
         }
         SignerType::Policy => {
-            /* TEST
-                A policy signer should not be allowed to remove itself
-                however a policy signer + basic policy should be able to remove the policy signer
-                however a basic policy should not be able to remove policy signers
-            */
-
-            // Policy signers must be accompanied by a relevant policy key in the auth_contexts
-            // We HAVE to ensure policy signatures only ever validate in tandem with a policy signer
-            for context in auth_contexts.iter() {
-                match context {
-                    Context::Contract(ContractContext { contract, .. }) => {
-                        // Search the signatures for a policy which matches this policy signer, if not, throw an error
-                        for signature in signatures.iter() {
-                            if let Signature::Policy(policy) = signature {
-                                if contract == policy.0 {
-                                    break;
-                                }
+            // Error if a Policy signer is trying to perform any self smart wallet actions
+            'outer: loop {
+                for context in auth_contexts.iter() {
+                    match context {
+                        Context::Contract(ContractContext { contract, .. }) => {
+                            // if we're calling self
+                            if contract == env.current_contract_address() {
+                                break 'outer false;
                             }
                         }
-
-                        panic_with_error!(env, Error::NotPermitted)
-                    }
-                    Context::CreateContractHostFn(_) => {
-                        // If we've got a Policy::Policy on our hands we need to find another signature that isn't a Policy::Policy, otherwise we need to throw an error
-                        // Other signatures could be Policy signer_types but as long as they're not Policy::Policy we know they're getting cryptographically validated
-                        if let SignerKey::Policy(_) = signer_key {
-                            for signature in signatures.iter() {
-                                match signature {
-                                    Signature::Policy(policy) => {
-                                        if let Some((signer_val, ..)) = get_signer_val_and_storage(
-                                            &env,
-                                            &SignerKey::Policy(policy),
-                                            None,
-                                        ) {
-                                            match signer_val {
-                                                SignerVal::Policy(_) => {}
-                                                SignerVal::Ed25519(_) => break,
-                                                SignerVal::Secp256r1(..) => break,
-                                            }
-                                        }
-                                    }
-                                    Signature::Ed25519(_) => break,
-                                    Signature::Secp256r1(_) => break,
-                                }
-
-                                panic_with_error!(env, Error::NotPermitted)
-                            }
-                        }
+                        Context::CreateContractHostFn(_) => {}
                     }
                 }
+                break 'outer true;
             }
         }
     }
