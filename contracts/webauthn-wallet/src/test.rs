@@ -206,7 +206,7 @@ fn test_sample_policy() {
         root_invocation,
     };
 
-    let auth2  = SorobanAuthorizationEntry {
+    let auth2 = SorobanAuthorizationEntry {
         credentials: SorobanCredentials::Address(SorobanAddressCredentials {
             address: sample_policy_address.clone().try_into().unwrap(),
             nonce: 2,
@@ -216,8 +216,14 @@ fn test_sample_policy() {
         root_invocation: __check_auth_invocation,
     };
 
-    println!("\nauth1: {:?}\n", auth1.to_xdr_base64(Limits::none()).unwrap());
-    println!("\nauth2: {:?}\n", auth2.to_xdr_base64(Limits::none()).unwrap());
+    println!(
+        "\nauth1: {:?}\n",
+        auth1.to_xdr_base64(Limits::none()).unwrap()
+    );
+    println!(
+        "\nauth2: {:?}\n",
+        auth2.to_xdr_base64(Limits::none()).unwrap()
+    );
 
     sac_client
         .set_auths(&[
@@ -225,8 +231,7 @@ fn test_sample_policy() {
             // Where does this actually get signed for?
             // How is this technically/cryptographically safe?
             // Probably from the fact that all the args of auth 1 are baked into auth 2
-            auth1,
-            auth2,
+            auth1, auth2,
         ])
         .transfer(&wallet_address, &sac_address, &10_000_000);
 }

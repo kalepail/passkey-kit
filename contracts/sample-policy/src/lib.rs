@@ -67,7 +67,7 @@ impl CustomAccountInterface for Contract {
                         Vec::from_val(&env, &root_args.get_unchecked(1));
                     let arg_auth_contexts: Vec<Context> =
                         Vec::from_val(&env, &root_args.get_unchecked(2));
-                    
+
                     // Ensure there are more signatures than just this policy (so another policy, ed25519 or secp256r1)
                     if arg_signatures.len() <= 1 {
                         panic_with_error!(&env, Error::NotPermitted)

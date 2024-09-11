@@ -3,10 +3,7 @@ use soroban_sdk::auth::Context;
 #[soroban_sdk::contractclient(name = "Client")]
 pub trait Contract {
     fn add(env: soroban_sdk::Env, signer: Signer) -> Result<(), soroban_sdk::Error>;
-    fn remove(
-        env: soroban_sdk::Env,
-        signer_key: SignerKey,
-    ) -> Result<(), soroban_sdk::Error>;
+    fn remove(env: soroban_sdk::Env, signer_key: SignerKey) -> Result<(), soroban_sdk::Error>;
     fn update(
         env: soroban_sdk::Env,
         hash: soroban_sdk::BytesN<32>,
