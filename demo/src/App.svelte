@@ -22,9 +22,10 @@
 	import { DEFAULT_LTL } from "passkey-kit";
 	import { lexicographicalSortNumbers } from "./lib/utils";
 
-	// TODO need to support two toggles: 
-	// - between temp and persistent 
+	// TODO need to support two toggles:
+	// - between temp and persistent
 	// - and admin, basic and policy
+	// - full visual support for admin, basic and policy keys
 
 	let keyId: string;
 	let contractId: string;
@@ -32,11 +33,11 @@
 	let adminSigner: string | undefined;
 	let balance: string;
 	let signers: {
-		kind: string,
-		key: string, 
-		val: string, 
-		type: string,
-		expired?: boolean 
+		kind: string;
+		key: string;
+		val: string;
+		type: string;
+		expired?: boolean;
 	}[] = [];
 
 	let keyName: string = "";
@@ -125,10 +126,10 @@
 				signer: {
 					tag: "Secp256r1",
 					values: [
-						[id], 
-						[pk], 
-						{ tag: "Temporary", values: undefined }, 
-						{ tag: "Basic", values: undefined }
+						[id],
+						[pk],
+						{ tag: "Temporary", values: undefined },
+						{ tag: "Basic", values: undefined },
 					],
 				},
 				// admin: keyAdmin,
@@ -176,34 +177,27 @@
 		}
 	}
 	async function addPolicySigner() {
-		// GBHR46AB45IIETG3DLRLWYKC5BNBN5EOARI5AO4JH5WXTCSBLZY5RSH6
-		const pubkey =
-			"GBHR46AB45IIETG3DLRLWYKC5BNBN5EOARI5AO4JH5WXTCSBLZY5RSH6"; // prompt('Enter public key');
+		const sample_policy =
+			"CA74HHGO6MVIENYEEDNCBMRIKVYRRDEXJZGVWVLC3PDRBBNTEH65AE4F";
 
-		if (pubkey) {
-			const keypair = Keypair.fromPublicKey(pubkey);
-			const sample_policy =
-				"CCVXGY5SG6ZKBLMZSQHM3LK6YT57YVIZRLOFHMAISTCTR62TVVQZAL3V";
+		const { built } = await account.wallet!.add({
+			signer: {
+				tag: "Policy",
+				values: [
+					[sample_policy],
+					{ tag: "Temporary", values: undefined },
+					{ tag: "Basic", values: undefined },
+				],
+			},
+			// admin: keyAdmin,
+		});
 
-			const { built } = await account.wallet!.add({
-				signer: {
-					tag: "Policy",
-					values: [
-						[sample_policy],
-						{ tag: "Temporary", values: undefined },
-						{ tag: "Basic", values: undefined },
-					],
-				},
-				// admin: keyAdmin,
-			});
+		const xdr = await account.sign(built!, { keyId: adminSigner });
+		const res = await server.send(xdr);
 
-			const xdr = await account.sign(built!, { keyId: adminSigner });
-			const res = await server.send(xdr);
+		console.log(res);
 
-			console.log(res);
-
-			await getWalletSigners();
-		}
+		await getWalletSigners();
 	}
 	async function removeSigner(signer: string, type: string) {
 		try {
@@ -414,13 +408,15 @@
 			await getWalletBalance();
 		}
 	}
+
+	////
 	async function policySigTransfer() {
 		const sample_policy =
-			"CCVXGY5SG6ZKBLMZSQHM3LK6YT57YVIZRLOFHMAISTCTR62TVVQZAL3V";
+			"CA74HHGO6MVIENYEEDNCBMRIKVYRRDEXJZGVWVLC3PDRBBNTEH65AE4F";
 
-		// SAFTIWXGO5XAVTJURVF4JL44KMEEXC2EOV4ODDTCEEVDPCTNCC45OA5S
+		// SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W
 		const secret =
-			"SAFTIWXGO5XAVTJURVF4JL44KMEEXC2EOV4ODDTCEEVDPCTNCC45OA5S"; // prompt('Enter secret key');
+			"SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W"; // prompt('Enter secret key');
 
 		if (secret) {
 			const keypair = Keypair.fromSecret(secret);
@@ -441,6 +437,19 @@
 			const credentials = auth.credentials().address();
 			const invokeContract = op.func.invokeContract();
 
+			const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+				new xdr.HashIdPreimageSorobanAuthorization({
+					networkId: hash(
+						Buffer.from(import.meta.env.VITE_networkPassphrase),
+					),
+					nonce: credentials.nonce(),
+					signatureExpirationLedger: sequence + DEFAULT_LTL,
+					invocation: auth.rootInvocation(),
+				}),
+			);
+			const payload = hash(preimage.toXDR());
+			const signature = keypair.sign(payload);
+
 			credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
 			credentials.signature(
 				xdr.ScVal.scvVec([
@@ -450,37 +459,34 @@
 							Address.fromString(sample_policy).toScVal(),
 						]),
 					]),
+					xdr.ScVal.scvVec([
+						xdr.ScVal.scvSymbol("Ed25519"),
+						xdr.ScVal.scvMap([
+							new xdr.ScMapEntry({
+								key: xdr.ScVal.scvSymbol("public_key"),
+								val: xdr.ScVal.scvVec([
+									xdr.ScVal.scvBytes(
+										keypair.rawPublicKey(),
+									),
+								]),
+							}),
+							new xdr.ScMapEntry({
+								key: xdr.ScVal.scvSymbol("signature"),
+								val: xdr.ScVal.scvBytes(signature),
+							}),
+						]),
+					]),
 				]),
 			);
 
-			auths.splice(0, 1, auth);
-
-			const preimage =
-				xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-					new xdr.HashIdPreimageSorobanAuthorization({
-						networkId: hash(
-							Buffer.from(import.meta.env.VITE_networkPassphrase),
-						),
-						nonce: credentials.nonce(),
-						signatureExpirationLedger: sequence + DEFAULT_LTL,
-						invocation: auth.rootInvocation(),
-					}),
-				);
-			const payload = hash(preimage.toXDR());
+			auths.splice(0, 1, auth);			
 
 			const invoke_contract_args = new xdr.InvokeContractArgs({
 				contractAddress: Address.fromString(contractId).toScAddress(),
 				functionName: "__check_auth",
 				args: [
 					nativeToScVal(payload),
-					xdr.ScVal.scvVec([
-						xdr.ScVal.scvVec([
-							xdr.ScVal.scvSymbol("Policy"),
-							xdr.ScVal.scvVec([
-								Address.fromString(sample_policy).toScVal(),
-							]),
-						]),
-					]),
+					credentials.signature(),
 					xdr.ScVal.scvVec([
 						xdr.ScVal.scvVec([
 							xdr.ScVal.scvSymbol("Contract"),
@@ -508,17 +514,6 @@
 							]),
 						]),
 					]),
-					xdr.ScVal.scvVec([
-						xdr.ScVal.scvVec([
-							xdr.ScVal.scvSymbol("Ed25519"),
-							xdr.ScVal.scvVec([
-								xdr.ScVal.scvBytes(keypair.rawPublicKey()),
-							]),
-						]),
-						// TODO we're testing policy multisig so I need to push in the secp256r1 key here
-						// This does bring up a tricky point though that I need to know the id and pk at the time of signing.
-						// Probably fine but traditionally the secp256r1 pk is hard to find client side
-					]),
 				],
 			});
 
@@ -531,20 +526,6 @@
 			});
 
 			const nonce = new xdr.Int64(Math.random().toString().substring(2));
-			const __check_auth_preimage =
-				xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-					new xdr.HashIdPreimageSorobanAuthorization({
-						networkId: hash(
-							Buffer.from(import.meta.env.VITE_networkPassphrase),
-						),
-						nonce,
-						signatureExpirationLedger: sequence + DEFAULT_LTL,
-						invocation,
-					}),
-				);
-			const __check_auth_payload = hash(__check_auth_preimage.toXDR());
-			const signature = keypair.sign(__check_auth_payload);
-
 			const __check_auth = new xdr.SorobanAuthorizationEntry({
 				credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
 					new xdr.SorobanAddressCredentials({
@@ -552,25 +533,7 @@
 							Address.fromString(sample_policy).toScAddress(),
 						nonce,
 						signatureExpirationLedger: sequence + DEFAULT_LTL,
-						signature: xdr.ScVal.scvVec([
-							xdr.ScVal.scvVec([
-								xdr.ScVal.scvSymbol("Ed25519"),
-								xdr.ScVal.scvMap([
-									new xdr.ScMapEntry({
-										key: xdr.ScVal.scvSymbol("public_key"),
-										val: xdr.ScVal.scvVec([
-											xdr.ScVal.scvBytes(
-												keypair.rawPublicKey(),
-											),
-										]),
-									}),
-									new xdr.ScMapEntry({
-										key: xdr.ScVal.scvSymbol("signature"),
-										val: xdr.ScVal.scvBytes(signature),
-									}),
-								]),
-							]),
-						]),
+						signature: xdr.ScVal.scvVec([]),
 					}),
 				),
 				rootInvocation: invocation,
@@ -585,10 +548,12 @@
 			await getWalletBalance();
 		}
 	}
-	async function walletTransfer(signer: string, type: string) {
-		if (type === "Policy") {
+	////
+
+	async function walletTransfer(signer: string, kind: string) {
+		if (kind === "Policy") {
 			return policySigTransfer();
-		} else if (type === "Ed25519") {
+		} else if (kind === "Ed25519") {
 			return ed25519Transfer();
 		}
 
@@ -672,7 +637,7 @@
 	{/if}
 
 	<ul>
-		{#each signers as { key, val, type, expired }}
+		{#each signers as { key, val, type, kind, expired }}
 			<li>
 				<button disabled>
 					{#if adminSigner === key}
@@ -689,12 +654,12 @@
 
 				{key}
 
-				<button on:click={() => walletTransfer(key, type)}
+				<button on:click={() => walletTransfer(key, kind)}
 					>Transfer 1 XLM</button
 				>
 
 				{#if (type !== "Admin" || admins > 1) && key !== keyId}
-					<button on:click={() => removeSigner(key, type)}
+					<button on:click={() => removeSigner(key, kind)}
 						>Remove</button
 					>
 				{/if}

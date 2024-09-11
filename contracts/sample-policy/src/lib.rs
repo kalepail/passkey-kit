@@ -14,8 +14,7 @@ pub mod webauthn_wallet_interface;
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
-    NotFound = 1,
-    NotPermitted = 2,
+    NotPermitted = 1,
 }
 
 #[contract]
@@ -63,12 +62,13 @@ impl CustomAccountInterface for Contract {
                     args: root_args,
                 }) => {
                     let _arg_signature_payload = Bytes::from_val(&env, &root_args.get_unchecked(0));
+                    // these will be the smart wallet signatures that triggered this __check_auth policy call
                     let arg_signatures: Vec<Signature> =
                         Vec::from_val(&env, &root_args.get_unchecked(1));
                     let arg_auth_contexts: Vec<Context> =
                         Vec::from_val(&env, &root_args.get_unchecked(2));
-
-                    // these will be the smart wallet signatures that triggered this __check_auth policy call
+                    
+                    // Ensure there are more signatures than just this policy (so another policy, ed25519 or secp256r1)
                     if arg_signatures.len() <= 1 {
                         panic_with_error!(&env, Error::NotPermitted)
                     }

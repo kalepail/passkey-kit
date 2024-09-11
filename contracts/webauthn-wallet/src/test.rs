@@ -194,32 +194,39 @@ fn test_sample_policy() {
         sub_invocations: VecM::default(),
     };
 
+    let auth1 = SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+            address: wallet_address.clone().try_into().unwrap(),
+            nonce: 1,
+            signature_expiration_ledger,
+            signature: std::vec![signature_policy_scval, signature_ed25519_scval,]
+                .try_into()
+                .unwrap(),
+        }),
+        root_invocation,
+    };
+
+    let auth2  = SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+            address: sample_policy_address.clone().try_into().unwrap(),
+            nonce: 2,
+            signature: ScVal::Vec(Some(ScVec::default())),
+            signature_expiration_ledger,
+        }),
+        root_invocation: __check_auth_invocation,
+    };
+
+    println!("\nauth1: {:?}\n", auth1.to_xdr_base64(Limits::none()).unwrap());
+    println!("\nauth2: {:?}\n", auth2.to_xdr_base64(Limits::none()).unwrap());
+
     sac_client
         .set_auths(&[
             // TODO where is the protection for this call?
             // Where does this actually get signed for?
             // How is this technically/cryptographically safe?
             // Probably from the fact that all the args of auth 1 are baked into auth 2
-            SorobanAuthorizationEntry {
-                credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-                    address: wallet_address.clone().try_into().unwrap(),
-                    nonce: 1,
-                    signature_expiration_ledger,
-                    signature: std::vec![signature_policy_scval, signature_ed25519_scval,]
-                        .try_into()
-                        .unwrap(),
-                }),
-                root_invocation,
-            },
-            SorobanAuthorizationEntry {
-                credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-                    address: sample_policy_address.clone().try_into().unwrap(),
-                    nonce: 2,
-                    signature: ScVal::Vec(Some(ScVec::default())),
-                    signature_expiration_ledger,
-                }),
-                root_invocation: __check_auth_invocation,
-            },
+            auth1,
+            auth2,
         ])
         .transfer(&wallet_address, &sac_address, &10_000_000);
 }

@@ -23,40 +23,41 @@ pub struct Contract;
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
-const ADMIN_SIGNER_COUNT: Symbol = symbol_short!("admins");
+const PERSISTENT_ADMIN_SIGNER_COUNT: Symbol = symbol_short!("p_admin");
 
 #[contractimpl]
 impl Contract {
     #[allow(unused_mut)]
     pub fn add(env: Env, signer: Signer) -> Result<(), Error> {
-        if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
+        if env.storage().instance().has(&PERSISTENT_ADMIN_SIGNER_COUNT) {
             env.current_contract_address().require_auth();
         }
 
-        let max_ttl = env.storage().max_ttl();
-
         let signer_key: SignerKey;
         let signer_val: SignerVal;
+        let max_ttl = env.storage().max_ttl();
 
-        match signer {
+        let signer_storage = match signer {
             Signer::Policy(policy, signer_storage, signer_type) => {
                 signer_key = SignerKey::Policy(policy);
                 signer_val = SignerVal::Policy(signer_type.clone());
-                store_signer(&env, &signer_storage, &signer_key, &signer_val, max_ttl);
+                signer_storage
             }
             Signer::Ed25519(public_key, signer_storage, signer_type) => {
                 signer_key = SignerKey::Ed25519(public_key);
                 signer_val = SignerVal::Ed25519(signer_type.clone());
-                store_signer(&env, &signer_storage, &signer_key, &signer_val, max_ttl);
+                signer_storage
             }
             Signer::Secp256r1(id, public_key, signer_storage, signer_type) => {
                 signer_key = SignerKey::Secp256r1(id);
                 signer_val = SignerVal::Secp256r1(public_key, signer_type.clone());
-                store_signer(&env, &signer_storage, &signer_key, &signer_val, max_ttl);
+                signer_storage
             }
         };
 
-        ensure_admin_signer(&env);
+        store_signer(&env, &signer_key, &signer_val, &signer_storage, max_ttl);
+
+        ensure_persistent_admin_signer(&env);
 
         env.storage()
             .instance()
@@ -71,14 +72,30 @@ impl Contract {
     pub fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        if env.storage().temporary().has::<SignerKey>(&signer_key) {
-            env.storage().temporary().remove::<SignerKey>(&signer_key);
-        } else if env.storage().persistent().has::<SignerKey>(&signer_key) {
-            env.storage().persistent().remove::<SignerKey>(&signer_key);
-            update_admin_signer_count(&env, false);
+        if let Some((signer_val, signer_storage)) = get_signer_val_and_storage(&env, &signer_key, None) {
+            let is_persistent = signer_storage == SignerStorage::Persistent;
+            let is_admin = match signer_val {
+                SignerVal::Policy(signer_type) => signer_type == SignerType::Admin,
+                SignerVal::Ed25519(signer_type) => signer_type == SignerType::Admin,
+                SignerVal::Secp256r1(_, signer_type) => signer_type == SignerType::Admin
+            };
+            let is_persistent_admin = is_persistent && is_admin;
+    
+            if is_persistent_admin {
+                update_persistent_admin_signer_count(&env, false);
+            }
+
+            match signer_storage {
+                SignerStorage::Persistent => {
+                    env.storage().persistent().remove::<SignerKey>(&signer_key);
+                }
+                SignerStorage::Temporary => {
+                    env.storage().temporary().remove::<SignerKey>(&signer_key);
+                }
+            }
         }
 
-        ensure_admin_signer(&env);
+        ensure_persistent_admin_signer(&env);
 
         let max_ttl = env.storage().max_ttl();
 
@@ -108,19 +125,17 @@ impl Contract {
 
 fn store_signer(
     env: &Env,
-    signer_storage: &SignerStorage,
     signer_key: &SignerKey,
     signer_val: &SignerVal,
+    signer_storage: &SignerStorage,
     max_ttl: u32,
 ) {
-    match signer_storage {
+    // Include this before the `.set` calls so it doesn't read them as previous values
+    let previous_signer_val_and_storage: Option<(SignerVal, SignerStorage)> = get_signer_val_and_storage(env, signer_key, None);
+
+    // Add and extend the signer key in the appropriate storage
+    let is_persistent = match signer_storage {
         SignerStorage::Persistent => {
-            if env.storage().temporary().has::<SignerKey>(signer_key) {
-                env.storage().temporary().remove::<SignerKey>(signer_key);
-            }
-
-            update_admin_signer_count(env, true);
-
             env.storage()
                 .persistent()
                 .set::<SignerKey, SignerVal>(signer_key, signer_val);
@@ -129,13 +144,10 @@ fn store_signer(
                 max_ttl - WEEK_OF_LEDGERS,
                 max_ttl,
             );
-        }
-        SignerStorage::Temporary => {
-            if env.storage().persistent().has::<SignerKey>(signer_key) {
-                env.storage().persistent().remove::<SignerKey>(signer_key);
-                update_admin_signer_count(env, false);
-            }
 
+            true
+        },
+        SignerStorage::Temporary => {
             env.storage()
                 .temporary()
                 .set::<SignerKey, SignerVal>(signer_key, signer_val);
@@ -144,17 +156,56 @@ fn store_signer(
                 max_ttl - WEEK_OF_LEDGERS,
                 max_ttl,
             );
+            
+            false
+        },
+    };
+    let is_admin = match signer_val {
+        SignerVal::Policy(signer_type) => *signer_type == SignerType::Admin,
+        SignerVal::Ed25519(signer_type) => *signer_type == SignerType::Admin,
+        SignerVal::Secp256r1(_, signer_type) => *signer_type == SignerType::Admin
+    };
+    let is_persistent_admin = is_persistent && is_admin;
+
+    if let Some((previous_signer_val, previous_signer_storage)) = previous_signer_val_and_storage {
+        // Remove signer key in the opposing storage if it exists
+        let previous_is_persistent = match previous_signer_storage {
+            SignerStorage::Persistent => {
+                if !is_persistent {
+                    env.storage().persistent().remove::<SignerKey>(signer_key);
+                }
+                
+                true
+            },
+            SignerStorage::Temporary => {
+                if is_persistent {
+                    env.storage().temporary().remove::<SignerKey>(signer_key);
+                }
+                
+                false
+            }
+        };
+        let previous_is_admin = match previous_signer_val {
+            SignerVal::Policy(signer_type) => signer_type == SignerType::Admin,
+            SignerVal::Ed25519(signer_type) => signer_type == SignerType::Admin,
+            SignerVal::Secp256r1(_, signer_type) => signer_type == SignerType::Admin
+        };
+        let previous_is_persistent_admin = previous_is_persistent && previous_is_admin;
+
+        // If the previous key was a persistent admin signer but the new key is not, we need to decrement the persistent admin signer count
+        if previous_is_persistent_admin && !is_persistent_admin {
+            update_persistent_admin_signer_count(&env, false);
         }
+    } else if is_persistent_admin {
+        update_persistent_admin_signer_count(&env, true);
     }
 }
 
-fn ensure_admin_signer(env: &Env) {
-    // TODO we need to ensure there's always a _persistent_ admin signer
-
+fn ensure_persistent_admin_signer(env: &Env) {
     if env
         .storage()
         .instance()
-        .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
+        .get::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT)
         .unwrap_or_else(|| panic_with_error!(env, Error::NotPermitted))
         <= 0
     {
@@ -162,17 +213,17 @@ fn ensure_admin_signer(env: &Env) {
     }
 }
 
-fn update_admin_signer_count(env: &Env, add: bool) {
-    let admin_count = env
+fn update_persistent_admin_signer_count(env: &Env, add: bool) {
+    let count = env
         .storage()
         .instance()
-        .get::<Symbol, i32>(&ADMIN_SIGNER_COUNT)
+        .get::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT)
         .unwrap_or(0)
         + if add { 1 } else { -1 };
 
     env.storage()
         .instance()
-        .set::<Symbol, i32>(&ADMIN_SIGNER_COUNT, &admin_count);
+        .set::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT, &count);
 }
 
 #[derive(serde::Deserialize)]
@@ -207,7 +258,7 @@ impl CustomAccountInterface for Contract {
             match signature {
                 Signature::Policy(policy) => {
                     let signer_key = SignerKey::Policy(policy.clone());
-                    let signer_val = get_signer_val(&env, &signer_key, max_ttl);
+                    let (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl)).ok_or(Error::NotFound)?;
 
                     check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
 
@@ -220,7 +271,7 @@ impl CustomAccountInterface for Contract {
                     } = signature;
 
                     let signer_key = SignerKey::Ed25519(public_key.clone());
-                    let signer_val = get_signer_val(&env, &signer_key, max_ttl);
+                    let (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl)).ok_or(Error::NotFound)?;
 
                     check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
 
@@ -239,7 +290,7 @@ impl CustomAccountInterface for Contract {
                     } = signature;
 
                     let signer_key = SignerKey::Secp256r1(id);
-                    let signer_val = get_signer_val(&env, &signer_key, max_ttl);
+                    let (signer_val, ..) = get_signer_val_and_storage(&env, &signer_key, Some(max_ttl)).ok_or(Error::NotFound)?;
 
                     check_signer_val(&env, &signatures, &auth_contexts, &signer_key, &signer_val);
 
@@ -287,20 +338,22 @@ impl CustomAccountInterface for Contract {
     }
 }
 
-fn get_signer_val(env: &Env, signer_key: &SignerKey, max_ttl: u32) -> SignerVal {
+fn get_signer_val_and_storage(env: &Env, signer_key: &SignerKey, max_ttl: Option<u32>) -> Option<(SignerVal, SignerStorage)> {
     match env
         .storage()
         .temporary()
         .get::<SignerKey, SignerVal>(signer_key)
     {
         Some(signer_val) => {
-            env.storage().temporary().extend_ttl::<SignerKey>(
-                signer_key,
-                max_ttl - WEEK_OF_LEDGERS,
-                max_ttl,
-            );
+            if let Some(max_ttl) = max_ttl {
+                env.storage().temporary().extend_ttl::<SignerKey>(
+                    signer_key,
+                    max_ttl - WEEK_OF_LEDGERS,
+                    max_ttl,
+                );
+            }
 
-            signer_val
+            Some((signer_val, SignerStorage::Temporary))
         }
         None => {
             match env
@@ -309,17 +362,17 @@ fn get_signer_val(env: &Env, signer_key: &SignerKey, max_ttl: u32) -> SignerVal 
                 .get::<SignerKey, SignerVal>(signer_key)
             {
                 Some(signer_val) => {
-                    env.storage().persistent().extend_ttl::<SignerKey>(
-                        signer_key,
-                        max_ttl - WEEK_OF_LEDGERS,
-                        max_ttl,
-                    );
+                    if let Some(max_ttl) = max_ttl {
+                        env.storage().persistent().extend_ttl::<SignerKey>(
+                            signer_key,
+                            max_ttl - WEEK_OF_LEDGERS,
+                            max_ttl,
+                        );
+                    }
 
-                    signer_val
+                    Some((signer_val, SignerStorage::Persistent))
                 }
-                None => {
-                    panic_with_error!(env, Error::NotFound)
-                }
+                None => None
             }
         }
     }
@@ -404,7 +457,12 @@ fn check_signer_type(
                         panic_with_error!(env, Error::NotPermitted)
                     }
                     Context::CreateContractHostFn(_) => {
-                        // Don't block contract creation from Policy signers
+                        // TODO should we block contract creation from policy signers?
+                        // If we don't I think this would let anyone use your smart wallet to deploy new contracts
+                        // If we do I think this may block policies from deploying new contracts
+                        // Might be able to just check and ensure there's at least more than one signature as this one isn't sufficient for creating new contracts?
+
+                        panic_with_error!(env, Error::NotPermitted)
                     }
                 }
             }
