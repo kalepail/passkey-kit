@@ -14,8 +14,8 @@ impl Contract {
         from: Address,
         to: Address,
         amount: i128,
-        // signer_key: SignerKey,
-        // signer: Signer,
+        signer_key: SignerKey,
+        signer: Signer,
     ) {
         from.require_auth();
         token::Client::new(&env, &sac).transfer(&from, &to, &amount);
