@@ -187,16 +187,16 @@ fn test() {
         sub_invocations: VecM::default(),
     };
 
-    // let add_invocation = SorobanAuthorizedInvocation {
-    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-    //         contract_address: wallet_address.clone().try_into().unwrap(),
-    //         function_name: "add".try_into().unwrap(),
-    //         args: std::vec![add_signer.clone().try_into().unwrap(),]
-    //             .try_into()
-    //             .unwrap(),
-    //     }),
-    //     sub_invocations: VecM::default(),
-    // };
+    let add_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: wallet_address.clone().try_into().unwrap(),
+            function_name: "add".try_into().unwrap(),
+            args: std::vec![add_signer.clone().try_into().unwrap(),]
+                .try_into()
+                .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
 
     let root_invocation = SorobanAuthorizedInvocation {
         function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
@@ -208,19 +208,40 @@ fn test() {
                 sac_address.clone().try_into().unwrap(),
                 amount.try_into().unwrap(),
                 remove_key.clone().try_into().unwrap(),
-                // add_signer.clone().try_into().unwrap(),
+                add_signer.clone().try_into().unwrap(),
             ]
             .try_into()
             .unwrap(),
         }),
         sub_invocations: std::vec![
             transfer_invocation.clone(),
-            remove_invocation.clone(),
+            // remove_invocation.clone(),
             // add_invocation.clone(),
         ]
         .try_into()
         .unwrap(),
     };
+
+    let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+        network_id: env.ledger().network_id().to_array().into(),
+        nonce: 3,
+        signature_expiration_ledger,
+        invocation: root_invocation.clone(),
+    });
+    let payload = payload.to_xdr(Limits::none()).unwrap();
+    let payload = Bytes::from_slice(&env, payload.as_slice());
+    let payload = env.crypto().sha256(&payload);
+
+    let signature_ed25519 = Signature::Ed25519(Ed25519Signature {
+        public_key: Ed25519PublicKey(super_address_bytes.clone()),
+        signature: BytesN::from_array(
+            &env,
+            &super_keypair
+                .sign(payload.to_array().as_slice())
+                .to_bytes(),
+        ),
+    });
+    let signature_ed25519_scval: ScVal = signature_ed25519.clone().try_into().unwrap();
 
     // let signature_dumb_policy = Signature::Policy(Policy(dumb_policy_address.clone()));
     // let signature_dumb_policy_scval: ScVal = signature_dumb_policy.clone().try_into().unwrap();
@@ -241,6 +262,7 @@ fn test() {
             signature_expiration_ledger,
             signature: std::vec![
                 // signature_dumb_policy_scval.clone(),
+                signature_ed25519_scval.clone(),
                 signature_policy_scval.clone(),
             ]
             .try_into()
@@ -265,7 +287,7 @@ fn test() {
                         sac_address.to_val(),
                         amount.into_val(&env),
                         remove_key.into_val(&env),
-                        // add_signer.into_val(&env),
+                        add_signer.into_val(&env),
                     ]
                 }),
                 Context::Contract(ContractContext {
@@ -278,14 +300,14 @@ fn test() {
                         amount.into_val(&env)
                     ]
                 }),
-                Context::Contract(ContractContext {
-                    contract: wallet_address.clone(),
-                    fn_name: symbol_short!("remove"),
-                    args: vec![&env, remove_key.into_val(&env),]
-                }),
                 // Context::Contract(ContractContext {
                 //     contract: wallet_address.clone(),
                 //     fn_name: symbol_short!("remove"),
+                //     args: vec![&env, remove_key.into_val(&env),]
+                // }),
+                // Context::Contract(ContractContext {
+                //     contract: wallet_address.clone(),
+                //     fn_name: symbol_short!("add"),
                 //     args: vec![&env, add_signer.into_val(&env),]
                 // }),
             ]
@@ -378,7 +400,7 @@ fn test() {
     //                 // }),
     //                 // Context::Contract(ContractContext {
     //                 //     contract: wallet_address.clone(),
-    //                 //     fn_name: symbol_short!("remove"),
+    //                 //     fn_name: symbol_short!("add"),
     //                 //     args: vec![&env, add_signer.into_val(&env),]
     //                 // }),
     //             ]
@@ -416,6 +438,6 @@ fn test() {
             &sac_address,
             &amount,
             &remove_key,
-            // &add_signer,
+            &add_signer,
         );
 }

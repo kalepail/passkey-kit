@@ -4,7 +4,7 @@ use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
-    panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, IntoVal, Symbol, Vec,
+    panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, Symbol, Vec,
 };
 use types::{
     Ed25519Signature, Error, PolicySignature, Secp256r1PublicKey, Secp256r1Signature, Signature,
@@ -312,6 +312,9 @@ fn verify_signatures(
     signatures: &Vec<Signature>,
     auth_contexts: &Vec<Context>,
 ) {
+    // NOTE since we're looping signatures vs auth_contexts every signatures must be valid for every auth_context. 
+    // e.g. You could have an admin signer but still fail to create a key if you're also including a Policy or Basic signer in the signatures array
+    // I think this is what I want and what we'd expect but it's worth noting
     for signature in signatures.iter() {
         match signature {
             Signature::Policy(policy) => {

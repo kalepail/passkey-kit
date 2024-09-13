@@ -15,11 +15,11 @@ impl Contract {
         to: Address,
         amount: i128,
         signer_key: SignerKey,
-        // signer: Signer,
+        signer: Signer,
     ) {
         from.require_auth();
         token::Client::new(&env, &sac).transfer(&from, &to, &amount);
-        webauthn_wallet::ContractClient::new(&env, &from).remove(&signer_key);
+        // webauthn_wallet::ContractClient::new(&env, &from).remove(&signer_key);
         // webauthn_wallet::ContractClient::new(&env, &from).add(&signer);
     }
 }
