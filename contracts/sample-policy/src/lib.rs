@@ -46,7 +46,7 @@ impl CustomAccountInterface for Contract {
                 }) => {
                     env.crypto().ed25519_verify(
                         &public_key.0,
-                        &Bytes::from_array(&env, &signature_payload.to_array()),
+                        &signature_payload.clone().into(),
                         &signature,
                     );
                 }

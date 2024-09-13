@@ -249,51 +249,11 @@ impl CustomAccountInterface for Contract {
         signatures: Vec<Signature>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // if signatures.len() > 20 {
-        //     return Err(Error::TooManySignatures);
-        // }
-
-        // iterator to ensure we never sign the same signature twice
-        // let mut signed: [u8; 20] = [0u8; 20];
-
-        // NOTE Important for multisig scenarios (which this wallet isn't by default so we probably don't need this)
-        // If we do decide to de-dupe here we need to include the type and not just the bytes of the key (as there could be conflicts for legit differences between ed25519 and policy signers as they're both 32 bytes)
-        // Ensure no duplicate signatures
-        // for i in 0..signatures.len() {
-        //     let signature = signatures.get_unchecked(i);
-
-        //     if i > 0 {
-        //         let previous_signature = signatures.get_unchecked(i - 1);
-        //         check_signature_order(&env, &signature, previous_signature);
-        //     }
-        // }
-
-        // NOTE it might make more sense to map the destructured signatures vs continuously doing it again for every context
-        // That would add yet another loop to the signatures though, so maybe not, at least not without some perf testing
-
-        // Look at all the auth_contexts
-        // for i in 0..auth_contexts.len() {
-        //     // Ensure there's a signature able to sign for it
-        //     check_all_signatures(
-        //         &env,
-        //         &signature_payload,
-        //         &signatures,
-        //         &auth_contexts,
-        //         Some(i),
-        //         &mut signed,
-        //     )?;
-        // }
-
-        // TODO verify any remaining unused signatures
-        // Or should we error if there are any remaining unused signatures?
-        // On second thought is it even possible to have remaining unused signatures?
-        // Yes, in the case of 2 signers and 3 contexts if the first signer meets the requirements of all 3 auth contexts it would be possible to have an unused signature
         verify_signatures(
             &env,
             &signature_payload,
             &signatures,
             &auth_contexts,
-            // None, &mut signed
         );
 
         let max_ttl = env.storage().max_ttl();
@@ -357,7 +317,7 @@ fn verify_signatures(
 
                         env.crypto().ed25519_verify(
                             &public_key.0,
-                            &Bytes::from_array(env, &signature_payload.to_array()),
+                            &signature_payload.clone().into(),
                             &signature,
                         );
                     }
