@@ -4,9 +4,9 @@ use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contracterror, contractimpl,
     crypto::Hash,
-    panic_with_error, symbol_short, vec, Address, Env, String, Symbol, TryFromVal, Vec,
+    panic_with_error, symbol_short, vec, Address, Bytes, Env, String, Symbol, TryFromVal, Vec,
 };
-use webauthn_wallet_interface::Signature;
+use webauthn_wallet_interface::{Ed25519Signature, Signature};
 pub mod webauthn_wallet_interface;
 
 #[contracterror]
@@ -30,15 +30,35 @@ impl CustomAccountInterface for Contract {
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
-        _root_signature_payload: Hash<32>,
-        _root_signatures: Vec<Signature>,
+        signature_payload: Hash<32>,
+        signatures: Vec<Signature>,
         root_auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
+        if signatures.len() == 0 {
+            panic_with_error!(&env, Error::NotAllowed)
+        }
+
+        for signature in signatures.iter() {
+            match signature {
+                Signature::Ed25519(Ed25519Signature {
+                    public_key,
+                    signature,
+                }) => {
+                    env.crypto().ed25519_verify(
+                        &public_key.0,
+                        &Bytes::from_array(&env, &signature_payload.to_array()),
+                        &signature,
+                    );
+                }
+                _ => panic_with_error!(&env, Error::NotAllowed),
+            }
+        }
+
         let native_sacs = vec![
             &env,
             Address::from_string(&String::from_str(
                 &env,
-                "CDLDVFKHEZ2RVB3NG4UQA4VPD3TSHV6XMHXMHP2BSGCJ2IIWVTOHGDSG",
+                "CBUSYNQKASUYFWYC3M2GUEDMX4AIVWPALDBYJPNK6554BREHTGZ2IUNF",
             )), // Rust test
             Address::from_string(&String::from_str(
                 &env,
@@ -68,57 +88,17 @@ impl CustomAccountInterface for Contract {
 
                     // Likely in a smart wallet scenario. At the very least all smart wallet Policy calls WILL be a __check_auth call, so ignoring other contexts is safe
                     if root_fn_name == Symbol::new(&env, "__check_auth") {
-
-                        // Check arg signatures
-                        if let Some(val) = root_args.get(1) {
-                            if let Ok(arg_signatures) =
-                                Vec::<Signature>::try_from_val(&env, &val)
+                        // Check arg auth contexts
+                        if let Some(val) = root_args.get(0) {
+                            if let Ok(arg_auth_contexts) = Vec::<Context>::try_from_val(&env, &val)
                             {
-                                'check: loop {
-                                    for signature in arg_signatures.iter() {
-                                        // Going even a step further to ensure there's a non-policy signer (so an Ed25519 or Secp256r1)
-                                        // TODO we need to ensure this signer was scoped to this policy
-                                        match signature {
-                                            Signature::Ed25519(_) => break 'check,
-                                            Signature::Secp256r1(_) => break 'check,
-                                            _ => {},
-                                        }
-                                    }
-
+                                // In order to succeed we must find at least one transfer meeting the criteria
+                                if arg_auth_contexts.len() > 20 {
                                     panic_with_error!(&env, Error::NotAllowed)
                                 }
-                            }
-                        }
-
-                        // Check arg auth contexts
-                        if let Some(val) = root_args.get(2) {
-                            if let Ok(arg_auth_contexts) =
-                                Vec::<Context>::try_from_val(&env, &val)
-                            {
-                                if arg_auth_contexts.len() > 20 {
-                                    return Err(Error::NotAllowed);
-                                }
-
-                                let mut approvals: [u8; 20] = [0u8; 20];
 
                                 // If we get here it's very safe to assume we're in a smart wallet scenario and if you are you absolutely would get to this point safely
-
-                                // Ensure there are more signatures than just this policy (so another policy, ed25519 or secp256r1)
-                                // CRITICALLY important at least in the case of this sample policy otherwise anyone could drain your smart wallet without any need for cryptographic validation
-                                // 'check: loop {
-                                //     for signature in arg_signatures.iter() {
-                                //         // Going even a step further to ensure there's a non-policy signature (so an Ed25519 or Secp256r1)
-                                //         match signature {
-                                //             Signature::Ed25519(_) => break 'check,
-                                //             Signature::Secp256r1(_) => break 'check,
-                                //             _ => {},
-                                //         }
-                                //     }
-
-                                //     panic_with_error!(&env, Error::NotAllowed)
-                                // }
-
-                                for (i, context) in arg_auth_contexts.iter().enumerate() {
+                                for context in arg_auth_contexts.iter() {
                                     match context {
                                         Context::Contract(ContractContext {
                                             contract: sub_contract,
@@ -138,22 +118,20 @@ impl CustomAccountInterface for Contract {
                                             }
 
                                             if let Some(amount_val) = sub_args.get(2) {
-                                                if let Ok(amount) = i128::try_from_val(&env, &amount_val,
-                                                ) {
-                                                    if native_sacs.contains(sub_contract)
+                                                if let Ok(amount) =
+                                                    i128::try_from_val(&env, &amount_val)
+                                                {
+                                                    if native_sacs.contains(sub_contract) // NOTE the // Rust test address seems to change randomly (if you're hitting weird errors while testing, check that)
                                                     && sub_fn_name == symbol_short!("transfer")
-                                                    && amount <= 10_000_000 {
-                                                        approvals[i] = 1;
+                                                    && amount > 10_000_000
+                                                    {
+                                                        panic_with_error!(&env, Error::NotAllowed)
                                                     }
                                                 }
                                             }
                                         }
-                                        _ => panic_with_error!(&env, Error::NotAllowed)
+                                        _ => panic_with_error!(&env, Error::NotAllowed),
                                     }
-                                }
-
-                                if !approvals.contains(&1) {
-                                    panic_with_error!(&env, Error::NotAllowed)
                                 }
                             }
                         }

@@ -40,7 +40,8 @@ pub enum SignerStorage {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerType {
     Admin,
-    Basic(Vec<Policy>),
+    Basic,
+    Policy,
 }
 
 #[contracttype]
@@ -69,6 +70,13 @@ pub enum Signer {
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
+pub struct PolicySignature {
+    pub policy: Policy,
+    pub signer_keys: Vec<SignerKey>,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Ed25519Signature {
     pub public_key: Ed25519PublicKey,
     pub signature: BytesN<64>,
@@ -86,7 +94,7 @@ pub struct Secp256r1Signature {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signature {
-    Policy(Policy),
+    Policy(PolicySignature),
     Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
 }
