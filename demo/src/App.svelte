@@ -289,6 +289,8 @@
 			ed25519_auth.credentials().address().signature(),
 		);
 
+		// TODO add the policy signature to this as well
+
 		// Order this lexicographically by signer bytes
 		const signatures: [number[], xdr.ScVal][] = [
 			[

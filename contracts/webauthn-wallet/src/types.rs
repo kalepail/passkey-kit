@@ -1,18 +1,16 @@
-use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN};
+use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Vec};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
     NotFound = 1,
-    NotPermitted = 2,
-    TooManySignatures = 3,
-    BadSignatureOrder = 4,
-    ClientDataJsonChallengeIncorrect = 5,
-    Secp256r1PublicKeyParse = 6,
-    Secp256r1SignatureParse = 7,
-    Secp256r1VerifyFailed = 8,
-    JsonParseError = 9,
+    NotAuthorized = 2,
+    RequirePersistentAdmin = 3,
+    TooManySignatures = 4,
+    BadSignatureOrder = 5,
+    ClientDataJsonChallengeIncorrect = 6,
+    JsonParseError = 7,
 }
 
 #[contracttype]
@@ -42,8 +40,7 @@ pub enum SignerStorage {
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerType {
     Admin,
-    Basic,
-    Policy,
+    Basic(Vec<Policy>),
 }
 
 #[contracttype]
