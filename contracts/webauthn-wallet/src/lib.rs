@@ -25,7 +25,6 @@ const PERSISTENT_ADMIN_SIGNER_COUNT: Symbol = symbol_short!("p_admin");
 
 #[contractimpl]
 impl Contract {
-    #[allow(unused_mut)]
     pub fn add(env: Env, signer: Signer) -> Result<(), Error> {
         if env.storage().instance().has(&PERSISTENT_ADMIN_SIGNER_COUNT) {
             env.current_contract_address().require_auth();
@@ -249,12 +248,7 @@ impl CustomAccountInterface for Contract {
         signatures: Vec<Signature>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        verify_signatures(
-            &env,
-            &signature_payload,
-            &signatures,
-            &auth_contexts,
-        );
+        verify_signatures(&env, &signature_payload, &signatures, &auth_contexts);
 
         let max_ttl = env.storage().max_ttl();
 
@@ -272,7 +266,7 @@ fn verify_signatures(
     signatures: &Vec<Signature>,
     auth_contexts: &Vec<Context>,
 ) {
-    // NOTE since we're looping signatures vs auth_contexts every signatures must be valid for every auth_context. 
+    // NOTE since we're looping signatures vs auth_contexts every signatures must be valid for every auth_context.
     // e.g. You could have an admin signer but still fail to create a key if you're also including a Policy or Basic signer in the signatures array
     // I think this is what I want and what we'd expect but it's worth noting
     for signature in signatures.iter() {
@@ -285,20 +279,34 @@ fn verify_signatures(
 
                 let signer_key = SignerKey::Policy(policy.clone());
 
+                // Very important otherwise policies could execute without any smart wallet signers 
+                // making it very difficult to ensure they can pass safely
+                if signer_keys.len() == 0 {
+                    panic_with_error!(env, Error::MissingSignerKeys);
+                }
+
+                for policy_signer_key in signer_keys.iter() {
+                    if get_signer_val_storage_type(env, &policy_signer_key, true).is_none()
+                    {
+                        panic_with_error!(env, Error::NotFound);
+                    }
+                }
+
                 match get_signer_val_storage_type(env, &signer_key, true) {
                     Some((_, _, signer_type)) => {
                         verify_signer(env, &signer_type, &signer_key, auth_contexts);
 
-                        for policy_signer_key in signer_keys.iter() {
-                            if get_signer_val_storage_type(env, &policy_signer_key, true).is_none()
-                            {
-                                panic_with_error!(env, Error::NotFound);
-                            }
-                        }
-
-                        policy
-                            .0
-                            .require_auth_for_args(vec![&env, auth_contexts.to_val()]);
+                        // NOTE keep in mind secp256r1 signer_keys don't contain the public key, just the id, 
+                        // So in a policy utilizing secp256r1 signers we'd need to pass in the public key as part of the signature (which our Signature type here doesn't do)
+                        // I think I'm fine with this as looking up the public key on chain via the id to craft a signature is entirely doable
+                        // Trying to parse it out and include it in the require_auth_for_args array wouldn't actually save us a look up either as we'd still have to include it in order to generate a valid __check_auth signature
+                        policy.0.require_auth_for_args(vec![
+                            &env,
+                            // Putting signer_keys in the args ensures policies can ensure these keys are actually used as signatures in the policy
+                            signer_keys.to_val(),
+                            // Putting auth_contexts in the args allows policies to inspect invocations contexts
+                            auth_contexts.to_val(),
+                        ]);
                     }
                     None => panic_with_error!(env, Error::NotFound),
                 }
@@ -394,7 +402,6 @@ fn verify_signer(
     }
 }
 
-// TODO Use Result instead of Option so we can return an error if the signer is not found
 fn get_signer_val_storage_type(
     env: &Env,
     signer_key: &SignerKey,

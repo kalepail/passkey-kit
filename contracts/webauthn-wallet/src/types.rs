@@ -7,7 +7,7 @@ pub enum Error {
     NotFound = 1,
     NotAuthorized = 2,
     RequirePersistentAdmin = 3,
-    TooManySignatures = 4,
+    MissingSignerKeys = 4,
     BadSignatureOrder = 5,
     ClientDataJsonChallengeIncorrect = 6,
     JsonParseError = 7,

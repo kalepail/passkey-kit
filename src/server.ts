@@ -103,7 +103,7 @@ export class PasskeyServer extends PasskeyBase {
                         fname: "get_address_by_signer",
                         arguments: JSON.stringify({
                             key: keyId,
-                            type: 'Secp256r1'
+                            kind: 'Secp256r1'
                         })
                     }
                 }

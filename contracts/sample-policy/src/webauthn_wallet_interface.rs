@@ -29,6 +29,12 @@ pub struct Secp256r1Id(pub soroban_sdk::Bytes);
 pub struct Secp256r1PublicKey(pub soroban_sdk::BytesN<65>);
 #[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct PolicySignature {
+    pub policy: Policy,
+    pub signer_keys: soroban_sdk::Vec<SignerKey>,
+}
+#[soroban_sdk::contracttype(export = false)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Ed25519Signature {
     pub public_key: Ed25519PublicKey,
     pub signature: soroban_sdk::BytesN<64>,
@@ -78,7 +84,7 @@ pub enum Signer {
 #[soroban_sdk::contracttype(export = false)]
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Signature {
-    Policy(Policy),
+    Policy(PolicySignature),
     Ed25519(Ed25519Signature),
     Secp256r1(Secp256r1Signature),
 }
@@ -86,12 +92,10 @@ pub enum Signature {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Error {
     NotFound = 1,
-    NotPermitted = 2,
-    TooManySignatures = 3,
-    BadSignatureOrder = 4,
-    ClientDataJsonChallengeIncorrect = 5,
-    Secp256r1PublicKeyParse = 6,
-    Secp256r1SignatureParse = 7,
-    Secp256r1VerifyFailed = 8,
-    JsonParseError = 9,
+    NotAuthorized = 2,
+    RequirePersistentAdmin = 3,
+    MissingSignerKeys = 4,
+    BadSignatureOrder = 5,
+    ClientDataJsonChallengeIncorrect = 6,
+    JsonParseError = 7,
 }

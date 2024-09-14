@@ -19,6 +19,7 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, IntoVal, String, TryIntoVal, Val, Vec,
 };
 use stellar_strkey::{ed25519, Strkey};
+// TODO try making a sharable interface and importing it vs this weird sharing/copying thing we're doing now
 use webauthn_wallet::{
     types::{
         Ed25519PublicKey, Ed25519Signature, Policy, PolicySignature, Secp256r1Id,
@@ -119,16 +120,6 @@ fn test() {
     ));
     //
 
-    // Dumb Policy
-    // let dumb_policy_address = env.register_contract(None, PolicyContract); // Address::generate(&env);
-
-    // wallet_client.mock_all_auths().add(&Signer::Policy(
-    //     Policy(dumb_policy_address.clone()),
-    //     SignerStorage::Temporary,
-    //     SignerType::Basic(vec![&env]),
-    // ));
-    //
-
     // Simple Ed25519
     let simple_keypair = Keypair::from_bytes(&[
         149, 154, 40, 132, 13, 234, 167, 87, 182, 44, 152, 45, 242, 179, 187, 17, 139, 106, 49, 85,
@@ -222,36 +213,24 @@ fn test() {
         .unwrap(),
     };
 
-    let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
-        network_id: env.ledger().network_id().to_array().into(),
-        nonce: 3,
-        signature_expiration_ledger,
-        invocation: root_invocation.clone(),
-    });
-    let payload = payload.to_xdr(Limits::none()).unwrap();
-    let payload = Bytes::from_slice(&env, payload.as_slice());
-    let payload = env.crypto().sha256(&payload);
+    // let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+    //     network_id: env.ledger().network_id().to_array().into(),
+    //     nonce: 3,
+    //     signature_expiration_ledger,
+    //     invocation: root_invocation.clone(),
+    // });
+    // let payload = payload.to_xdr(Limits::none()).unwrap();
+    // let payload = Bytes::from_slice(&env, payload.as_slice());
+    // let payload = env.crypto().sha256(&payload);
 
-    let signature_ed25519 = Signature::Ed25519(Ed25519Signature {
-        public_key: Ed25519PublicKey(super_address_bytes.clone()),
-        signature: BytesN::from_array(
-            &env,
-            &super_keypair
-                .sign(payload.to_array().as_slice())
-                .to_bytes(),
-        ),
-    });
-    let signature_ed25519_scval: ScVal = signature_ed25519.clone().try_into().unwrap();
-
-    // let signature_dumb_policy = Signature::Policy(Policy(dumb_policy_address.clone()));
-    // let signature_dumb_policy_scval: ScVal = signature_dumb_policy.clone().try_into().unwrap();
-
+    let signer_keys = vec![
+        &env,
+        SignerKey::Ed25519(Ed25519PublicKey(simple_address_bytes.clone())),
+        // SignerKey::Ed25519(Ed25519PublicKey(super_address_bytes.clone())),
+    ];
     let signature_policy = Signature::Policy(PolicySignature {
         policy: Policy(sample_policy_address.clone()),
-        signer_keys: vec![
-            &env,
-            SignerKey::Ed25519(Ed25519PublicKey(simple_address_bytes.clone())),
-        ],
+        signer_keys: signer_keys.clone(),
     });
     let signature_policy_scval: ScVal = signature_policy.clone().try_into().unwrap();
 
@@ -261,8 +240,7 @@ fn test() {
             nonce: 3,
             signature_expiration_ledger,
             signature: std::vec![
-                // signature_dumb_policy_scval.clone(),
-                signature_ed25519_scval.clone(),
+                // super_signature_ed25519_scval.clone(),
                 signature_policy_scval.clone(),
             ]
             .try_into()
@@ -275,44 +253,47 @@ fn test() {
         function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
             contract_address: wallet_address.clone().try_into().unwrap(),
             function_name: "__check_auth".try_into().unwrap(),
-            args: std::vec![vec![
-                &env,
-                Context::Contract(ContractContext {
-                    contract: example_contract_address.clone(),
-                    fn_name: symbol_short!("call"),
-                    args: vec![
-                        &env,
-                        sac_address.to_val(),
-                        wallet_address.to_val(),
-                        sac_address.to_val(),
-                        amount.into_val(&env),
-                        remove_key.into_val(&env),
-                        add_signer.into_val(&env),
-                    ]
-                }),
-                Context::Contract(ContractContext {
-                    contract: sac_address.clone(),
-                    fn_name: symbol_short!("transfer"),
-                    args: vec![
-                        &env,
-                        wallet_address.to_val(),
-                        sac_address.to_val(),
-                        amount.into_val(&env)
-                    ]
-                }),
-                // Context::Contract(ContractContext {
-                //     contract: wallet_address.clone(),
-                //     fn_name: symbol_short!("remove"),
-                //     args: vec![&env, remove_key.into_val(&env),]
-                // }),
-                // Context::Contract(ContractContext {
-                //     contract: wallet_address.clone(),
-                //     fn_name: symbol_short!("add"),
-                //     args: vec![&env, add_signer.into_val(&env),]
-                // }),
+            args: std::vec![
+                signer_keys.clone().try_into().unwrap(),
+                vec![
+                    &env,
+                    Context::Contract(ContractContext {
+                        contract: example_contract_address.clone(),
+                        fn_name: symbol_short!("call"),
+                        args: vec![
+                            &env,
+                            sac_address.to_val(),
+                            wallet_address.to_val(),
+                            sac_address.to_val(),
+                            amount.into_val(&env),
+                            remove_key.into_val(&env),
+                            add_signer.into_val(&env),
+                        ]
+                    }),
+                    Context::Contract(ContractContext {
+                        contract: sac_address.clone(),
+                        fn_name: symbol_short!("transfer"),
+                        args: vec![
+                            &env,
+                            wallet_address.to_val(),
+                            sac_address.to_val(),
+                            amount.into_val(&env)
+                        ]
+                    }),
+                    // Context::Contract(ContractContext {
+                    //     contract: wallet_address.clone(),
+                    //     fn_name: symbol_short!("remove"),
+                    //     args: vec![&env, remove_key.into_val(&env),]
+                    // }),
+                    // Context::Contract(ContractContext {
+                    //     contract: wallet_address.clone(),
+                    //     fn_name: symbol_short!("add"),
+                    //     args: vec![&env, add_signer.into_val(&env),]
+                    // }),
+                ]
+                .try_into()
+                .unwrap(),
             ]
-            .try_into()
-            .unwrap(),]
             .try_into()
             .unwrap(),
         }),
@@ -328,6 +309,15 @@ fn test() {
     let payload = payload.to_xdr(Limits::none()).unwrap();
     let payload = Bytes::from_slice(&env, payload.as_slice());
     let payload = env.crypto().sha256(&payload);
+
+    let super_signature_ed25519 = Signature::Ed25519(Ed25519Signature {
+        public_key: Ed25519PublicKey(super_address_bytes.clone()),
+        signature: BytesN::from_array(
+            &env,
+            &super_keypair.sign(payload.to_array().as_slice()).to_bytes(),
+        ),
+    });
+    let super_signature_ed25519_scval: ScVal = super_signature_ed25519.clone().try_into().unwrap();
 
     let signature_ed25519 = Signature::Ed25519(Ed25519Signature {
         public_key: Ed25519PublicKey(simple_address_bytes.clone()),
@@ -345,93 +335,22 @@ fn test() {
             address: sample_policy_address.clone().try_into().unwrap(),
             nonce: 4,
             // signature: ScVal::Vec(Some(ScVec::default())),
-            signature: std::vec![signature_ed25519_scval.clone(),]
-                .try_into()
-                .unwrap(),
+            signature: std::vec![
+                super_signature_ed25519_scval.clone(),
+                signature_ed25519_scval.clone(),
+            ]
+            .try_into()
+            .unwrap(),
             signature_expiration_ledger,
         }),
         root_invocation: __check_auth_invocation.clone(),
     };
 
-    // let __dumb_check_auth_invocation = SorobanAuthorizedInvocation {
-    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-    //         contract_address: wallet_address.clone().try_into().unwrap(),
-    //         function_name: "__check_auth".try_into().unwrap(),
-    //         args: std::vec![
-    //             // TODO might be able to omit some of these args, definitely need the Vec<Context> though
-    //             payload.to_bytes().try_into().unwrap(),
-    //             vec![
-    //                 &env,
-    //                 signature_dumb_policy,
-    //                 // signature_policy,
-    //                 // signature_ed25519
-    //             ]
-    //             .try_into()
-    //             .unwrap(),
-    //             vec![
-    //                 &env,
-    //                 Context::Contract(ContractContext {
-    //                     contract: example_contract_address.clone(),
-    //                     fn_name: symbol_short!("call"),
-    //                     args: vec![
-    //                         &env,
-    //                         sac_address.to_val(),
-    //                         wallet_address.to_val(),
-    //                         sac_address.to_val(),
-    //                         amount.into_val(&env),
-    //                         remove_key.into_val(&env),
-    //                         add_signer.into_val(&env),
-    //                     ]
-    //                 }),
-    //                 Context::Contract(ContractContext {
-    //                     contract: sac_address.clone(),
-    //                     fn_name: symbol_short!("transfer"),
-    //                     args: vec![
-    //                         &env,
-    //                         wallet_address.to_val(),
-    //                         sac_address.to_val(),
-    //                         amount.into_val(&env)
-    //                     ]
-    //                 }),
-    //                 // Context::Contract(ContractContext {
-    //                 //     contract: wallet_address.clone(),
-    //                 //     fn_name: symbol_short!("remove"),
-    //                 //     args: vec![&env, remove_key.into_val(&env),]
-    //                 // }),
-    //                 // Context::Contract(ContractContext {
-    //                 //     contract: wallet_address.clone(),
-    //                 //     fn_name: symbol_short!("add"),
-    //                 //     args: vec![&env, add_signer.into_val(&env),]
-    //                 // }),
-    //             ]
-    //             .try_into()
-    //             .unwrap(),
-    //         ]
-    //         .try_into()
-    //         .unwrap(),
-    //     }),
-    //     // while we can support sub_invocations the security of policies comes from the fact we forward the root __check_auth args
-    //     sub_invocations: std::vec![
-    //         // root_invocation.clone()
-    //     ].try_into().unwrap(),
-    // };
-
-    // let __dumb_check_auth = SorobanAuthorizationEntry {
-    //     credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-    //         address: dumb_policy_address.clone().try_into().unwrap(),
-    //         nonce: 4,
-    //         signature: ScVal::Vec(Some(ScVec::default())),
-    //         signature_expiration_ledger,
-    //     }),
-    //     root_invocation: __dumb_check_auth_invocation.clone(),
-    // };
+    println!("\n{:?}\n", root_auth.to_xdr_base64(Limits::none()).unwrap());
+    println!("\n{:?}\n", __check_auth.to_xdr_base64(Limits::none()).unwrap());
 
     example_contract_client
-        .set_auths(&[
-            root_auth,
-            __check_auth,
-            // __dumb_check_auth
-        ])
+        .set_auths(&[root_auth, __check_auth])
         .call(
             &sac_address,
             &wallet_address,

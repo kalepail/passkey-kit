@@ -27,6 +27,8 @@
 	// - and admin, basic and policy
 	// - full visual support for admin, basic and policy keys
 
+	const sample_policy = "CCRXQ7INRH2BHF6BKOF6UQ2SDYQAY4UYVDPZCEIVNKCY7EMTTPVHXED2";
+
 	let keyId: string;
 	let contractId: string;
 	let admins: number;
@@ -177,9 +179,6 @@
 		}
 	}
 	async function addPolicySigner() {
-		const sample_policy =
-			"CA74HHGO6MVIENYEEDNCBMRIKVYRRDEXJZGVWVLC3PDRBBNTEH65AE4F";
-
 		const { built } = await account.wallet!.add({
 			signer: {
 				tag: "Policy",
@@ -413,9 +412,6 @@
 
 	////
 	async function policySigTransfer() {
-		const sample_policy =
-			"CA74HHGO6MVIENYEEDNCBMRIKVYRRDEXJZGVWVLC3PDRBBNTEH65AE4F";
-
 		// SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W
 		const secret =
 			"SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W"; // prompt('Enter secret key');
@@ -439,47 +435,37 @@
 			const credentials = auth.credentials().address();
 			const invokeContract = op.func.invokeContract();
 
-			const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-				new xdr.HashIdPreimageSorobanAuthorization({
-					networkId: hash(
-						Buffer.from(import.meta.env.VITE_networkPassphrase),
-					),
-					nonce: credentials.nonce(),
-					signatureExpirationLedger: sequence + DEFAULT_LTL,
-					invocation: auth.rootInvocation(),
-				}),
-			);
-			const payload = hash(preimage.toXDR());
-			const signature = keypair.sign(payload);
-
 			credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
 			credentials.signature(
 				xdr.ScVal.scvVec([
 					xdr.ScVal.scvVec([
 						xdr.ScVal.scvSymbol("Policy"),
-						xdr.ScVal.scvVec([
-							Address.fromString(sample_policy).toScVal(),
-						]),
-					]),
-					xdr.ScVal.scvVec([
-						xdr.ScVal.scvSymbol("Ed25519"),
 						xdr.ScVal.scvMap([
 							new xdr.ScMapEntry({
-								key: xdr.ScVal.scvSymbol("public_key"),
+								key: xdr.ScVal.scvSymbol("policy"),
 								val: xdr.ScVal.scvVec([
-									xdr.ScVal.scvBytes(
-										keypair.rawPublicKey(),
-									),
+									Address.fromString(sample_policy).toScVal(),
 								]),
 							}),
 							new xdr.ScMapEntry({
-								key: xdr.ScVal.scvSymbol("signature"),
-								val: xdr.ScVal.scvBytes(signature),
+								key: xdr.ScVal.scvSymbol("signer_keys"),
+								val: xdr.ScVal.scvVec([
+									xdr.ScVal.scvVec([
+										xdr.ScVal.scvSymbol("Ed25519"),
+										xdr.ScVal.scvVec([
+											xdr.ScVal.scvBytes(
+												keypair.rawPublicKey(),
+											),
+										]),
+									])
+								]),
 							}),
 						]),
 					]),
 				]),
 			);
+
+			// console.log(auth.toXDR('base64'));
 
 			auths.splice(0, 1, auth);			
 
@@ -487,8 +473,18 @@
 				contractAddress: Address.fromString(contractId).toScAddress(),
 				functionName: "__check_auth",
 				args: [
-					nativeToScVal(payload),
-					credentials.signature(),
+					// nativeToScVal(payload),
+					// credentials.signature(),
+					xdr.ScVal.scvVec([
+						xdr.ScVal.scvVec([
+							xdr.ScVal.scvSymbol("Ed25519"),
+							xdr.ScVal.scvVec([
+								xdr.ScVal.scvBytes(
+									keypair.rawPublicKey(),
+								),
+							])
+						]),
+					]),
 					xdr.ScVal.scvVec([
 						xdr.ScVal.scvVec([
 							xdr.ScVal.scvSymbol("Contract"),
@@ -528,6 +524,19 @@
 			});
 
 			const nonce = new xdr.Int64(Math.random().toString().substring(2));
+			const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+				new xdr.HashIdPreimageSorobanAuthorization({
+					networkId: hash(
+						Buffer.from(import.meta.env.VITE_networkPassphrase),
+					),
+					nonce,
+					signatureExpirationLedger: sequence + DEFAULT_LTL,
+					invocation,
+				}),
+			);
+			const payload = hash(preimage.toXDR());
+			const signature = keypair.sign(payload);
+
 			const __check_auth = new xdr.SorobanAuthorizationEntry({
 				credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
 					new xdr.SorobanAddressCredentials({
@@ -535,11 +544,31 @@
 							Address.fromString(sample_policy).toScAddress(),
 						nonce,
 						signatureExpirationLedger: sequence + DEFAULT_LTL,
-						signature: xdr.ScVal.scvVec([]),
+						signature: xdr.ScVal.scvVec([
+							xdr.ScVal.scvVec([
+								xdr.ScVal.scvSymbol("Ed25519"),
+								xdr.ScVal.scvMap([
+									new xdr.ScMapEntry({
+										key: xdr.ScVal.scvSymbol("public_key"),
+										val: xdr.ScVal.scvVec([
+											xdr.ScVal.scvBytes(
+												keypair.rawPublicKey(),
+											),
+										]),
+									}),
+									new xdr.ScMapEntry({
+										key: xdr.ScVal.scvSymbol("signature"),
+										val: xdr.ScVal.scvBytes(signature),
+									}),
+								]),
+							]),
+						]),
 					}),
 				),
 				rootInvocation: invocation,
 			});
+
+			console.log(__check_auth.toXDR("base64"));
 
 			auths.push(__check_auth);
 
