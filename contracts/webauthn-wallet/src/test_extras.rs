@@ -649,10 +649,6 @@ fn test_sample_policy() {
 
     sac_client
         .set_auths(&[
-            // TODO where is the protection for this call?
-            // Where does this actually get signed for?
-            // How is this technically/cryptographically safe?
-            // Probably from the fact that all the args of auth 1 are baked into auth 2
             auth1, auth2,
         ])
         .transfer(&wallet_address, &sac_address, &10_000_000);

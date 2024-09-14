@@ -29,6 +29,7 @@ const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
     - For the first NOTE reason above we should consider a self destruct method where a contract can break itself such that it cannot deploy any more wallets
         This is important in the case a bug is found in the underlying smart wallet contract code
         Could be a simple instance variable or maybe an upgrade to a wasm that's entirely empty and thus always fails
+        On the other hand I'm not sure who would own running such a function
         @Later
 */
 

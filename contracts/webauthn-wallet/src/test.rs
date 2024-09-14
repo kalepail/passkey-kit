@@ -110,9 +110,6 @@ fn test() {
     // Policy
     let sample_policy_address = env.register_contract(None, PolicyContract);
 
-    // TODO big note that Policy signers can remove themselves with or without adding themselves to their SignerType::Basic(Vec<Policy>) list
-    // Likely okay, but is a potential footgun, can guard against it in the policy itself
-    // I'm pretty concerned atm of the potential nefarious reach of a policy signer. Will be more controlled once I understand how to control them in a more guaranteed manner
     wallet_client.mock_all_auths().add(&Signer::Policy(
         Policy(sample_policy_address.clone()),
         SignerStorage::Temporary,

@@ -201,7 +201,9 @@ export class PasskeyKit extends PasskeyBase {
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
                 nonce: credentials.nonce(),
-                signatureExpirationLedger: lastLedger + ledgersToLive, // TODO maybe if folks set `ledgersToLive` that should be the TTL vs the extension from `lastLedger`. Will make it easier to coordinate multisig
+                // TODO maybe if folks set `ledgersToLive` that should be the TTL vs the extension from `lastLedger`. Will make it easier to coordinate multisig
+                // Call it `validUntilLedgerSeq` like the JS SDK
+                signatureExpirationLedger: lastLedger + ledgersToLive,
                 invocation: entry.rootInvocation()
             })
         )
@@ -399,7 +401,7 @@ export class PasskeyKit extends PasskeyBase {
 
         /* TODO 
             - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
-                Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
+                Hmm...Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
                 @Later
         */
 
