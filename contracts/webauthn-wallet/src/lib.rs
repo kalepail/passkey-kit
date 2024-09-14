@@ -192,8 +192,14 @@ impl CustomAccountInterface for Contract {
         signatures: Map<SignerKey, Option<Signature>>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
+        if signatures.len() > 20 {
+            panic_with_error!(env, Error::TooManySignatures);
+        }
+
+        let mut verifications: [u8; 20] = [0; 20];
+
         for context in auth_contexts.iter() {
-            let authorized_signature = signatures.iter().find(|(signer_key, signature)| {
+            let authorized_signature = signatures.iter().enumerate().find(|(i, (signer_key, signature))| {
                 let signer_limits = match get_signer_val_storage(&env, &signer_key, true) {
                     None => panic_with_error!(env, Error::NotFound),
                     Some((signer_val, _)) => {
@@ -205,11 +211,14 @@ impl CustomAccountInterface for Contract {
                                 match signature {
                                     Signature::Ed25519(signature) => {
                                         if let SignerKey::Ed25519(public_key) = signer_key {
-                                            env.crypto().ed25519_verify(
-                                                &public_key,
-                                                &signature_payload.clone().into(),
-                                                &signature,
-                                            );
+                                            if verifications[*i] == 0 {
+                                                verifications[*i] = 1;
+                                                env.crypto().ed25519_verify(
+                                                    &public_key,
+                                                    &signature_payload.clone().into(),
+                                                    &signature,
+                                                );
+                                            }
                                         } else {
                                             panic_with_error!(env, Error::SignatureKeyValueMismatch);
                                         }
@@ -233,14 +242,17 @@ impl CustomAccountInterface for Contract {
                                             signature,
                                         }) = signature.clone()
                                         {
-                                            verify_secp256r1_signature(
-                                                &env,
-                                                &public_key,
-                                                &mut authenticator_data,
-                                                &client_data_json,
-                                                &signature,
-                                                &signature_payload,
-                                            );
+                                            if verifications[*i] == 0 {
+                                                verifications[*i] = 1;
+                                                verify_secp256r1_signature(
+                                                    &env,
+                                                    &public_key,
+                                                    &mut authenticator_data,
+                                                    &client_data_json,
+                                                    &signature,
+                                                    &signature_payload,
+                                                );
+                                            }
                                         } else {
                                             panic_with_error!(env, Error::SignatureKeyValueMismatch);
                                         }
@@ -268,8 +280,6 @@ impl CustomAccountInterface for Contract {
                         fn_name,
                         args,
                     }) => {
-                        // println!("{:?} {:?} {:?}", signer_limits.keys(), contract, env.current_contract_address());
-
                         match signer_limits.get(contract.clone()) {
                             Some(signer_limits_keys) => {
                                 // If this signer has a smart wallet context limit, limit that context to only removing itself
@@ -298,11 +308,19 @@ impl CustomAccountInterface for Contract {
                 }
             });
 
-            if let Some((signer_key, signature)) = authorized_signature {
+            if let Some((i, (signer_key, signature))) = authorized_signature {
                 
                 // Context is authorized, run policy if needed
                 if let SignerKey::Policy(policy) = signer_key {
                     if signature.is_none() {
+                        // Record if we used this signature for an authorization
+                        if verifications[i] == 0 {
+                            verifications[i] = 1;
+                        }
+
+                        // NOTE We don't permit previous verifications to count as authorized in the case of policy signers as contexts could be different between calls
+                        // e.g. We wouldn't want to authenticate a 1 stroop context which would then count towards a 1B XLM context
+                        // This will require placing multiple `.set_auths` to cover all "duplicate" policy call instances. Which is good
                         policy.require_auth_for_args(vec![
                             &env,
                             // Putting the authorized context in the args to allow the policy to validate
@@ -315,6 +333,10 @@ impl CustomAccountInterface for Contract {
             } else {
                 panic_with_error!(env, Error::NotAuthorized);
             }
+        }
+
+        if verifications.iter().sum::<u8>() != signatures.len() as u8 {
+            panic_with_error!(env, Error::ExtraSigners);
         }
 
         let max_ttl = env.storage().max_ttl();

@@ -10,8 +10,8 @@ use soroban_sdk::{
     auth::{Context, ContractContext},
     map, symbol_short, token, vec,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScMap,
-        ScMapEntry, ScVal, ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry,
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits,
+        ScVal, ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry,
         SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM,
         WriteXdr,
     },
@@ -29,6 +29,7 @@ fn test() {
     let env: Env = Env::default();
     let signature_expiration_ledger = env.ledger().sequence();
     let amount = 10_000_000i128;
+    let evil_amount = 10_000_00i128;
 
     let wallet_address = env.register_contract(None, Contract);
     let wallet_client = ContractClient::new(&env, &wallet_address);
@@ -134,7 +135,7 @@ fn test() {
         SignerStorage::Persistent,
     ));
 
-    wallet_client.mock_all_auths().add(&secp246r1_signer);
+    wallet_client.mock_all_auths().add(&secp246r1_signer.clone());
 
     wallet_client.mock_all_auths().add(&Signer::Ed25519(
         simple_ed25519_bytes,
@@ -157,6 +158,21 @@ fn test() {
                 wallet_address.clone().try_into().unwrap(),
                 sac_address.clone().try_into().unwrap(),
                 amount.try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
+    let evil_transfer_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: sac_address.clone().try_into().unwrap(),
+            function_name: "transfer".try_into().unwrap(),
+            args: std::vec![
+                wallet_address.clone().try_into().unwrap(),
+                sac_address.clone().try_into().unwrap(),
+                evil_amount.try_into().unwrap(),
             ]
             .try_into()
             .unwrap(),
@@ -203,6 +219,7 @@ fn test() {
         }),
         sub_invocations: std::vec![
             transfer_invocation.clone(),
+            evil_transfer_invocation.clone(),
             // remove_invocation.clone(),
             // add_invocation.clone(),
         ]
@@ -241,11 +258,11 @@ fn test() {
             signature_expiration_ledger,
             signature: map![&env, 
                 (
-                    simple_ed25519_signer_key,
+                    simple_ed25519_signer_key.clone(),
                     Some(simple_signature_ed25519)
                 ),
                 (
-                    sample_policy_signer_key,
+                    sample_policy_signer_key.clone(),
                     None
                 ),
                 // (
@@ -279,6 +296,28 @@ fn test() {
         sub_invocations: VecM::default(),
     };
 
+    let __evil_check_auth_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: wallet_address.clone().try_into().unwrap(),
+            function_name: "__check_auth".try_into().unwrap(),
+            args: std::vec![Context::Contract(ContractContext {
+                contract: sac_address.clone(),
+                fn_name: symbol_short!("transfer"),
+                args: vec![
+                    &env,
+                    wallet_address.to_val(),
+                    sac_address.to_val(),
+                    evil_amount.into_val(&env)
+                ]
+            })
+            .try_into()
+            .unwrap(),]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
     let __check_auth = SorobanAuthorizationEntry {
         credentials: SorobanCredentials::Address(SorobanAddressCredentials {
             address: sample_policy_address.clone().try_into().unwrap(),
@@ -289,6 +328,16 @@ fn test() {
         root_invocation: __check_auth_invocation.clone(),
     };
 
+    let __evil_check_auth = SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+            address: sample_policy_address.clone().try_into().unwrap(),
+            nonce: 5,
+            signature: ScVal::Vec(Some(ScVec::default())),
+            signature_expiration_ledger,
+        }),
+        root_invocation: __evil_check_auth_invocation.clone(),
+    };
+
     // println!("\n{:?}\n", root_auth.to_xdr_base64(Limits::none()).unwrap());
     // println!(
     //     "\n{:?}\n",
@@ -296,7 +345,7 @@ fn test() {
     // );
 
     example_contract_client
-        .set_auths(&[root_auth, __check_auth])
+        .set_auths(&[root_auth, __check_auth, __evil_check_auth])
         .call(
             &sac_address,
             &wallet_address,
