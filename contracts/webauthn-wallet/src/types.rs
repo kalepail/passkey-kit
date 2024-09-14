@@ -1,4 +1,4 @@
-use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Vec};
+use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Map, Vec};
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -11,23 +11,32 @@ pub enum Error {
     BadSignatureOrder = 5,
     ClientDataJsonChallengeIncorrect = 6,
     JsonParseError = 7,
+    MissingSignatures = 8,
+    SignatureKeyValueMismatch = 9,
+    InvalidSignatureForSignerKey = 10,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub struct Policy(pub Address);
+// Map of contexts this signer can authorize if present in the __check_auth auth_contexts list
+// Map value is a list of SignerKeys which must all be present in the __check_auth signatures list in order for the signer to authorize the context
+pub struct SignerLimits(pub Map<Address, Option<Vec<SignerKey>>>);
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub struct Ed25519PublicKey(pub BytesN<32>);
+pub enum SignerKey {
+    Policy(Address),
+    Ed25519(BytesN<32>),
+    Secp256r1(Bytes),
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub struct Secp256r1Id(pub Bytes);
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub struct Secp256r1PublicKey(pub BytesN<65>);
+pub enum SignerVal {
+    Policy(SignerLimits),
+    Ed25519(SignerLimits),
+    Secp256r1(BytesN<65>, SignerLimits),
+}
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
@@ -38,48 +47,10 @@ pub enum SignerStorage {
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
-pub enum SignerType {
-    Admin,
-    Basic,
-    Policy,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub enum SignerKey {
-    Policy(Policy),
-    Ed25519(Ed25519PublicKey),
-    Secp256r1(Secp256r1Id),
-}
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub enum SignerVal {
-    Policy(SignerType),
-    Ed25519(SignerType),
-    Secp256r1(Secp256r1PublicKey, SignerType),
-}
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
 pub enum Signer {
-    Policy(Policy, SignerStorage, SignerType),
-    Ed25519(Ed25519PublicKey, SignerStorage, SignerType),
-    Secp256r1(Secp256r1Id, Secp256r1PublicKey, SignerStorage, SignerType),
-}
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub struct PolicySignature {
-    pub policy: Policy,
-    pub signer_keys: Vec<SignerKey>,
-}
-
-#[contracttype]
-#[derive(Clone, Debug, PartialEq)]
-pub struct Ed25519Signature {
-    pub public_key: Ed25519PublicKey,
-    pub signature: BytesN<64>,
+    Policy(Address, SignerLimits, SignerStorage),
+    Ed25519(BytesN<32>, SignerLimits, SignerStorage),
+    Secp256r1(Bytes, BytesN<65>, SignerLimits, SignerStorage),
 }
 
 #[contracttype]
@@ -87,14 +58,12 @@ pub struct Ed25519Signature {
 pub struct Secp256r1Signature {
     pub authenticator_data: Bytes,
     pub client_data_json: Bytes,
-    pub id: Secp256r1Id,
     pub signature: BytesN<64>,
 }
 
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signature {
-    Policy(PolicySignature),
-    Ed25519(Ed25519Signature),
+    Ed25519(BytesN<64>),
     Secp256r1(Secp256r1Signature),
 }
