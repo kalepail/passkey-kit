@@ -48,11 +48,9 @@ impl CustomAccountInterface for Contract {
 
                     // Likely in a smart wallet scenario. At the very least all smart wallet Policy calls WILL be a __check_auth call, so ignoring other contexts is safe
                     if root_fn_name == Symbol::new(&env, "__check_auth") {
-
                         // Check arg auth contexts
                         if let Some(val) = root_args.get(0) {
-                            if let Ok(sub_auth_context) = Context::try_from_val(&env, &val)
-                            {
+                            if let Ok(sub_auth_context) = Context::try_from_val(&env, &val) {
                                 // If we get here it's very safe to assume we're in a smart wallet scenario and if you are you absolutely would get to this point safely
                                 // for context in arg_auth_contexts.iter() {
                                 match sub_auth_context {
@@ -78,7 +76,7 @@ impl CustomAccountInterface for Contract {
                                                 i128::try_from_val(&env, &amount_val)
                                             {
                                                 if sub_fn_name == symbol_short!("transfer")
-                                                && amount > 10_000_000
+                                                    && amount > 10_000_000
                                                 {
                                                     panic_with_error!(&env, Error::NotAllowed)
                                                 }

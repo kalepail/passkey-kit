@@ -6,9 +6,7 @@ use soroban_sdk::{
     crypto::Hash,
     panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec,
 };
-use types::{
-    Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerStorage, SignerVal,
-};
+use types::{Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerStorage, SignerVal};
 
 mod base64_url;
 pub mod types;
@@ -199,117 +197,137 @@ impl CustomAccountInterface for Contract {
         let mut verifications: [u8; 20] = [0; 20];
 
         for context in auth_contexts.iter() {
-            let authorized_signature = signatures.iter().enumerate().find(|(i, (signer_key, signature))| {
-                let signer_limits = match get_signer_val_storage(&env, &signer_key, true) {
-                    None => panic_with_error!(env, Error::NotFound),
-                    Some((signer_val, _)) => {
-                        match signature {
-                            None => {
-                                // Skipping as we'll do policy verifications below assuming we're able to find an authorized signature
-                            }
-                            Some(signature) => {
+            let authorized_signature =
+                signatures
+                    .iter()
+                    .enumerate()
+                    .find(|(i, (signer_key, signature))| {
+                        let signer_limits = match get_signer_val_storage(&env, &signer_key, true) {
+                            None => panic_with_error!(env, Error::NotFound),
+                            Some((signer_val, _)) => {
                                 match signature {
-                                    Signature::Ed25519(signature) => {
-                                        if let SignerKey::Ed25519(public_key) = signer_key {
-                                            if verifications[*i] == 0 {
-                                                verifications[*i] = 1;
-                                                env.crypto().ed25519_verify(
-                                                    &public_key,
-                                                    &signature_payload.clone().into(),
-                                                    &signature,
-                                                );
-                                            }
-                                        } else {
-                                            panic_with_error!(env, Error::SignatureKeyValueMismatch);
-                                        }
-                                    }
-                                    Signature::Secp256r1(_) => {
-                                        // Skipping as we do validation below once we've got access to the secp256r1 public key
-                                    }
-                                }
-                            }
-                        }
-
-                        match signer_val {
-                            SignerVal::Policy(signer_limits) => signer_limits,
-                            SignerVal::Ed25519(signer_limits) => signer_limits,
-                            SignerVal::Secp256r1(public_key, signer_limits) => {
-                                match signature {
-                                    Some(signature) => {
-                                        if let Signature::Secp256r1(Secp256r1Signature {
-                                            mut authenticator_data,
-                                            client_data_json,
-                                            signature,
-                                        }) = signature.clone()
-                                        {
-                                            if verifications[*i] == 0 {
-                                                verifications[*i] = 1;
-                                                verify_secp256r1_signature(
-                                                    &env,
-                                                    &public_key,
-                                                    &mut authenticator_data,
-                                                    &client_data_json,
-                                                    &signature,
-                                                    &signature_payload,
-                                                );
-                                            }
-                                        } else {
-                                            panic_with_error!(env, Error::SignatureKeyValueMismatch);
-                                        }
-                                    }
                                     None => {
-                                        panic_with_error!(env, Error::InvalidSignatureForSignerKey);
+                                        // Skipping as we'll do policy verifications below assuming we're able to find an authorized signature
+                                    }
+                                    Some(signature) => {
+                                        match signature {
+                                            Signature::Ed25519(signature) => {
+                                                if let SignerKey::Ed25519(public_key) = signer_key {
+                                                    if verifications[*i] == 0 {
+                                                        verifications[*i] = 1;
+                                                        env.crypto().ed25519_verify(
+                                                            &public_key,
+                                                            &signature_payload.clone().into(),
+                                                            &signature,
+                                                        );
+                                                    }
+                                                } else {
+                                                    panic_with_error!(
+                                                        env,
+                                                        Error::SignatureKeyValueMismatch
+                                                    );
+                                                }
+                                            }
+                                            Signature::Secp256r1(_) => {
+                                                // Skipping as we do validation below once we've got access to the secp256r1 public key
+                                            }
+                                        }
                                     }
                                 }
 
-                                signer_limits
-                            }
-                        }
-                    }
-                }
-                .0;
+                                match signer_val {
+                                    SignerVal::Policy(signer_limits) => signer_limits,
+                                    SignerVal::Ed25519(signer_limits) => signer_limits,
+                                    SignerVal::Secp256r1(public_key, signer_limits) => {
+                                        match signature {
+                                            Some(signature) => {
+                                                if let Signature::Secp256r1(Secp256r1Signature {
+                                                    mut authenticator_data,
+                                                    client_data_json,
+                                                    signature,
+                                                }) = signature.clone()
+                                                {
+                                                    if verifications[*i] == 0 {
+                                                        verifications[*i] = 1;
+                                                        verify_secp256r1_signature(
+                                                            &env,
+                                                            &public_key,
+                                                            &mut authenticator_data,
+                                                            &client_data_json,
+                                                            &signature,
+                                                            &signature_payload,
+                                                        );
+                                                    }
+                                                } else {
+                                                    panic_with_error!(
+                                                        env,
+                                                        Error::SignatureKeyValueMismatch
+                                                    );
+                                                }
+                                            }
+                                            None => {
+                                                panic_with_error!(
+                                                    env,
+                                                    Error::InvalidSignatureForSignerKey
+                                                );
+                                            }
+                                        }
 
-                // If this signature has no limits then yes it's authorized
-                if signer_limits.is_empty() {
-                    return true;
-                }
-
-                match &context {
-                    Context::Contract(ContractContext {
-                        contract,
-                        fn_name,
-                        args,
-                    }) => {
-                        match signer_limits.get(contract.clone()) {
-                            Some(signer_limits_keys) => {
-                                // If this signer has a smart wallet context limit, limit that context to only removing itself
-                                if *contract == env.current_contract_address()
-                                    && *fn_name != symbol_short!("remove")
-                                    || (*fn_name == symbol_short!("remove")
-                                        && SignerKey::from_val(&env, &args.get_unchecked(0))
-                                            != *signer_key)
-                                {
-                                    return false;
+                                        signer_limits
+                                    }
                                 }
+                            }
+                        }
+                        .0;
 
-                                return verify_signer_limit_keys(&signatures, &signer_limits_keys);
-                            }
-                            None => return false, // signer limitations not met
+                        // If this signature has no limits then yes it's authorized
+                        if signer_limits.is_empty() {
+                            return true;
                         }
-                    }
-                    Context::CreateContractHostFn(_) => {
-                        match signer_limits.get(env.current_contract_address()) {
-                            Some(signer_limits_keys) => {
-                                return verify_signer_limit_keys(&signatures, &signer_limits_keys);
+
+                        match &context {
+                            Context::Contract(ContractContext {
+                                contract,
+                                fn_name,
+                                args,
+                            }) => {
+                                match signer_limits.get(contract.clone()) {
+                                    Some(signer_limits_keys) => {
+                                        // If this signer has a smart wallet context limit, limit that context to only removing itself
+                                        if *contract == env.current_contract_address()
+                                            && *fn_name != symbol_short!("remove")
+                                            || (*fn_name == symbol_short!("remove")
+                                                && SignerKey::from_val(
+                                                    &env,
+                                                    &args.get_unchecked(0),
+                                                ) != *signer_key)
+                                        {
+                                            return false;
+                                        }
+
+                                        return verify_signer_limit_keys(
+                                            &signatures,
+                                            &signer_limits_keys,
+                                        );
+                                    }
+                                    None => return false, // signer limitations not met
+                                }
                             }
-                            None => return false, // signer limitations not met
+                            Context::CreateContractHostFn(_) => {
+                                match signer_limits.get(env.current_contract_address()) {
+                                    Some(signer_limits_keys) => {
+                                        return verify_signer_limit_keys(
+                                            &signatures,
+                                            &signer_limits_keys,
+                                        );
+                                    }
+                                    None => return false, // signer limitations not met
+                                }
+                            }
                         }
-                    }
-                }
-            });
+                    });
 
             if let Some((i, (signer_key, signature))) = authorized_signature {
-                
                 // Context is authorized, run policy if needed
                 if let SignerKey::Policy(policy) = signer_key {
                     if signature.is_none() {
@@ -327,7 +345,7 @@ impl CustomAccountInterface for Contract {
                             context.into_val(&env),
                         ]);
                     } else {
-                        panic_with_error!(env, Error::InvalidSignatureForSignerKey);    
+                        panic_with_error!(env, Error::InvalidSignatureForSignerKey);
                     }
                 }
             } else {

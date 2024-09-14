@@ -10,10 +10,9 @@ use soroban_sdk::{
     auth::{Context, ContractContext},
     map, symbol_short, token, vec,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits,
-        ScVal, ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM,
-        WriteXdr,
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
+        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
     },
     Address, Bytes, BytesN, Env, IntoVal, String,
 };
@@ -71,7 +70,7 @@ fn test() {
     let mut super_ed25519_array = [0u8; 32];
     super_ed25519_bytes.copy_into_slice(&mut super_ed25519_array);
     let super_ed25519_bytes = BytesN::from_array(&env, &super_ed25519_array);
-    
+
     let super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
     //
 
@@ -112,7 +111,8 @@ fn test() {
 
     let simple_ed25519_strkey =
         Strkey::PublicKeyEd25519(ed25519::PublicKey(simple_ed25519_keypair.public.to_bytes()));
-    let simple_ed25519_address = Bytes::from_slice(&env, simple_ed25519_strkey.to_string().as_bytes());
+    let simple_ed25519_address =
+        Bytes::from_slice(&env, simple_ed25519_strkey.to_string().as_bytes());
     let simple_ed25519_address = Address::from_string_bytes(&simple_ed25519_address);
 
     let simple_ed25519_bytes = simple_ed25519_address.to_xdr(&env);
@@ -135,7 +135,9 @@ fn test() {
         SignerStorage::Persistent,
     ));
 
-    wallet_client.mock_all_auths().add(&secp246r1_signer.clone());
+    wallet_client
+        .mock_all_auths()
+        .add(&secp246r1_signer.clone());
 
     wallet_client.mock_all_auths().add(&Signer::Ed25519(
         simple_ed25519_bytes,
@@ -145,7 +147,13 @@ fn test() {
 
     wallet_client.mock_all_auths().add(&Signer::Policy(
         sample_policy_address.clone(),
-        SignerLimits(map![&env, (sac_address.clone(), Some(vec![&env, simple_ed25519_signer_key.clone()]))]), // Policy only works on SAC and only in tandem with simple ed25519 signer
+        SignerLimits(map![
+            &env,
+            (
+                sac_address.clone(),
+                Some(vec![&env, simple_ed25519_signer_key.clone()])
+            )
+        ]), // Policy only works on SAC and only in tandem with simple ed25519 signer
         SignerStorage::Temporary,
     ));
     //
@@ -239,13 +247,17 @@ fn test() {
 
     let super_signature_ed25519 = Signature::Ed25519(BytesN::from_array(
         &env,
-        &super_ed25519_keypair.sign(payload.to_array().as_slice()).to_bytes(),
+        &super_ed25519_keypair
+            .sign(payload.to_array().as_slice())
+            .to_bytes(),
     ));
     // let super_signature_ed25519_scval: ScVal = super_signature_ed25519.clone().try_into().unwrap();
 
     let simple_signature_ed25519 = Signature::Ed25519(BytesN::from_array(
         &env,
-        &simple_ed25519_keypair.sign(payload.to_array().as_slice()).to_bytes(),
+        &simple_ed25519_keypair
+            .sign(payload.to_array().as_slice())
+            .to_bytes(),
     ));
     // let signature_ed25519_scval: ScVal = signature_ed25519.clone().try_into().unwrap();
 
@@ -256,20 +268,20 @@ fn test() {
             address: wallet_address.clone().try_into().unwrap(),
             nonce: 3,
             signature_expiration_ledger,
-            signature: map![&env, 
+            signature: map![
+                &env,
                 (
                     simple_ed25519_signer_key.clone(),
                     Some(simple_signature_ed25519)
                 ),
-                (
-                    sample_policy_signer_key.clone(),
-                    None
-                ),
+                (sample_policy_signer_key.clone(), None),
                 // (
                 //     super_ed25519_signer_key,
                 //     Some(super_signature_ed25519)
                 // )
-            ].try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
         }),
         root_invocation: root_invocation.clone(),
     };
