@@ -197,6 +197,13 @@ impl CustomAccountInterface for Contract {
         let mut verifications: [u8; 20] = [0; 20];
 
         for context in auth_contexts.iter() {
+            // TODO consider looping all signatures vs trying to find just one. 
+            // Idk this is nice but it creates some tricky trickle issues when trying to verify multiple signers under a single auth context
+
+            // TODO we really shouldn't sign for keys that aren't part of the `authorized_signature`
+            // Ideally we find the authorized signature and then we sign anything it requires
+            // Then when we check the verifications array later it will actually be accurate
+
             let authorized_signature =
                 signatures
                     .iter()
@@ -208,6 +215,29 @@ impl CustomAccountInterface for Contract {
                                 match signature {
                                     None => {
                                         // Skipping as we'll do policy verifications below assuming we're able to find an authorized signature
+                                        // TODO Actually maybe we should just run this here...why not?
+                                        if let SignerKey::Policy(policy) = signer_key {
+                                            // Record if we used this signature for an authorization
+                                            if verifications[*i] == 0 {
+                                                verifications[*i] = 1;
+                                                policy.require_auth_for_args(vec![
+                                                    &env,
+                                                    // Putting the authorized context in the args to allow the policy to validate
+                                                    context.into_val(&env),
+                                                ]);
+                                            }
+                    
+                                            // NOTE We don't permit previous verifications to count as authorized in the case of policy signers as contexts could be different between calls
+                                            // e.g. We wouldn't want to authenticate a 1 stroop context which would then count towards a 1B XLM context
+                                            // This will require placing multiple `.set_auths` to cover all "duplicate" policy call instances. Which is good
+                                            // policy.require_auth_for_args(vec![
+                                            //     &env,
+                                            //     // Putting the authorized context in the args to allow the policy to validate
+                                            //     context.into_val(&env),
+                                            // ]);
+                                        } else {
+                                            panic_with_error!(env, Error::InvalidSignatureForSignerKey)
+                                        }
                                     }
                                     Some(signature) => {
                                         match signature {
@@ -306,8 +336,13 @@ impl CustomAccountInterface for Contract {
                                         }
 
                                         return verify_signer_limit_keys(
+                                            &env,
+                                            &signature_payload,
                                             &signatures,
+                                            &context,
                                             &signer_limits_keys,
+                                            &mut verifications,
+                                            i
                                         );
                                     }
                                     None => return false, // signer limitations not met
@@ -317,8 +352,13 @@ impl CustomAccountInterface for Contract {
                                 match signer_limits.get(env.current_contract_address()) {
                                     Some(signer_limits_keys) => {
                                         return verify_signer_limit_keys(
+                                            &env,
+                                            &signature_payload,
                                             &signatures,
+                                            &context,
                                             &signer_limits_keys,
+                                            &mut verifications,
+                                            i
                                         );
                                     }
                                     None => return false, // signer limitations not met
@@ -329,25 +369,35 @@ impl CustomAccountInterface for Contract {
 
             if let Some((i, (signer_key, signature))) = authorized_signature {
                 // Context is authorized, run policy if needed
+                // TODO why are we running this here vs in the signatures loop?
                 if let SignerKey::Policy(policy) = signer_key {
                     if signature.is_none() {
                         // Record if we used this signature for an authorization
                         if verifications[i] == 0 {
                             verifications[i] = 1;
+                            policy.require_auth_for_args(vec![
+                                &env,
+                                // Putting the authorized context in the args to allow the policy to validate
+                                context.into_val(&env),
+                            ]);
                         }
 
                         // NOTE We don't permit previous verifications to count as authorized in the case of policy signers as contexts could be different between calls
                         // e.g. We wouldn't want to authenticate a 1 stroop context which would then count towards a 1B XLM context
                         // This will require placing multiple `.set_auths` to cover all "duplicate" policy call instances. Which is good
-                        policy.require_auth_for_args(vec![
-                            &env,
-                            // Putting the authorized context in the args to allow the policy to validate
-                            context.into_val(&env),
-                        ]);
+                        // policy.require_auth_for_args(vec![
+                        //     &env,
+                        //     // Putting the authorized context in the args to allow the policy to validate
+                        //     context.into_val(&env),
+                        // ]);
                     } else {
                         panic_with_error!(env, Error::InvalidSignatureForSignerKey);
                     }
                 }
+                // else {
+                //     // TODO is it safe not to have an else that panics here?
+                //     // I think so, we just know we haven't called any policies yet so if the authorized signature is a policy, call it
+                // }
             } else {
                 panic_with_error!(env, Error::NotAuthorized);
             }
@@ -368,20 +418,122 @@ impl CustomAccountInterface for Contract {
 }
 
 fn verify_signer_limit_keys(
+    env: &Env,
+    signature_payload: &Hash<32>,
     signatures: &Map<SignerKey, Option<Signature>>,
+    context: &Context,
     signer_limits_keys: &Option<Vec<SignerKey>>,
+    verifications: &mut [u8; 20],
+    i: &usize
 ) -> bool {
     match signer_limits_keys {
         Some(signer_limits_keys) => {
             for signer_limits_key in signer_limits_keys.iter() {
-                if !signatures.contains_key(signer_limits_key) {
+                // TODO make this a get and use it
+                if !signatures.contains_key(signer_limits_key.clone()) {
                     return false; // if any required key is missing this signature is not authorized for this context
                 }
+
+                gross_ugly_very_wet_verifier(env, &signer_limits_key, signature_payload, signatures, context, verifications, i);
             }
+
+            // TODO we must ensure these found required signers actually get verified
+            // Right now there's a bug when the number of required signatures is greater than the auth contexts
 
             return true; // all required keys are present
         }
         None => return true, // no key limits
+    }
+}
+
+fn gross_ugly_very_wet_verifier(env: &Env, signer_key: &SignerKey, signature_payload: &Hash<32>, signatures: &Map<SignerKey, Option<Signature>>, context: &Context, verifications: &mut [u8; 20], i: &usize) {
+
+    // TODO should use `get_signer_val_storage` in order to bump the TTL of the keys
+    // as is this is actually a bit dangerous because we're allowing signing with keys that may not exist
+
+    match signatures.get(signer_key.clone()) {
+        None => panic_with_error!(env, Error::NotFound),
+        Some(signature) => {
+            match signature {
+                None => {
+                    if let SignerKey::Policy(policy) = signer_key {
+                        // Record if we used this signature for an authorization
+                        if verifications[*i] == 0 {
+                            verifications[*i] = 1;
+                            // TODO Is it safe to put this call inside the `if verifications[*i] == 0` statement?
+                            // If have a concern this will permit issues
+                            policy.require_auth_for_args(vec![
+                                &env,
+                                // Putting the authorized context in the args to allow the policy to validate
+                                context.into_val(env),
+                            ]);
+                        }
+
+                        // NOTE We don't permit previous verifications to count as authorized in the case of policy signers as contexts could be different between calls
+                        // e.g. We wouldn't want to authenticate a 1 stroop context which would then count towards a 1B XLM context
+                        // This will require placing multiple `.set_auths` to cover all "duplicate" policy call instances. Which is good
+                        // policy.require_auth_for_args(vec![
+                        //     &env,
+                        //     // Putting the authorized context in the args to allow the policy to validate
+                        //     context.into_val(env),
+                        // ]);
+                    } else {
+                        panic_with_error!(env, Error::InvalidSignatureForSignerKey)
+                    }
+                }
+                Some(signature) => {
+                    match signature {
+                        Signature::Ed25519(signature) => {
+                            if let SignerKey::Ed25519(public_key) = signer_key {
+                                if verifications[*i] == 0 {
+                                    verifications[*i] = 1;
+                                    env.crypto().ed25519_verify(
+                                        &public_key,
+                                        &signature_payload.clone().into(),
+                                        &signature,
+                                    );
+                                }
+                            } else {
+                                panic_with_error!(
+                                    env,
+                                    Error::SignatureKeyValueMismatch
+                                );
+                            }
+                        }
+                        Signature::Secp256r1(Secp256r1Signature {
+                            mut authenticator_data,
+                            client_data_json,
+                            signature,
+                        }) => {
+                            // TODO Move this up so it protects the whole function call so we don't end up signing for keys that don't exist on the smart wallet
+                            match get_signer_val_storage(&env, &signer_key, true) {
+                                None => panic_with_error!(env, Error::NotFound),
+                                Some((signer_val, _)) => {
+                                    if let SignerVal::Secp256r1(public_key, _) = signer_val {
+                                        if verifications[*i] == 0 {
+                                            verifications[*i] = 1;
+                                            verify_secp256r1_signature(
+                                                &env,
+                                                &public_key,
+                                                &mut authenticator_data,
+                                                &client_data_json,
+                                                &signature,
+                                                &signature_payload,
+                                            );
+                                        }
+                                    } else {
+                                        panic_with_error!(
+                                            env,
+                                            Error::SignatureKeyValueMismatch
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -163,12 +163,12 @@
 			const signer_limits: SignerLimits = [new Map()]
 			const signer_keys: SignerKey[] = []
 
-			signer_keys.push({
-				tag: "Policy",
-				values: [SAMPLE_POLICY],
-			})
+			// signer_keys.push({
+			// 	tag: "Policy",
+			// 	values: [SAMPLE_POLICY],
+			// })
 
-			signer_limits[0].set(NATIVE_SAC, signer_keys)
+			signer_limits[0].set(SAMPLE_POLICY, signer_keys)
 
 			const { built } = await account.wallet!.add({
 				signer: {
@@ -307,8 +307,9 @@
 		// TODO add the policy signature to this as well
 
 		// TODO Currently errors with two signatures since both aren't required
+		// After adding the context and signer restrictions to the ed25519 key I'm surprised this works
 		const sig = xdr.ScVal.scvMap([
-			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
+			// xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()), // TODO This key isn't required, but it passes when we included it. It shouldn't
 			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
 		])
 
