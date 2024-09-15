@@ -81,7 +81,7 @@ export class PasskeyServer extends PasskeyBase {
             kind: string,
             key: string, 
             val: string, 
-            type: string,
+            limits: string,
             expired?: boolean 
         }[]
     }

@@ -141,7 +141,14 @@ fn test() {
 
     wallet_client.mock_all_auths().add(&Signer::Ed25519(
         simple_ed25519_bytes,
-        SignerLimits(map![&env, (example_contract_address.clone(), None)]), // Simple ed25519 signer only works on sample policy
+        SignerLimits(map![&env, 
+            (
+                example_contract_address.clone(), // force example contract
+                // force sample policy signer (good way to ensure whatever example_contract_address does it clears the sample_policy)
+                Some(vec![&env, sample_policy_signer_key.clone()]) 
+            ),
+            // (sac_address.clone(), None),
+        ]), // Simple ed25519 signer only works on sample policy in tandel with the policy signer
         SignerStorage::Temporary,
     ));
 
@@ -150,8 +157,8 @@ fn test() {
         SignerLimits(map![
             &env,
             (
-                sac_address.clone(),
-                Some(vec![&env, simple_ed25519_signer_key.clone()])
+                sac_address.clone(), // force SAC
+                Some(vec![&env, simple_ed25519_signer_key.clone()]) // force simple ed25519 signer
             )
         ]), // Policy only works on SAC and only in tandem with simple ed25519 signer
         SignerStorage::Temporary,

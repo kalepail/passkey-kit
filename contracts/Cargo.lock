@@ -1631,7 +1631,6 @@ dependencies = [
  "soroban-sdk",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
- "webauthn-wallet",
 ]
 
 [[package]]
