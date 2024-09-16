@@ -30,7 +30,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CA7AMKXO2UVOIWHLCNNGQR2ZB6VCLKQR44SS42NGJOEYN4EUFTVLKSCC",
+    contractId: "CDYJAGTWL2RE3LAOH4B6UOA5TZWTMEFOG5M7FKJZTIIXGFBRJS53TI4C",
   }
 } as const
 
@@ -43,13 +43,7 @@ export const Errors = {
 
   4: { message: "JsonParseError" },
 
-  5: { message: "SignatureKeyValueMismatch" },
-
-  6: { message: "InvalidSignatureForSignerKey" },
-
-  7: { message: "TooManySignatures" },
-
-  8: { message: "ExtraSigners" }
+  5: { message: "SignatureKeyValueMismatch" }
 }
 export type SignerLimits = readonly [Map<string, Option<Array<SignerKey>>>];
 export type SignerKey = { tag: "Policy", values: readonly [string] } | { tag: "Ed25519", values: readonly [Buffer] } | { tag: "Secp256r1", values: readonly [Buffer] };
@@ -135,7 +129,7 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACAAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAA1Ob3RBdXRob3JpemVkAAAAAAAAAgAAAAAAAAAgQ2xpZW50RGF0YUpzb25DaGFsbGVuZ2VJbmNvcnJlY3QAAAADAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABAAAAAAAAAAZU2lnbmF0dXJlS2V5VmFsdWVNaXNtYXRjaAAAAAAAAAUAAAAAAAAAHEludmFsaWRTaWduYXR1cmVGb3JTaWduZXJLZXkAAAAGAAAAAAAAABFUb29NYW55U2lnbmF0dXJlcwAAAAAAAAcAAAAAAAAADEV4dHJhU2lnbmVycwAAAAg=",
+      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABQAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAA1Ob3RBdXRob3JpemVkAAAAAAAAAgAAAAAAAAAgQ2xpZW50RGF0YUpzb25DaGFsbGVuZ2VJbmNvcnJlY3QAAAADAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABAAAAAAAAAAZU2lnbmF0dXJlS2V5VmFsdWVNaXNtYXRjaAAAAAAAAAU=",
         "AAAAAQAAAAAAAAAAAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAATAAAAAAAAPsAAAAEwAAA+gAAAPqAAAH0AAAAAlTaWduZXJLZXkAAAA=",
         "AAAAAgAAAAAAAAAAAAAACVNpZ25lcktleQAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAATAAAAAQAAAAAAAAAHRWQyNTUxOQAAAAABAAAD7gAAACAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAABAAAADg==",
         "AAAAAgAAAAAAAAAAAAAACVNpZ25lclZhbAAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAfQAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAQAAB9AAAAAMU2lnbmVyTGltaXRzAAAAAQAAAAAAAAAJU2VjcDI1NnIxAAAAAAAAAgAAA+4AAABBAAAH0AAAAAxTaWduZXJMaW1pdHM=",

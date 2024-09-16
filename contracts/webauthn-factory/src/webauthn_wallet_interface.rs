@@ -71,7 +71,4 @@ pub enum Error {
     ClientDataJsonChallengeIncorrect = 3,
     JsonParseError = 4,
     SignatureKeyValueMismatch = 5,
-    InvalidSignatureForSignerKey = 6,
-    TooManySignatures = 7,
-    ExtraSigners = 8,
 }

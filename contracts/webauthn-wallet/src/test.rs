@@ -145,10 +145,14 @@ fn test() {
             (
                 example_contract_address.clone(), // force example contract
                 // force sample policy signer (good way to ensure whatever example_contract_address does it clears the sample_policy)
-                Some(vec![&env, sample_policy_signer_key.clone()]) 
+                Some(vec![&env, sample_policy_signer_key.clone()]) // including this opens up a requirement to call the sample policy with the example_contract_address "call" context
+                // None
             ),
-            // (sac_address.clone(), None),
-        ]), // Simple ed25519 signer only works on sample policy in tandel with the policy signer
+            // (
+            //     sac_address.clone(), 
+            //     Some(vec![&env, sample_policy_signer_key.clone()])
+            // ),
+        ]), // Simple ed25519 signer only works on sample policy in tandem with the policy signer
         SignerStorage::Temporary,
     ));
 
@@ -158,6 +162,7 @@ fn test() {
             &env,
             (
                 sac_address.clone(), // force SAC
+                // example_contract_address.clone(),
                 Some(vec![&env, simple_ed25519_signer_key.clone()]) // force simple ed25519 signer
             )
         ]), // Policy only works on SAC and only in tandem with simple ed25519 signer
@@ -363,6 +368,8 @@ fn test() {
     //     __check_auth.to_xdr_base64(Limits::none()).unwrap()
     // );
 
+    env.budget().reset_default();
+
     example_contract_client
         .set_auths(&[root_auth, __check_auth, __evil_check_auth])
         .call(
@@ -373,4 +380,6 @@ fn test() {
             // &remove_key,
             // &add_signer,
         );
+
+    // println!("{:?}", env.budget().print());
 }

@@ -8,10 +8,7 @@ pub enum Error {
     NotAuthorized = 2,
     ClientDataJsonChallengeIncorrect = 3,
     JsonParseError = 4,
-    SignatureKeyValueMismatch = 5, // TODO 5 and 6 are too similar
-    InvalidSignatureForSignerKey = 6,
-    TooManySignatures = 7,
-    ExtraSigners = 8,
+    SignatureKeyValueMismatch = 5,
 }
 
 #[contracttype]

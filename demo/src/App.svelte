@@ -163,10 +163,10 @@
 			const signer_limits: SignerLimits = [new Map()]
 			const signer_keys: SignerKey[] = []
 
-			// signer_keys.push({
-			// 	tag: "Policy",
-			// 	values: [SAMPLE_POLICY],
-			// })
+			signer_keys.push({
+				tag: "Policy",
+				values: [SAMPLE_POLICY],
+			})
 
 			signer_limits[0].set(SAMPLE_POLICY, signer_keys)
 
@@ -417,6 +417,11 @@
 		credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
 		credentials.signature(
 			xdr.ScVal.scvMap([
+				// TODO I think the only reason this works is because the ed25519 key is limited to a context that doesn't exist (so it signs but doesn't authenticate)
+				// so the check on ed25519 fails and it passes to the next signature which passes the SAC context check and the signer check 
+				// since it lists the ed25519 signer its signer limiter. So the ed25519 is signed and the policy is verified
+				// aka janky
+				// we need to be more cautious about optimistically verifying signatures
 				xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
 				new xdr.ScMapEntry({
 					key: xdr.ScVal.scvVec([
