@@ -30,19 +30,16 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBC7C2YAOQ2LLTR6V4KY7UDXEH5DJEVLUUQR2VQCF2EP57AUK5RKIKUO",
+    contractId: "CDYJAGTWL2RE3LAOH4B6UOA5TZWTMEFOG5M7FKJZTIIXGFBRJS53TI4C",
   }
 } as const
 
-export type Policy = readonly [string];
-export type Ed25519PublicKey = readonly [Buffer];
-export type Secp256r1Id = readonly [Buffer];
-export type Secp256r1PublicKey = readonly [Buffer];
+export type SignerLimits = readonly [Map<string, Option<Array<SignerKey>>>];
+export type SignerKey = { tag: "Policy", values: readonly [string] } | { tag: "Ed25519", values: readonly [Buffer] } | { tag: "Secp256r1", values: readonly [Buffer] };
+
 export type SignerStorage = { tag: "Persistent", values: void } | { tag: "Temporary", values: void };
 
-export type SignerType = { tag: "Admin", values: void } | { tag: "Basic", values: void } | { tag: "Policy", values: void };
-
-export type Signer = { tag: "Policy", values: readonly [Policy, SignerStorage, SignerType] } | { tag: "Ed25519", values: readonly [Ed25519PublicKey, SignerStorage, SignerType] } | { tag: "Secp256r1", values: readonly [Secp256r1Id, Secp256r1PublicKey, SignerStorage, SignerType] };
+export type Signer = { tag: "Policy", values: readonly [string, SignerLimits, SignerStorage] } | { tag: "Ed25519", values: readonly [Buffer, SignerLimits, SignerStorage] } | { tag: "Secp256r1", values: readonly [Buffer, Buffer, SignerLimits, SignerStorage] };
 
 export const Errors = {
   1: { message: "NotInitialized" },
@@ -95,13 +92,10 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(["AAAAAQAAAAAAAAAAAAAABlBvbGljeQAAAAAAAQAAAAAAAAABMAAAAAAAABM=",
-        "AAAAAQAAAAAAAAAAAAAAEEVkMjU1MTlQdWJsaWNLZXkAAAABAAAAAAAAAAEwAAAAAAAD7gAAACA=",
-        "AAAAAQAAAAAAAAAAAAAAC1NlY3AyNTZyMUlkAAAAAAEAAAAAAAAAATAAAAAAAAAO",
-        "AAAAAQAAAAAAAAAAAAAAElNlY3AyNTZyMVB1YmxpY0tleQAAAAAAAQAAAAAAAAABMAAAAAAAA+4AAABB",
+      new ContractSpec(["AAAAAQAAAAAAAAAAAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAATAAAAAAAAPsAAAAEwAAA+gAAAPqAAAH0AAAAAlTaWduZXJLZXkAAAA=",
+        "AAAAAgAAAAAAAAAAAAAACVNpZ25lcktleQAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAATAAAAAQAAAAAAAAAHRWQyNTUxOQAAAAABAAAD7gAAACAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAABAAAADg==",
         "AAAAAgAAAAAAAAAAAAAADVNpZ25lclN0b3JhZ2UAAAAAAAACAAAAAAAAAAAAAAAKUGVyc2lzdGVudAAAAAAAAAAAAAAAAAAJVGVtcG9yYXJ5AAAA",
-        "AAAAAgAAAAAAAAAAAAAAClNpZ25lclR5cGUAAAAAAAMAAAAAAAAAAAAAAAVBZG1pbgAAAAAAAAAAAAAAAAAABUJhc2ljAAAAAAAAAAAAAAAAAAAGUG9saWN5AAA=",
-        "AAAAAgAAAAAAAAAAAAAABlNpZ25lcgAAAAAAAwAAAAEAAAAAAAAABlBvbGljeQAAAAAAAwAAB9AAAAAGUG9saWN5AAAAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAAAAAfQAAAAClNpZ25lclR5cGUAAAAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAwAAB9AAAAAQRWQyNTUxOVB1YmxpY0tleQAAB9AAAAANU2lnbmVyU3RvcmFnZQAAAAAAB9AAAAAKU2lnbmVyVHlwZQAAAAAAAQAAAAAAAAAJU2VjcDI1NnIxAAAAAAAABAAAB9AAAAALU2VjcDI1NnIxSWQAAAAH0AAAABJTZWNwMjU2cjFQdWJsaWNLZXkAAAAAB9AAAAANU2lnbmVyU3RvcmFnZQAAAAAAB9AAAAAKU2lnbmVyVHlwZQAA",
+        "AAAAAgAAAAAAAAAAAAAABlNpZ25lcgAAAAAAAwAAAAEAAAAAAAAABlBvbGljeQAAAAAAAwAAABMAAAfQAAAADFNpZ25lckxpbWl0cwAAB9AAAAANU2lnbmVyU3RvcmFnZQAAAAAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAwAAA+4AAAAgAAAH0AAAAAxTaWduZXJMaW1pdHMAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAAEAAAADgAAA+4AAABBAAAH0AAAAAxTaWduZXJMaW1pdHMAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAA=",
         "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAg==",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAACAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAABnNpZ25lcgAAAAAH0AAAAAZTaWduZXIAAAAAAAEAAAPpAAAAEwAAAAM="]),

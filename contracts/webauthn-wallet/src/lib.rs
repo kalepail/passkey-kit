@@ -1,15 +1,9 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface},
-    contract, contractimpl,
-    crypto::Hash,
-    panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, Symbol, Vec,
+    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, map, panic_with_error, symbol_short, vec, Address, Bytes, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec
 };
-use types::{
-    Ed25519Signature, Error, PolicySignature, Secp256r1PublicKey, Secp256r1Signature, Signature,
-    Signer, SignerKey, SignerStorage, SignerType, SignerVal,
-};
+use types::{Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerLimits, SignerStorage, SignerVal};
 
 mod base64_url;
 pub mod types;
@@ -21,48 +15,36 @@ pub struct Contract;
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
-const PERSISTENT_ADMIN_SIGNER_COUNT: Symbol = symbol_short!("p_admin");
+const SIGNER_COUNT: Symbol = symbol_short!("signers");
 
 #[contractimpl]
 impl Contract {
     pub fn add(env: Env, signer: Signer) -> Result<(), Error> {
-        if env.storage().instance().has(&PERSISTENT_ADMIN_SIGNER_COUNT) {
+        if env.storage().instance().has(&SIGNER_COUNT) {
             env.current_contract_address().require_auth();
         }
 
-        let signer_key: SignerKey;
-        let signer_val: SignerVal;
         let max_ttl = env.storage().max_ttl();
 
-        let signer_storage = match signer {
-            Signer::Policy(policy, signer_storage, signer_type) => {
-                signer_key = SignerKey::Policy(policy);
-                signer_val = SignerVal::Policy(signer_type.clone());
-                signer_storage
-            }
-            Signer::Ed25519(public_key, signer_storage, signer_type) => {
-                signer_key = SignerKey::Ed25519(public_key);
-                signer_val = SignerVal::Ed25519(signer_type.clone());
-                signer_storage
-            }
-            Signer::Secp256r1(id, public_key, signer_storage, signer_type) => {
-                signer_key = SignerKey::Secp256r1(id);
-                signer_val = SignerVal::Secp256r1(public_key, signer_type.clone());
-                signer_storage
-            }
+        let (signer_key, signer_val, signer_storage) = match signer {
+            Signer::Policy(policy, signer_limits, signer_storage) => (
+                SignerKey::Policy(policy),
+                SignerVal::Policy(signer_limits),
+                signer_storage,
+            ),
+            Signer::Ed25519(public_key, signer_limits, signer_storage) => (
+                SignerKey::Ed25519(public_key),
+                SignerVal::Ed25519(signer_limits),
+                signer_storage,
+            ),
+            Signer::Secp256r1(id, public_key, signer_limits, signer_storage) => (
+                SignerKey::Secp256r1(id),
+                SignerVal::Secp256r1(public_key, signer_limits),
+                signer_storage,
+            ),
         };
 
-        let signer_type = get_signer_type(&signer_val);
-
-        store_signer(
-            &env,
-            &signer_key,
-            &signer_val,
-            &signer_storage,
-            &signer_type,
-        );
-
-        ensure_persistent_admin_signer(&env);
+        store_signer(&env, &signer_key, &signer_val, &signer_storage);
 
         env.storage()
             .instance()
@@ -76,16 +58,8 @@ impl Contract {
     pub fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
-        if let Some((_, signer_storage, signer_type)) =
-            get_signer_val_storage_type(&env, &signer_key, false)
-        {
-            let is_persistent = signer_storage == SignerStorage::Persistent;
-            let is_admin = signer_type == SignerType::Admin;
-            let is_persistent_admin = is_persistent && is_admin;
-
-            if is_persistent_admin {
-                update_persistent_admin_signer_count(&env, false);
-            }
+        if let Some((_, signer_storage)) = get_signer_val_storage(&env, &signer_key, false) {
+            update_signer_count(&env, false);
 
             match signer_storage {
                 SignerStorage::Persistent => {
@@ -96,8 +70,6 @@ impl Contract {
                 }
             }
         }
-
-        ensure_persistent_admin_signer(&env);
 
         let max_ttl = env.storage().max_ttl();
 
@@ -130,13 +102,12 @@ fn store_signer(
     signer_key: &SignerKey,
     signer_val: &SignerVal,
     signer_storage: &SignerStorage,
-    signer_type: &SignerType,
 ) {
     let max_ttl = env.storage().max_ttl();
 
     // Include this before the `.set` calls so it doesn't read them as previous values
-    let previous_signer_val_and_storage: Option<(SignerVal, SignerStorage, SignerType)> =
-        get_signer_val_storage_type(env, signer_key, false);
+    let previous_signer_val_and_storage: Option<(SignerVal, SignerStorage)> =
+        get_signer_val_storage(env, signer_key, false);
 
     // Add and extend the signer key in the appropriate storage
     let is_persistent = match signer_storage {
@@ -165,70 +136,38 @@ fn store_signer(
             false
         }
     };
-    let is_admin = *signer_type == SignerType::Admin;
-    let is_persistent_admin = is_persistent && is_admin;
 
-    if let Some((_, previous_signer_storage, previous_signer_type)) =
-        previous_signer_val_and_storage
-    {
+    if let Some((_, previous_signer_storage)) = previous_signer_val_and_storage {
         // Remove signer key in the opposing storage if it exists
-        let previous_is_persistent = match previous_signer_storage {
+        match previous_signer_storage {
             SignerStorage::Persistent => {
                 if !is_persistent {
                     env.storage().persistent().remove::<SignerKey>(signer_key);
                 }
-
-                true
             }
             SignerStorage::Temporary => {
                 if is_persistent {
                     env.storage().temporary().remove::<SignerKey>(signer_key);
                 }
-
-                false
             }
-        };
-        let previous_is_admin = previous_signer_type == SignerType::Admin;
-        let previous_is_persistent_admin = previous_is_persistent && previous_is_admin;
-
-        // If the previous key was a persistent admin signer but the new key is not, we need to decrement the persistent admin signer count
-        if previous_is_persistent_admin && !is_persistent_admin {
-            update_persistent_admin_signer_count(&env, false);
         }
-        // Otherwise if the new key is a persistent admin, we need to increment the persistent admin signer count
-        else if is_persistent_admin {
-            update_persistent_admin_signer_count(&env, true);
-        }
-    }
-    // If there's no previous entry and the new entry is a persistent admin signer, we need to increment the persistent admin signer count
-    else if is_persistent_admin {
-        update_persistent_admin_signer_count(&env, true);
+    } else {
+        // only need to update the signer count here if we're actually adding vs replacing a signer
+        update_signer_count(&env, true);
     }
 }
 
-fn ensure_persistent_admin_signer(env: &Env) {
-    if env
-        .storage()
-        .instance()
-        .get::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT)
-        .unwrap_or_else(|| panic_with_error!(env, Error::NotFound))
-        <= 0
-    {
-        panic_with_error!(env, Error::RequirePersistentAdmin)
-    }
-}
-
-fn update_persistent_admin_signer_count(env: &Env, add: bool) {
+fn update_signer_count(env: &Env, add: bool) {
     let count = env
         .storage()
         .instance()
-        .get::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT)
+        .get::<Symbol, i32>(&SIGNER_COUNT)
         .unwrap_or(0)
         + if add { 1 } else { -1 };
 
     env.storage()
         .instance()
-        .set::<Symbol, i32>(&PERSISTENT_ADMIN_SIGNER_COUNT, &count);
+        .set::<Symbol, i32>(&SIGNER_COUNT, &count);
 }
 
 #[derive(serde::Deserialize)]
@@ -239,16 +178,169 @@ struct ClientDataJson<'a> {
 #[contractimpl]
 impl CustomAccountInterface for Contract {
     type Error = Error;
-    type Signature = Vec<Signature>;
+    type Signature = Map<SignerKey, Option<Signature>>;
 
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
         signature_payload: Hash<32>,
-        signatures: Vec<Signature>,
+        signatures: Map<SignerKey, Option<Signature>>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        verify_signatures(&env, &signature_payload, &signatures, &auth_contexts);
+        let mut signature_signer_limits: Map<SignerKey, SignerLimits> = map![&env];
+
+        for (signer_key, signature) in signatures.iter() {
+            match get_signer_val_storage(&env, &signer_key, true) {
+                None => panic_with_error!(env, Error::NotFound),
+                Some((signer_val, _)) => {
+                    match signature {
+                        None => {
+                            if let SignerKey::Policy(policy) = &signer_key {
+                                if let SignerVal::Policy(signer_limits) = signer_val {
+                                    if signature.is_none() {
+                                        signature_signer_limits.set(signer_key, signer_limits);
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
+                        }
+                        Some(signature) => {
+                            match signature {
+                                Signature::Ed25519(signature) => {
+                                    if let SignerKey::Ed25519(public_key) = &signer_key {
+                                        if let SignerVal::Ed25519(signer_limits) = signer_val { 
+                                            env.crypto().ed25519_verify(
+                                                &public_key,
+                                                &signature_payload.clone().into(),
+                                                &signature,
+                                            );
+                                            signature_signer_limits.set(signer_key, signer_limits);
+                                            continue;
+                                        }
+                                    }
+
+                                    panic_with_error!(&env, Error::SignatureKeyValueMismatch)
+                                }
+                                Signature::Secp256r1(Secp256r1Signature {
+                                    mut authenticator_data,
+                                    client_data_json,
+                                    signature,
+                                }) => {
+                                    if let SignerKey::Secp256r1(id) = &signer_key {
+                                        if let SignerVal::Secp256r1(public_key, signer_limits) = signer_val {
+                                            verify_secp256r1_signature(
+                                                &env,
+                                                &public_key,
+                                                &mut authenticator_data,
+                                                &client_data_json,
+                                                &signature,
+                                                &signature_payload,
+                                            );
+                                            signature_signer_limits.set(signer_key, signer_limits);
+                                            continue;
+                                        }
+                                    }
+
+                                    panic_with_error!(&env, Error::SignatureKeyValueMismatch)
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+        }
+
+        for context in auth_contexts.iter() {
+            let authorized_signature = 'check: loop {
+                for (signer_key, signature) in signatures.iter() {
+                    let signer_limits = signature_signer_limits.get_unchecked(signer_key.clone()).0;
+
+                    // If this signature has no limits then yes it's authorized
+                    if signer_limits.is_empty() {
+                        break 'check Some((signer_key, signature));
+                    }
+
+                    match &context {
+                        Context::Contract(ContractContext {
+                            contract,
+                            fn_name,
+                            args,
+                        }) => {
+                            match signer_limits.get(contract.clone()) {
+                                None => continue, // signer limitations not met
+                                Some(signer_limits_keys) => {
+                                    // If this signer has a smart wallet context limit, limit that context to only removing itself
+                                    if *contract == env.current_contract_address()
+                                        && *fn_name != symbol_short!("remove")
+                                        || (*fn_name == symbol_short!("remove")
+                                            && SignerKey::from_val(
+                                                &env,
+                                                &args.get_unchecked(0),
+                                            ) != signer_key)
+                                    {
+                                        continue; // self trying to do something other than remove itself
+                                    }
+
+                                    if verify_signer_limit_keys(
+                                        &signatures,
+                                        &signer_limits_keys,
+                                    ) {
+                                        break 'check Some((signer_key, signature));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                        Context::CreateContractHostFn(_) => {
+                            match signer_limits.get(env.current_contract_address()) {
+                                None => break 'check None, // signer limitations not met
+                                Some(signer_limits_keys) => {
+                                    if verify_signer_limit_keys(
+                                        &signatures,
+                                        &signer_limits_keys,
+                                    ) {
+                                        break 'check Some((signer_key, signature));
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            if authorized_signature.is_none() {
+                panic_with_error!(env, Error::NotAuthorized);   
+            } else {
+                if let Some((signer_key, signature)) = authorized_signature {
+                    if let SignerKey::Policy(policy) = signer_key {
+                        if signature.is_none() {
+
+                            // match &context {
+                            //     Context::Contract(ContractContext { contract, fn_name, args }) => {
+                            //         println!("Contract: {:?}", contract);
+                            //         println!("Fn Name: {:?}", fn_name);
+                            //         println!("Args: {:?}", args);
+                            //     }
+                            //     _ => {}
+                            // }
+
+                            policy.require_auth_for_args(vec![
+                                &env,
+                                // Putting the authorized context in the args to allow the policy to validate
+                                context.into_val(&env),
+                            ]);
+                        } else {
+                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
+                        }
+                    }
+                }
+            }
+        }
 
         let max_ttl = env.storage().max_ttl();
 
@@ -260,153 +352,29 @@ impl CustomAccountInterface for Contract {
     }
 }
 
-fn verify_signatures(
-    env: &Env,
-    signature_payload: &Hash<32>,
-    signatures: &Vec<Signature>,
-    auth_contexts: &Vec<Context>,
-) {
-    // NOTE since we're looping signatures vs auth_contexts every signatures must be valid for every auth_context.
-    // e.g. You could have an admin signer but still fail to create a key if you're also including a Policy or Basic signer in the signatures array
-    // I think this is what I want and what we'd expect but it's worth noting
-    for signature in signatures.iter() {
-        match signature {
-            Signature::Policy(policy) => {
-                let PolicySignature {
-                    policy,
-                    signer_keys,
-                } = policy;
-
-                let signer_key = SignerKey::Policy(policy.clone());
-
-                // Very important otherwise policies could execute without any smart wallet signers 
-                // making it very difficult to ensure they can pass safely
-                if signer_keys.len() == 0 {
-                    panic_with_error!(env, Error::MissingSignerKeys);
-                }
-
-                for policy_signer_key in signer_keys.iter() {
-                    if get_signer_val_storage_type(env, &policy_signer_key, true).is_none()
-                    {
-                        panic_with_error!(env, Error::NotFound);
-                    }
-                }
-
-                match get_signer_val_storage_type(env, &signer_key, true) {
-                    Some((_, _, signer_type)) => {
-                        verify_signer(env, &signer_type, &signer_key, auth_contexts);
-
-                        // NOTE keep in mind secp256r1 signer_keys don't contain the public key, just the id, 
-                        // So in a policy utilizing secp256r1 signers we'd need to pass in the public key as part of the signature (which our Signature type here doesn't do)
-                        // I think I'm fine with this as looking up the public key on chain via the id to craft a signature is entirely doable
-                        // Trying to parse it out and include it in the require_auth_for_args array wouldn't actually save us a look up either as we'd still have to include it in order to generate a valid __check_auth signature
-                        policy.0.require_auth_for_args(vec![
-                            &env,
-                            // Putting signer_keys in the args ensures policies can ensure these keys are actually used as signatures in the policy
-                            signer_keys.to_val(),
-                            // Putting auth_contexts in the args allows policies to inspect invocations contexts
-                            auth_contexts.to_val(),
-                        ]);
-                    }
-                    None => panic_with_error!(env, Error::NotFound),
+fn verify_signer_limit_keys(
+    signatures: &Map<SignerKey, Option<Signature>>,
+    signer_limits_keys: &Option<Vec<SignerKey>>,
+) -> bool {
+    match signer_limits_keys {
+        None => return true, // no key limits
+        Some(signer_limits_keys) => {
+            for signer_limits_key in signer_limits_keys.iter() {
+                if !signatures.contains_key(signer_limits_key) {
+                    return false; // if any required key is missing this signature is not authorized for this context
                 }
             }
-            Signature::Ed25519(signature) => {
-                let Ed25519Signature {
-                    public_key,
-                    signature,
-                } = signature;
 
-                let signer_key = SignerKey::Ed25519(public_key.clone());
-
-                match get_signer_val_storage_type(&env, &signer_key, true) {
-                    Some((_, _, signer_type)) => {
-                        verify_signer(env, &signer_type, &signer_key, auth_contexts);
-
-                        env.crypto().ed25519_verify(
-                            &public_key.0,
-                            &signature_payload.clone().into(),
-                            &signature,
-                        );
-                    }
-                    None => panic_with_error!(env, Error::NotFound),
-                }
-            }
-            Signature::Secp256r1(signature) => {
-                let Secp256r1Signature {
-                    mut authenticator_data,
-                    client_data_json,
-                    id,
-                    signature,
-                } = signature;
-
-                let signer_key = SignerKey::Secp256r1(id);
-
-                match get_signer_val_storage_type(&env, &signer_key, true) {
-                    Some((signer_val, _, signer_type)) => {
-                        verify_signer(env, &signer_type, &signer_key, auth_contexts);
-
-                        let public_key = if let SignerVal::Secp256r1(public_key, ..) = &signer_val {
-                            public_key
-                        } else {
-                            panic_with_error!(env, Error::NotFound)
-                        };
-
-                        verify_secp256r1_signature(
-                            env,
-                            &public_key,
-                            &mut authenticator_data,
-                            &client_data_json,
-                            &signature,
-                            signature_payload,
-                        );
-                    }
-                    None => panic_with_error!(env, Error::NotFound),
-                }
-            }
+            return true; // all required keys are present
         }
     }
 }
 
-fn verify_signer(
-    env: &Env,
-    signer_type: &SignerType,
-    signer_key: &SignerKey,
-    auth_contexts: &Vec<Context>,
-) {
-    match signer_type {
-        SignerType::Admin => {}
-        SignerType::Basic => {
-            for context in auth_contexts.iter() {
-                match context {
-                    Context::Contract(ContractContext {
-                        contract,
-                        fn_name,
-                        args,
-                    }) => {
-                        // If we're a Basic signer calling our own smart wallet contract we can only call remove and only for our own key
-                        if contract == env.current_contract_address()
-                            && fn_name != symbol_short!("remove")
-                            || (fn_name == symbol_short!("remove")
-                                && SignerKey::from_val(env, &args.get_unchecked(0)) != *signer_key)
-                        {
-                        }
-                    }
-                    Context::CreateContractHostFn(_) => {}
-                }
-            }
-        }
-        SignerType::Policy => {
-            panic_with_error!(env, Error::NotAuthorized);
-        }
-    }
-}
-
-fn get_signer_val_storage_type(
+fn get_signer_val_storage(
     env: &Env,
     signer_key: &SignerKey,
     extend_ttl: bool,
-) -> Option<(SignerVal, SignerStorage, SignerType)> {
+) -> Option<(SignerVal, SignerStorage)> {
     let max_ttl = env.storage().max_ttl();
 
     match env
@@ -415,8 +383,6 @@ fn get_signer_val_storage_type(
         .get::<SignerKey, SignerVal>(signer_key)
     {
         Some(signer_val) => {
-            let signer_type = get_signer_type(&signer_val);
-
             if extend_ttl {
                 env.storage().temporary().extend_ttl::<SignerKey>(
                     signer_key,
@@ -425,7 +391,7 @@ fn get_signer_val_storage_type(
                 );
             }
 
-            Some((signer_val, SignerStorage::Temporary, signer_type))
+            Some((signer_val, SignerStorage::Temporary))
         }
         None => {
             match env
@@ -434,8 +400,6 @@ fn get_signer_val_storage_type(
                 .get::<SignerKey, SignerVal>(signer_key)
             {
                 Some(signer_val) => {
-                    let signer_type = get_signer_type(&signer_val);
-
                     if extend_ttl {
                         env.storage().persistent().extend_ttl::<SignerKey>(
                             signer_key,
@@ -444,7 +408,7 @@ fn get_signer_val_storage_type(
                         );
                     }
 
-                    Some((signer_val, SignerStorage::Persistent, signer_type))
+                    Some((signer_val, SignerStorage::Persistent))
                 }
                 None => None,
             }
@@ -452,17 +416,9 @@ fn get_signer_val_storage_type(
     }
 }
 
-fn get_signer_type(signer_val: &SignerVal) -> SignerType {
-    match signer_val {
-        SignerVal::Policy(signer_type) => signer_type.clone(),
-        SignerVal::Ed25519(signer_type) => signer_type.clone(),
-        SignerVal::Secp256r1(_, signer_type) => signer_type.clone(),
-    }
-}
-
 fn verify_secp256r1_signature(
     env: &Env,
-    public_key: &Secp256r1PublicKey,
+    public_key: &BytesN<65>,
     authenticator_data: &mut Bytes,
     client_data_json: &Bytes,
     signature: &BytesN<64>,
@@ -471,7 +427,7 @@ fn verify_secp256r1_signature(
     authenticator_data.extend_from_array(&env.crypto().sha256(&client_data_json).to_array());
 
     env.crypto().secp256r1_verify(
-        &public_key.0,
+        &public_key,
         &env.crypto().sha256(&authenticator_data),
         &signature,
     );

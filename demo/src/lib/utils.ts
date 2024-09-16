@@ -1,6 +1,6 @@
 import type { xdr } from "@stellar/stellar-sdk";
 
-export const lexicographicalSortNumbers = (arr: [number[], xdr.ScVal][]) => arr.sort(([a], [b]) => {
+export const lexicographicalSort = (arr: [number[], xdr.ScVal][]) => arr.sort(([a], [b]) => {
     const len = Math.min(a.length, b.length);
     
     for (let i = 0; i < len; i++) {

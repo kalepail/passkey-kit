@@ -1,7 +1,6 @@
 #![no_std]
 
 use soroban_sdk::{contract, contractimpl, token, Address, Env};
-use webauthn_wallet::types::{Signer, SignerKey};
 
 #[contract]
 pub struct Contract;
@@ -14,11 +13,12 @@ impl Contract {
         from: Address,
         to: Address,
         amount: i128,
-        signer_key: SignerKey,
-        signer: Signer,
+        // signer_key: SignerKey,
+        // signer: Signer,
     ) {
         from.require_auth();
         token::Client::new(&env, &sac).transfer(&from, &to, &amount);
+        token::Client::new(&env, &sac).transfer(&from, &to, &10_000_00);
         // webauthn_wallet::ContractClient::new(&env, &from).remove(&signer_key);
         // webauthn_wallet::ContractClient::new(&env, &from).add(&signer);
     }
