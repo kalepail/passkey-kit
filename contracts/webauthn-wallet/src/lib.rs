@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, map, panic_with_error, symbol_short, vec, Address, Bytes, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec
+    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec
 };
 use types::{Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerLimits, SignerStorage, SignerVal};
 
@@ -187,8 +187,6 @@ impl CustomAccountInterface for Contract {
         signatures: Map<SignerKey, Option<Signature>>,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // let mut signature_signer_limits: Map<SignerKey, SignerLimits> = map![&env];
-
         for (signer_key, signature) in signatures.iter() {
             match get_signer_val_storage(&env, &signer_key, true) {
                 None => panic_with_error!(env, Error::NotFound),
@@ -198,7 +196,6 @@ impl CustomAccountInterface for Contract {
                             if let SignerKey::Policy(policy) = &signer_key {
                                 if let SignerVal::Policy(signer_limits) = signer_val {
                                     if signature.is_none() {
-                                        // signature_signer_limits.set(signer_key, signer_limits);
                                         verify_contexts(&env, &auth_contexts, &signatures, &signer_key, &signer_limits);
                                         continue;
                                     }
@@ -217,7 +214,6 @@ impl CustomAccountInterface for Contract {
                                                 &signature_payload.clone().into(),
                                                 &signature,
                                             );
-                                            // signature_signer_limits.set(signer_key, signer_limits);
                                             verify_contexts(&env, &auth_contexts, &signatures, &signer_key, &signer_limits);
                                             continue;
                                         }
@@ -240,7 +236,6 @@ impl CustomAccountInterface for Contract {
                                                 &signature,
                                                 &signature_payload,
                                             );
-                                            // signature_signer_limits.set(signer_key, signer_limits);
                                             verify_contexts(&env, &auth_contexts, &signatures, &signer_key, &signer_limits);
                                             continue;
                                         }
@@ -254,96 +249,6 @@ impl CustomAccountInterface for Contract {
                 }
             };
         }
-
-        // for context in auth_contexts.iter() {
-        //     let authorized_signature = 'check: loop {
-        //         for (signer_key, signature) in signatures.iter() {
-        //             let signer_limits = signature_signer_limits.get_unchecked(signer_key.clone()).0;
-
-        //             // If this signature has no limits then yes it's authorized
-        //             if signer_limits.is_empty() {
-        //                 break 'check Some((signer_key, signature));
-        //             }
-
-        //             match &context {
-        //                 Context::Contract(ContractContext {
-        //                     contract,
-        //                     fn_name,
-        //                     args,
-        //                 }) => {
-        //                     match signer_limits.get(contract.clone()) {
-        //                         None => continue, // signer limitations not met
-        //                         Some(signer_limits_keys) => {
-        //                             // If this signer has a smart wallet context limit, limit that context to only removing itself
-        //                             if *contract == env.current_contract_address()
-        //                                 && *fn_name != symbol_short!("remove")
-        //                                 || (*fn_name == symbol_short!("remove")
-        //                                     && SignerKey::from_val(
-        //                                         &env,
-        //                                         &args.get_unchecked(0),
-        //                                     ) != signer_key)
-        //                             {
-        //                                 continue; // self trying to do something other than remove itself
-        //                             }
-
-        //                             if verify_signer_limit_keys(
-        //                                 &signatures,
-        //                                 &signer_limits_keys,
-        //                             ) {
-        //                                 break 'check Some((signer_key, signature));
-        //                             } else {
-        //                                 continue;
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //                 Context::CreateContractHostFn(_) => {
-        //                     match signer_limits.get(env.current_contract_address()) {
-        //                         None => break 'check None, // signer limitations not met
-        //                         Some(signer_limits_keys) => {
-        //                             if verify_signer_limit_keys(
-        //                                 &signatures,
-        //                                 &signer_limits_keys,
-        //                             ) {
-        //                                 break 'check Some((signer_key, signature));
-        //                             } else {
-        //                                 continue;
-        //                             }
-        //                         }
-        //                     }
-        //                 }
-        //             }
-        //         }
-        //     };
-
-        //     if authorized_signature.is_none() {
-        //         panic_with_error!(env, Error::NotAuthorized);   
-        //     } else {
-        //         if let Some((signer_key, signature)) = authorized_signature {
-        //             if let SignerKey::Policy(policy) = signer_key {
-        //                 if signature.is_none() {
-
-        //                     // match &context {
-        //                     //     Context::Contract(ContractContext { contract, fn_name, args }) => {
-        //                     //         println!("Contract: {:?}", contract);
-        //                     //         println!("Fn Name: {:?}", fn_name);
-        //                     //         println!("Args: {:?}", args);
-        //                     //     }
-        //                     //     _ => {}
-        //                     // }
-
-        //                     policy.require_auth_for_args(vec![
-        //                         &env,
-        //                         // Putting the authorized context in the args to allow the policy to validate
-        //                         context.into_val(&env),
-        //                     ]);
-        //                 } else {
-        //                     panic_with_error!(&env, Error::SignatureKeyValueMismatch)
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
 
         let max_ttl = env.storage().max_ttl();
 
@@ -392,6 +297,7 @@ fn verify_contexts(
                             }
 
                             if verify_signer_limit_keys(
+                                env,
                                 signatures,
                                 &signer_limits_keys,
                             ) {
@@ -407,6 +313,7 @@ fn verify_contexts(
                         None => continue, // signer limitations not met
                         Some(signer_limits_keys) => {
                             if verify_signer_limit_keys(
+                                env,
                                 signatures,
                                 &signer_limits_keys,
                             ) {
@@ -419,6 +326,8 @@ fn verify_contexts(
                 }
             }
         }
+
+        break 'check None;
     };
 
     match authorized_context {
@@ -445,6 +354,7 @@ fn verify_contexts(
 }
 
 fn verify_signer_limit_keys(
+    env: &Env,
     signatures: &Map<SignerKey, Option<Signature>>,
     signer_limits_keys: &Option<Vec<SignerKey>>,
 ) -> bool {
@@ -453,7 +363,8 @@ fn verify_signer_limit_keys(
         Some(signer_limits_keys) => {
             for signer_limits_key in signer_limits_keys.iter() {
                 if !signatures.contains_key(signer_limits_key) {
-                    return false; // if any required key is missing this signature is not authorized for this context
+                    // return false; // if any required key is missing this signature is not authorized for this context
+                    panic_with_error!(env, Error::NotAuthorized);
                 }
             }
 

@@ -168,7 +168,8 @@
 				values: [SAMPLE_POLICY],
 			})
 
-			signer_limits[0].set(SAMPLE_POLICY, signer_keys)
+			// TODO support a case where we can limit just `signer_keys` by putting the context as the smart wallet address
+			signer_limits[0].set(NATIVE_SAC, signer_keys)
 
 			const { built } = await account.wallet!.add({
 				signer: {
@@ -305,6 +306,60 @@
 		// console.log(ed25519_sig.map()?.pop()?.toXDR());
 
 		// TODO add the policy signature to this as well
+		const __check_auth_args = new xdr.InvokeContractArgs({
+			contractAddress: Address.fromString(contractId).toScAddress(),
+			functionName: "__check_auth",
+			args: [
+				xdr.ScVal.scvVec([
+					xdr.ScVal.scvSymbol("Contract"),
+					xdr.ScVal.scvMap([
+						new xdr.ScMapEntry({
+							key: xdr.ScVal.scvSymbol("args"),
+							val: xdr.ScVal.scvVec(
+								secp256r1_auth.rootInvocation().function().contractFn().args()
+							),
+						}),
+						new xdr.ScMapEntry({
+							key: xdr.ScVal.scvSymbol("contract"),
+							val: Address.contract(
+								secp256r1_auth.rootInvocation().function().contractFn().contractAddress().contractId(),
+							).toScVal(),
+						}),
+						new xdr.ScMapEntry({
+							key: xdr.ScVal.scvSymbol("fn_name"),
+							val: xdr.ScVal.scvSymbol(
+								secp256r1_auth.rootInvocation().function().contractFn().functionName(),
+							),
+						}),
+					]),
+				]),
+			],
+		});
+
+		const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
+			function:
+				xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+					__check_auth_args,
+				),
+			subInvocations: [],
+		});
+
+		const { sequence } = await account.rpc.getLatestLedger();
+		const nonce = new xdr.Int64(Math.random().toString().substring(2));
+		const __check_auth = new xdr.SorobanAuthorizationEntry({
+			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
+				new xdr.SorobanAddressCredentials({
+					address:
+						Address.fromString(SAMPLE_POLICY).toScAddress(),
+					nonce,
+					signatureExpirationLedger: sequence + DEFAULT_LTL,
+					signature: xdr.ScVal.scvVec([]),
+				}),
+			),
+			rootInvocation: __check_auth_invocation,
+		});
+
+		(built!.operations[0] as Operation.InvokeHostFunction).auth?.push(__check_auth);
 
 		// TODO Currently errors with two signatures since both aren't required
 		// After adding the context and signer restrictions to the ed25519 key I'm surprised this works
@@ -315,6 +370,13 @@
 				// A) required context wasn't included or
 				// B) required signer_keys for that context weren't included in the signatures list
 			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
+			new xdr.ScMapEntry({
+				key: xdr.ScVal.scvVec([
+					xdr.ScVal.scvSymbol('Policy'),
+					Address.fromString(SAMPLE_POLICY).toScVal(),
+				]),
+				val: xdr.ScVal.scvVoid()
+			}),
 			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
 		])
 
@@ -370,6 +432,7 @@
 				}
 			}
 
+			// NOTE won't work as the ed25519 signer has a policy signer_key restriction
 			const res = await server.send(built!.toXDR());
 
 			console.log(res);
@@ -406,19 +469,6 @@
 		);
 		const ed25519_sig = ed25519_auth.credentials().address().signature();
 
-		// const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-		// 	new xdr.HashIdPreimageSorobanAuthorization({
-		// 		networkId: hash(
-		// 			Buffer.from(import.meta.env.VITE_networkPassphrase),
-		// 		),
-		// 		nonce: credentials.nonce(),
-		// 		signatureExpirationLedger: sequence + DEFAULT_LTL,
-		// 		invocation: auth.rootInvocation(),
-		// 	}),
-		// );
-		// const payload = hash(preimage.toXDR());
-		// const signature = keypair.sign(payload);
-
 		credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
 		credentials.signature(
 			xdr.ScVal.scvMap([
@@ -437,8 +487,6 @@
 				}),
 			])
 		);
-
-		// console.log(auth.toXDR('base64'));
 
 		auths.splice(0, 1, auth);
 
@@ -495,8 +543,6 @@
 			),
 			rootInvocation: __check_auth_invocation,
 		});
-
-		// console.log(__check_auth.toXDR("base64"));
 
 		auths.push(__check_auth);
 
