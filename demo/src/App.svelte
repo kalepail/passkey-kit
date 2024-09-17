@@ -309,7 +309,12 @@
 		// TODO Currently errors with two signatures since both aren't required
 		// After adding the context and signer restrictions to the ed25519 key I'm surprised this works
 		const sig = xdr.ScVal.scvMap([
-			// xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()), // TODO This key isn't required, but it passes when we included it. It shouldn't
+			// TODO This key isn't required, but it passes when we included it. Should this cause an error?
+			// The reason is that the one context passes because we include the admin key
+			// To "fix" this we'd need to error when looking at a signature in the context loop and throwing if 
+				// A) required context wasn't included or
+				// B) required signer_keys for that context weren't included in the signatures list
+			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
 			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
 		])
 

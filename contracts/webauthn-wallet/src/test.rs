@@ -381,5 +381,8 @@ fn test() {
             // &add_signer,
         );
 
-    // println!("{:?}", env.budget().print());
+    // Cpu limit: 100000000; used: 1011983
+    // Mem limit: 41943040; used: 106096
+
+    println!("{:?}", env.budget().print());
 }
