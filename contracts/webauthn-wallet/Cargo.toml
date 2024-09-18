@@ -27,3 +27,4 @@ rand = { workspace = true }
 stellar-strkey = { workspace = true }
 sample-policy = { workspace = true }
 example-contract = { workspace = true }
+base64 = { workspace = true }

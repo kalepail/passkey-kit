@@ -1252,9 +1252,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.7.1"
+version = "21.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15263ad07a3e0ec3f2ee3aea83b7c1a0610ad26ba76819f5092afcfaf0f3a3ed"
+checksum = "265cbd3f339736021f9696ce7759ed0d0e93c142fe28dfdd394e1eccd1cf4f99"
 dependencies = [
  "serde",
  "serde_json",
@@ -1266,9 +1266,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.7.1"
+version = "21.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73e995a8604a01ec7a8c1e1f60a890981eb00f1cd25c3b15f5194364f27993cc"
+checksum = "2e5af1bde05f51c57a2be940a6a08b5c9d6df2663a9acf9b978f72d13aa45290"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -1286,9 +1286,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.7.1"
+version = "21.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3eda569fe4c3aa2b45f2366e07d9476127e141c7f376d625b6a8217ee99f81f"
+checksum = "8c13b3f338684327172cf8b2fcc4a7c7fec27454fa5b21fdca1259a8f1b1e939"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -1306,9 +1306,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.7.1"
+version = "21.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87cfbe92fbabaea20517dc76fc89227735ffda2f19a10e2fe96db0ecb19b72b1"
+checksum = "a1a012d9d8fb9a9d80b381a62a0057629ce313609f8061553f29a05de1c1fd8f"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr",
@@ -1318,9 +1318,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.7.1"
+version = "21.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6569ea39d9f4d8cafadd0a2a77fc94991f7870d4d3c2a1fa401db9cb02d6082b"
+checksum = "dfdaa78517c3817af0b23e906780a1c89cb247707049204d1b34994e4256e485"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1621,6 +1621,7 @@ dependencies = [
 name = "webauthn-wallet"
 version = "0.4.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek 1.0.1",
  "example-contract",
  "rand 0.8.5",

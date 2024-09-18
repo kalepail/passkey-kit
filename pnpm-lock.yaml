@@ -15,8 +15,8 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       '@stellar/stellar-sdk':
-        specifier: 12.2.0
-        version: 12.2.0
+        specifier: 12.3.0
+        version: 12.3.0
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -37,47 +37,47 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       typescript:
-        specifier: ^5.5.4
-        version: 5.5.4
+        specifier: ^5.6.2
+        version: 5.6.2
 
   packages/passkey-factory-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 12.2.0
-        version: 12.2.0
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
       typescript:
-        specifier: 5.5.4
-        version: 5.5.4
+        specifier: 5.6.2
+        version: 5.6.2
 
   packages/passkey-kit-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 12.2.0
-        version: 12.2.0
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
       typescript:
-        specifier: 5.5.4
-        version: 5.5.4
+        specifier: 5.6.2
+        version: 5.6.2
 
   packages/sac-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 12.2.0
-        version: 12.2.0
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
       typescript:
-        specifier: 5.5.4
-        version: 5.5.4
+        specifier: 5.6.2
+        version: 5.6.2
 
 packages:
 
@@ -104,17 +104,17 @@ packages:
   '@stellar/js-xdr@3.1.2':
     resolution: {integrity: sha512-VVolPL5goVEIsvuGqDc5uiKxV03lzfWdvYg1KikvwheDmTBO68CKDji3bAZ/kppZrx5iTA8z3Ld5yuytcvhvOQ==}
 
-  '@stellar/stellar-base@12.1.0':
-    resolution: {integrity: sha512-pWwn+XWP5NotmIteZNuJzHeNn9DYSqH3lsYbtFUoSYy1QegzZdi9D8dK6fJ2fpBAnf/rcDjHgHOw3gtHaQFVbg==}
+  '@stellar/stellar-base@12.1.1':
+    resolution: {integrity: sha512-gOBSOFDepihslcInlqnxKZdIW9dMUO1tpOm3AtJR33K2OvpXG6SaVHCzAmCFArcCqI9zXTEiSoh70T48TmiHJA==}
 
-  '@stellar/stellar-sdk@12.2.0':
-    resolution: {integrity: sha512-Wy5sDOqb5JvAC76f4sQIV6Pe3JNyZb0PuyVNjwt3/uWsjtxRkFk6s2yTHTefBLWoR+mKxDjO7QfzhycF1v8FXQ==}
+  '@stellar/stellar-sdk@12.3.0':
+    resolution: {integrity: sha512-F2DYFop/M5ffXF0lvV5Ezjk+VWNKg0QDX8gNhwehVU3y5LYA3WAY6VcCarMGPaG9Wdgoeh1IXXzOautpqpsltw==}
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  axios@1.7.2:
-    resolution: {integrity: sha512-2A8QhOMrbomlDuiLeK9XibIBzuHeRcqqNOHp0Cyp5EoJ1IFDh+XZH3A6BkXtv0K4gFGCI0Y4BM7B1wOEi0Rmgw==}
+  axios@1.7.7:
+    resolution: {integrity: sha512-S4kL7XrjgBmvdGut0sN3yJxqYzrDOnivkBiN0OFs6hLiUam3UPvswUo0kqGyhqUZGEOytHyumEdXsAkgCOUf3Q==}
 
   base32.js@0.1.0:
     resolution: {integrity: sha512-n3TkB02ixgBOhTvANakDb4xaMXnYUVkNoRFJjQflcqMQhyEKxEHdj3E6N8t8sUQ0mjH/3/JxzlXuz3ul/J90pQ==}
@@ -201,8 +201,8 @@ packages:
   tweetnacl@1.0.3:
     resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
 
-  typescript@5.5.4:
-    resolution: {integrity: sha512-Mtq29sKDAEYP7aljRgtPOpTvOfbwRWlS6dPRzwjdE+C0R4brX/GUyhHSecbHMFLNBLcJIPt9nl9yG5TZ1weH+Q==}
+  typescript@5.6.2:
+    resolution: {integrity: sha512-NW8ByodCSNCwZeghjN3o+JX5OFH0Ojg6sadjEKY4huZ52TqbJTJnDo5+Tw98lSy63NZvi4n+ez5m2u5d4PkZyw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -234,7 +234,7 @@ snapshots:
 
   '@stellar/js-xdr@3.1.2': {}
 
-  '@stellar/stellar-base@12.1.0':
+  '@stellar/stellar-base@12.1.1':
     dependencies:
       '@stellar/js-xdr': 3.1.2
       base32.js: 0.1.0
@@ -245,10 +245,10 @@ snapshots:
     optionalDependencies:
       sodium-native: 4.1.1
 
-  '@stellar/stellar-sdk@12.2.0':
+  '@stellar/stellar-sdk@12.3.0':
     dependencies:
-      '@stellar/stellar-base': 12.1.0
-      axios: 1.7.2
+      '@stellar/stellar-base': 12.1.1
+      axios: 1.7.7
       bignumber.js: 9.1.2
       eventsource: 2.0.2
       randombytes: 2.1.0
@@ -259,7 +259,7 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.7.2:
+  axios@1.7.7:
     dependencies:
       follow-redirects: 1.15.6
       form-data: 4.0.0
@@ -333,6 +333,6 @@ snapshots:
 
   tweetnacl@1.0.3: {}
 
-  typescript@5.5.4: {}
+  typescript@5.6.2: {}
 
   urijs@1.19.11: {}

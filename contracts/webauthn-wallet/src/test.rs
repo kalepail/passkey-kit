@@ -10,18 +10,31 @@ use soroban_sdk::{
     auth::{Context, ContractContext},
     map, symbol_short, token, vec,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
-        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
-        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal, ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr
     },
     Address, Bytes, BytesN, Env, IntoVal, String,
 };
 use stellar_strkey::{ed25519, Strkey};
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 use crate::{
     types::{Signature, Signer, SignerKey, SignerLimits, SignerStorage},
     Contract, ContractClient,
 };
+
+#[test]
+fn who_am_i() {
+    let env: Env = Env::default();
+
+    let none = None::<Address>;
+    let none = none.to_xdr(&env);
+    let mut none_bytes: [u8; 4] = [0; 4];
+
+    none.copy_into_slice(&mut none_bytes);
+
+    println!("{:?}", URL_SAFE.encode(none_bytes));
+    println!("{:?}", ScVal::Void.to_xdr_base64(Limits::none()).unwrap());
+}
 
 #[test]
 fn test() {
