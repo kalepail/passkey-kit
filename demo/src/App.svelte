@@ -20,20 +20,20 @@
 	} from "@stellar/stellar-sdk";
 	import { signAuthEntry } from "./lib/sign-auth-entry";
 	import { DEFAULT_LTL } from "passkey-kit";
-    import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
+	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
 
 	// TODO need to support two toggles:
 	// - between temp and persistent
 	// - and admin, basic and policy
 	// - full visual support for admin, basic and policy keys
 
-	// TODO currently getting unreachable code reached when trying to add signers
-
-	const ADMIN_KEY = "AAAAEAAAAAEAAAABAAAAEQAAAAEAAAAA" // TODO very rough until we're actually parsing the limits object
-	const NATIVE_SAC = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
-	const SAMPLE_POLICY = "CD7HZWK5ANSKEF32FPQXTZS5DCWQVLMTUCRFIE5PWQ2RX7XI7NXC7YAE"
-	const SECRET = "SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W"
-	const PUBLIC = "GBVQMKYWGELU6IKLK2U6EIIHTNW5LIUYJE7FUQPG4FAB3QQ3KAINFVYS"
+	const ADMIN_KEY = "AAAAEAAAAAEAAAABAAAAEQAAAAEAAAAA"; // TODO very rough until we're actually parsing the limits object
+	const NATIVE_SAC =
+		"CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+	const SAMPLE_POLICY =
+		"CAPPNPLUWDDMQNA2AZFFSVE7BEWSVQMRP3NBJ3OSAGT2UH4WWRE7XTRJ";
+	const SECRET = "SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W";
+	const PUBLIC = "GBVQMKYWGELU6IKLK2U6EIIHTNW5LIUYJE7FUQPG4FAB3QQ3KAINFVYS";
 
 	let keyId: string;
 	let contractId: string;
@@ -160,16 +160,15 @@
 
 		if (pubkey) {
 			const keypair = Keypair.fromPublicKey(pubkey);
-			const signer_limits: SignerLimits = [new Map()]
-			const signer_keys: SignerKey[] = []
+			const signer_limits: SignerLimits = [new Map()];
+			const signer_keys: SignerKey[] = [];
 
 			signer_keys.push({
 				tag: "Policy",
 				values: [SAMPLE_POLICY],
-			})
+			});
 
-			// TODO support a case where we can limit just `signer_keys` by putting the context as the smart wallet address
-			signer_limits[0].set(NATIVE_SAC, signer_keys)
+			signer_limits[0].set(NATIVE_SAC, signer_keys);
 
 			const { built } = await account.wallet!.add({
 				signer: {
@@ -192,15 +191,15 @@
 	}
 	async function addPolicySigner() {
 		const keypair = Keypair.fromPublicKey(PUBLIC);
-		const signer_limits: SignerLimits = [new Map()]
-		const signer_keys: SignerKey[] = []
+		const signer_limits: SignerLimits = [new Map()];
+		const signer_keys: SignerKey[] = [];
 
 		signer_keys.push({
 			tag: "Ed25519",
 			values: [keypair.rawPublicKey()],
-		})
+		});
 
-		signer_limits[0].set(NATIVE_SAC, signer_keys)
+		signer_limits[0].set(NATIVE_SAC, signer_keys);
 
 		const { built } = await account.wallet!.add({
 			signer: {
@@ -290,7 +289,10 @@
 		);
 		const secp256r1_auth = (operations[0] as Operation.InvokeHostFunction)
 			.auth![0];
-		const secp256r1_sig = secp256r1_auth.credentials().address().signature()
+		const secp256r1_sig = secp256r1_auth
+			.credentials()
+			.address()
+			.signature();
 
 		const entry = (built!.operations[0] as Operation.InvokeHostFunction)
 			.auth![0];
@@ -305,7 +307,6 @@
 		// console.log(xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()).toXDR('base64'));
 		// console.log(ed25519_sig.map()?.pop()?.toXDR());
 
-		// TODO add the policy signature to this as well
 		const __check_auth_args = new xdr.InvokeContractArgs({
 			contractAddress: Address.fromString(contractId).toScAddress(),
 			functionName: "__check_auth",
@@ -316,19 +317,32 @@
 						new xdr.ScMapEntry({
 							key: xdr.ScVal.scvSymbol("args"),
 							val: xdr.ScVal.scvVec(
-								secp256r1_auth.rootInvocation().function().contractFn().args()
+								secp256r1_auth
+									.rootInvocation()
+									.function()
+									.contractFn()
+									.args(),
 							),
 						}),
 						new xdr.ScMapEntry({
 							key: xdr.ScVal.scvSymbol("contract"),
 							val: Address.contract(
-								secp256r1_auth.rootInvocation().function().contractFn().contractAddress().contractId(),
+								secp256r1_auth
+									.rootInvocation()
+									.function()
+									.contractFn()
+									.contractAddress()
+									.contractId(),
 							).toScVal(),
 						}),
 						new xdr.ScMapEntry({
 							key: xdr.ScVal.scvSymbol("fn_name"),
 							val: xdr.ScVal.scvSymbol(
-								secp256r1_auth.rootInvocation().function().contractFn().functionName(),
+								secp256r1_auth
+									.rootInvocation()
+									.function()
+									.contractFn()
+									.functionName(),
 							),
 						}),
 					]),
@@ -349,8 +363,7 @@
 		const __check_auth = new xdr.SorobanAuthorizationEntry({
 			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
 				new xdr.SorobanAddressCredentials({
-					address:
-						Address.fromString(SAMPLE_POLICY).toScAddress(),
+					address: Address.fromString(SAMPLE_POLICY).toScAddress(),
 					nonce,
 					signatureExpirationLedger: sequence + DEFAULT_LTL,
 					signature: xdr.ScVal.scvVec([]),
@@ -359,26 +372,21 @@
 			rootInvocation: __check_auth_invocation,
 		});
 
-		(built!.operations[0] as Operation.InvokeHostFunction).auth?.push(__check_auth);
+		(built!.operations[0] as Operation.InvokeHostFunction).auth?.push(
+			__check_auth,
+		);
 
-		// TODO Currently errors with two signatures since both aren't required
-		// After adding the context and signer restrictions to the ed25519 key I'm surprised this works
 		const sig = xdr.ScVal.scvMap([
-			// TODO This key isn't required, but it passes when we included it. Should this cause an error?
-			// The reason is that the one context passes because we include the admin key
-			// To "fix" this we'd need to error when looking at a signature in the context loop and throwing if 
-				// A) required context wasn't included or
-				// B) required signer_keys for that context weren't included in the signatures list
 			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
 			new xdr.ScMapEntry({
 				key: xdr.ScVal.scvVec([
-					xdr.ScVal.scvSymbol('Policy'),
+					xdr.ScVal.scvSymbol("Policy"),
 					Address.fromString(SAMPLE_POLICY).toScVal(),
 				]),
-				val: xdr.ScVal.scvVoid()
+				val: xdr.ScVal.scvVoid(),
 			}),
 			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
-		])
+		]);
 
 		entry
 			.credentials()
@@ -391,9 +399,7 @@
 			);
 		entry.credentials().address().signature(sig);
 
-		console.log(
-			built!.toXDR(),
-		)
+		console.log(built!.toXDR());
 
 		const res = await server.send(built!.toXDR());
 
@@ -455,9 +461,7 @@
 
 		const op = built!.operations[0] as Operation.InvokeHostFunction;
 		const auths = op.auth!;
-		const auth = xdr.SorobanAuthorizationEntry.fromXDR(
-			auths[0].toXDR(),
-		);
+		const auth = xdr.SorobanAuthorizationEntry.fromXDR(auths[0].toXDR());
 		const credentials = auth.credentials().address();
 		const invokeContract = op.func.invokeContract();
 
@@ -472,20 +476,15 @@
 		credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
 		credentials.signature(
 			xdr.ScVal.scvMap([
-				// TODO I think the only reason this works is because the ed25519 key is limited to a context that doesn't exist (so it signs but doesn't authenticate)
-				// so the check on ed25519 fails and it passes to the next signature which passes the SAC context check and the signer check 
-				// since it lists the ed25519 signer its signer limiter. So the ed25519 is signed and the policy is verified
-				// aka janky
-				// we need to be more cautious about optimistically verifying signatures
 				xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
 				new xdr.ScMapEntry({
 					key: xdr.ScVal.scvVec([
-						xdr.ScVal.scvSymbol('Policy'),
+						xdr.ScVal.scvSymbol("Policy"),
 						Address.fromString(SAMPLE_POLICY).toScVal(),
 					]),
-					val: xdr.ScVal.scvVoid()
+					val: xdr.ScVal.scvVoid(),
 				}),
-			])
+			]),
 		);
 
 		auths.splice(0, 1, auth);
@@ -499,16 +498,12 @@
 					xdr.ScVal.scvMap([
 						new xdr.ScMapEntry({
 							key: xdr.ScVal.scvSymbol("args"),
-							val: xdr.ScVal.scvVec(
-								invokeContract.args(),
-							),
+							val: xdr.ScVal.scvVec(invokeContract.args()),
 						}),
 						new xdr.ScMapEntry({
 							key: xdr.ScVal.scvSymbol("contract"),
 							val: Address.contract(
-								invokeContract
-									.contractAddress()
-									.contractId(),
+								invokeContract.contractAddress().contractId(),
 							).toScVal(),
 						}),
 						new xdr.ScMapEntry({
@@ -534,8 +529,7 @@
 		const __check_auth = new xdr.SorobanAuthorizationEntry({
 			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
 				new xdr.SorobanAddressCredentials({
-					address:
-						Address.fromString(SAMPLE_POLICY).toScAddress(),
+					address: Address.fromString(SAMPLE_POLICY).toScAddress(),
 					nonce,
 					signatureExpirationLedger: sequence + DEFAULT_LTL,
 					signature: xdr.ScVal.scvVec([]),
@@ -663,9 +657,7 @@
 				>
 
 				<!-- TODO rethink {#if (limits !== ADMIN_KEY || admins > 1) && key !== keyId} -->
-					<button on:click={() => removeSigner(key, kind)}
-						>Remove</button
-					>
+				<button on:click={() => removeSigner(key, kind)}>Remove</button>
 				<!-- {/if} -->
 
 				<!-- TODO redo {#if limits === ADMIN_KEY && key !== adminSigner}

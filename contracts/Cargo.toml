@@ -4,7 +4,7 @@ resolver = "2"
 members = ["webauthn-factory", "webauthn-wallet", "example-contract", "sample-policy"]
 
 [workspace.dependencies]
-soroban-sdk = { version = "21.7.0" }
+soroban-sdk = { version = "21.7.1" }
 serde = { version = "1", default-features = false }
 serde-json-core = { version = "0.6.0", default-features = false }
 stellar-xdr = { version = "21.2.0", default-features = false }

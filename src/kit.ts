@@ -252,30 +252,6 @@ export class PasskeyKit extends PasskeyBase {
 
         // const test = this.wallet!.spec.nativeToScVal(t, )
 
-        // const sig = xdr.ScVal.scvVec([
-        //     xdr.ScVal.scvVec([
-        //         xdr.ScVal.scvSymbol('Secp256r1'),
-        //         xdr.ScVal.scvMap([
-        //             new xdr.ScMapEntry({
-        //                 key: xdr.ScVal.scvSymbol('authenticator_data'),
-        //                 val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.authenticatorData)),
-        //             }),
-        //             new xdr.ScMapEntry({
-        //                 key: xdr.ScVal.scvSymbol('client_data_json'),
-        //                 val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.clientDataJSON)),
-        //             }),
-        //             // new xdr.ScMapEntry({
-        //             //     key: xdr.ScVal.scvSymbol('id'),
-        //             //     val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id))
-        //             // }),
-        //             new xdr.ScMapEntry({
-        //                 key: xdr.ScVal.scvSymbol('signature'),
-        //                 val: xdr.ScVal.scvBytes(signature),
-        //             }),
-        //         ])  
-        //     ])
-        // ])
-
         const sig = xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
                 key: xdr.ScVal.scvVec([

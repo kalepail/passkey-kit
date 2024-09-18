@@ -196,6 +196,7 @@ impl CustomAccountInterface for Contract {
                             if let SignerKey::Policy(policy) = &signer_key {
                                 if let SignerVal::Policy(signer_limits) = signer_val {
                                     if signature.is_none() {
+                                        // NOTE require_auth not called here because we need the appropriate context in order to call this function
                                         verify_contexts(&env, &auth_contexts, &signatures, &signer_key, &signer_limits);
                                         continue;
                                     }
@@ -334,15 +335,6 @@ fn verify_contexts(
         None => panic_with_error!(env, Error::NotAuthorized),
         Some(context) => {
             if let SignerKey::Policy(policy) = signer_key {
-                // match &context {
-                //     Context::Contract(ContractContext { contract, fn_name, args }) => {
-                //         println!("Contract: {:?}", contract);
-                //         println!("Fn Name: {:?}", fn_name);
-                //         println!("Args: {:?}", args);
-                //     }
-                //     _ => {}
-                // }
-
                 policy.require_auth_for_args(vec![
                     env,
                     // Putting the authorized context in the args to allow the policy to validate
@@ -363,7 +355,7 @@ fn verify_signer_limit_keys(
         Some(signer_limits_keys) => {
             for signer_limits_key in signer_limits_keys.iter() {
                 if !signatures.contains_key(signer_limits_key) {
-                    // return false; // if any required key is missing this signature is not authorized for this context
+                    // if any required key is missing this signature is not authorized for this context
                     panic_with_error!(env, Error::NotAuthorized);
                 }
             }
