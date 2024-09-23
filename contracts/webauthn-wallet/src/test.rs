@@ -15,26 +15,11 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, IntoVal, String,
 };
 use stellar_strkey::{ed25519, Strkey};
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 use crate::{
     types::{Signature, Signer, SignerKey, SignerLimits, SignerStorage},
     Contract, ContractClient,
 };
-
-#[test]
-fn who_am_i() {
-    let env: Env = Env::default();
-
-    let none = None::<Address>;
-    let none = none.to_xdr(&env);
-    let mut none_bytes: [u8; 4] = [0; 4];
-
-    none.copy_into_slice(&mut none_bytes);
-
-    println!("{:?}", URL_SAFE.encode(none_bytes));
-    println!("{:?}", ScVal::Void.to_xdr_base64(Limits::none()).unwrap());
-}
 
 #[test]
 fn test() {
@@ -156,15 +141,10 @@ fn test() {
         simple_ed25519_bytes,
         SignerLimits(map![&env, 
             (
-                example_contract_address.clone(), // force example contract
-                // force sample policy signer (good way to ensure whatever example_contract_address does it clears the sample_policy)
+                sac_address.clone(), // force SAC
+                // force sample policy signer (good way to ensure whatever SAC does it clears the sample_policy)
                 Some(vec![&env, sample_policy_signer_key.clone()]) // including this opens up a requirement to call the sample policy with the example_contract_address "call" context
-                // None
             ),
-            // (
-            //     sac_address.clone(), 
-            //     Some(vec![&env, sample_policy_signer_key.clone()])
-            // ),
         ]), // Simple ed25519 signer only works on sample policy in tandem with the policy signer
         SignerStorage::Temporary,
     ));
@@ -174,8 +154,7 @@ fn test() {
         SignerLimits(map![
             &env,
             (
-                sac_address.clone(), // force SAC
-                // example_contract_address.clone(),
+                example_contract_address.clone(), // force example contract
                 Some(vec![&env, simple_ed25519_signer_key.clone()]) // force simple ed25519 signer
             )
         ]), // Policy only works on SAC and only in tandem with simple ed25519 signer
@@ -394,9 +373,13 @@ fn test() {
             // &add_signer,
         );
     
-    // Current
+    // Loose
     // Cpu limit: 100000000; used: 1011983
     // Mem limit: 41943040; used: 106096
+
+    // Careful
+    // Cpu limit: 100000000; used: 1172550
+    // Mem limit: 41943040; used: 134562
 
     println!("{:?}", env.budget().print());
 }
