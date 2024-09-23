@@ -270,7 +270,11 @@ fn verify_context(
     signer_key: &SignerKey,
     signer_limits: &SignerLimits,
     signatures: &Map<SignerKey, Option<Signature>>,
-) -> bool{
+) -> bool {
+    if signer_limits.0.is_empty() {
+        return true
+    }
+
     match context {
         Context::Contract(ContractContext {
             contract,
