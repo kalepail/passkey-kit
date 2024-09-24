@@ -190,7 +190,7 @@ pub extern "C" fn get_address_by_signer() {
         let key = address_from_str(&env, &key.as_str());
         key_scval = env.to_scval(SignerKey::Policy(key));
     } else if kind == "Ed25519" {
-        // TODO this is pretty verbose and manual but there's no easy way to go from a G-address to it's 32 bytes of public key
+        // This is pretty verbose and manual but there's no easy way to go from a G-address to it's 32 bytes of public key
         let key = address_from_str(&env, &key.as_str()).to_xdr(&env.soroban());
         let key = key.slice(key.len() - 32..);
         let mut slice = [0u8; 32];

@@ -119,15 +119,22 @@ export class PasskeyServer extends PasskeyBase {
         return res || undefined as string | undefined
     }
 
-    /* TODO 
+    /* LATER
         - Add a method for getting a paginated or filtered list of all a wallet's events
-            @Later
     */
 
-    // TODO maybe fee should default to something more dynamic since we have endpoints for getting fee information now
-    public async send(xdr: string, fee: number = 10_000) {
+    public async send(xdr: string, fee?: number) {
         if (!this.launchtubeUrl || !this.launchtubeJwt)
             throw new Error('Launchtube service not configured')
+
+        if (!fee) {
+            try {
+                const res = await this.rpc?.getFeeStats()
+                fee = parseInt(res?.sorobanInclusionFee.p50 || '100')
+            } catch {
+                fee = 100
+            }
+        }
 
         const data = new FormData();
 

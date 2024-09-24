@@ -488,7 +488,6 @@ name = "example-contract"
 version = "0.0.0"
 dependencies = [
  "soroban-sdk",
- "webauthn-wallet",
 ]
 
 [[package]]

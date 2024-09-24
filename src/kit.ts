@@ -6,6 +6,7 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
+import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
 export const DEFAULT_LTL = 12
 
@@ -190,20 +191,22 @@ export class PasskeyKit extends PasskeyBase {
         options?: {
             keyId?: 'any' | string | Uint8Array
             rpId?: string,
-            ledgersToLive?: number
+            validUntilLedgerSeq?: number
         }
     ) {
-        let { keyId, rpId, ledgersToLive = DEFAULT_LTL } = options || {}
+        let { keyId, rpId, validUntilLedgerSeq } = options || {}
 
-        const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+        if (!validUntilLedgerSeq) {
+            const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+            validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
+        }
+        
         const credentials = entry.credentials().address();
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
                 nonce: credentials.nonce(),
-                // TODO maybe if folks set `ledgersToLive` that should be the TTL vs the extension from `lastLedger`. Will make it easier to coordinate multisig
-                // Call it `validUntilLedgerSeq` like the JS SDK
-                signatureExpirationLedger: lastLedger + ledgersToLive,
+                signatureExpirationLedger: validUntilLedgerSeq,
                 invocation: entry.rootInvocation()
             })
         )
@@ -240,7 +243,7 @@ export class PasskeyKit extends PasskeyBase {
 
         // TODO No idea how to make this work
         // https://discord.com/channels/@me/1025113063583666246/1281789018979438672
-        // const t: Signature = {
+        // const s: Signature = {
         //     tag: 'Secp256r1',
         //     values: [{
         //         authenticator_data: base64url.toBuffer(authenticationResponse.response.authenticatorData),
@@ -250,7 +253,7 @@ export class PasskeyKit extends PasskeyBase {
         //     }]
         // }
 
-        // const test = this.wallet!.spec.nativeToScVal(t, )
+        // const hmm = this.wallet!.spec.nativeToScVal(s, ??)
 
         const sig = xdr.ScVal.scvMap([
             new xdr.ScMapEntry({
@@ -278,7 +281,7 @@ export class PasskeyKit extends PasskeyBase {
             })
         ])
 
-        credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
+        credentials.signatureExpirationLedger(validUntilLedgerSeq)
         credentials.signature(sig)
 
         return entry
@@ -288,7 +291,7 @@ export class PasskeyKit extends PasskeyBase {
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
             keyId?: 'any' | string | Uint8Array
-            ledgersToLive?: number
+            validUntilLedgerSeq?: number
         }
     ) {
         for (const auth of entries) {
@@ -309,7 +312,7 @@ export class PasskeyKit extends PasskeyBase {
         txn: Transaction | string,
         options?: {
             keyId?: 'any' | string | Uint8Array
-            ledgersToLive?: number
+            validUntilLedgerSeq?: number
         }
     ) {
         /*
@@ -353,10 +356,9 @@ export class PasskeyKit extends PasskeyBase {
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
 
-    /* TODO 
+    /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
-            @Later
     */
 
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
@@ -399,10 +401,9 @@ export class PasskeyKit extends PasskeyBase {
             ])
         }
 
-        /* TODO 
+        /* LATER
             - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
                 Hmm...Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
-                @Later
         */
 
         return publicKey
