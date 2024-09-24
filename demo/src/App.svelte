@@ -10,15 +10,11 @@
 	} from "./lib/common";
 	import {
 		Address,
-		hash,
 		Keypair,
-		nativeToScVal,
 		Operation,
-		scValToNative,
 		Transaction,
 		xdr,
 	} from "@stellar/stellar-sdk";
-	import { signAuthEntry } from "./lib/sign-auth-entry";
 	import { DEFAULT_LTL } from "passkey-kit";
 	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
 
@@ -221,26 +217,33 @@
 	}
 	async function removeSigner(signer: string, type: string) {
 		try {
+			let signer_key: SignerKey;
+
+			switch (type) {
+				case "Policy":
+					signer_key = {
+						tag: "Policy",
+						values: [signer],
+					};
+					break;
+				case "Ed25519":
+					signer_key = {
+						tag: "Ed25519",
+						values: [Keypair.fromPublicKey(signer).rawPublicKey()],
+					};
+					break;
+				case "Secp256r1":
+					signer_key = {
+						tag: "Secp256r1",
+						values: [base64url.toBuffer(signer)],
+					};
+					break;
+				default:
+					throw new Error("Invalid signer type");
+			}
+
 			const { built } = await account.wallet!.remove({
-				signer_key:
-					type === "Secp256r1"
-						? {
-								tag: "Secp256r1",
-								values: [base64url.toBuffer(signer)],
-							}
-						: type === "Policy"
-							? {
-									tag: "Policy",
-									values: [signer],
-								}
-							: {
-									tag: "Ed25519",
-									values: [
-										Keypair.fromPublicKey(
-											signer,
-										).rawPublicKey(),
-									],
-								},
+				signer_key
 			});
 
 			const xdr = await account.sign(built!, { keyId: adminSigner });
@@ -273,7 +276,7 @@
 	}
 
 	////
-	async function multiSigTransfer() {
+	async function multisigTransfer() {
 		const keypair = Keypair.fromSecret(SECRET);
 
 		const { built } = await native.transfer({
@@ -282,119 +285,13 @@
 			amount: BigInt(10_000_000),
 		});
 
-		const tx = await account.sign(built!, { keyId: adminSigner });
-		const { operations } = new Transaction(
-			tx,
-			import.meta.env.VITE_networkPassphrase,
-		);
-		const secp256r1_auth = (operations[0] as Operation.InvokeHostFunction)
-			.auth![0];
-		const secp256r1_sig = secp256r1_auth
-			.credentials()
-			.address()
-			.signature();
+		let xdr = await account.sign(built!, { keypair });
+			xdr = await account.sign(xdr, { keyId: adminSigner });
+			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
 
-		const entry = (built!.operations[0] as Operation.InvokeHostFunction)
-			.auth![0];
-		const ed25519_auth = await signAuthEntry(
-			entry,
-			keypair,
-			secp256r1_auth.credentials().address().signatureExpirationLedger(),
-			import.meta.env.VITE_networkPassphrase,
-		);
-		const ed25519_sig = ed25519_auth.credentials().address().signature();
+		console.log(xdr);
 
-		// console.log(xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()).toXDR('base64'));
-		// console.log(ed25519_sig.map()?.pop()?.toXDR());
-
-		const __check_auth_args = new xdr.InvokeContractArgs({
-			contractAddress: Address.fromString(contractId).toScAddress(),
-			functionName: "__check_auth",
-			args: [
-				xdr.ScVal.scvVec([
-					xdr.ScVal.scvSymbol("Contract"),
-					xdr.ScVal.scvMap([
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("args"),
-							val: xdr.ScVal.scvVec(
-								secp256r1_auth
-									.rootInvocation()
-									.function()
-									.contractFn()
-									.args(),
-							),
-						}),
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("contract"),
-							val: Address.contract(
-								secp256r1_auth
-									.rootInvocation()
-									.function()
-									.contractFn()
-									.contractAddress()
-									.contractId(),
-							).toScVal(),
-						}),
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("fn_name"),
-							val: xdr.ScVal.scvSymbol(
-								secp256r1_auth
-									.rootInvocation()
-									.function()
-									.contractFn()
-									.functionName(),
-							),
-						}),
-					]),
-				]),
-			],
-		});
-
-		const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
-			function:
-				xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-					__check_auth_args,
-				),
-			subInvocations: [],
-		});
-
-		const { sequence } = await account.rpc.getLatestLedger();
-		const nonce = new xdr.Int64(Math.random().toString().substring(2));
-		const __check_auth = new xdr.SorobanAuthorizationEntry({
-			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
-				new xdr.SorobanAddressCredentials({
-					address: Address.fromString(SAMPLE_POLICY).toScAddress(),
-					nonce,
-					signatureExpirationLedger: sequence + DEFAULT_LTL,
-					signature: xdr.ScVal.scvVec([]),
-				}),
-			),
-			rootInvocation: __check_auth_invocation,
-		});
-
-		(built!.operations[0] as Operation.InvokeHostFunction).auth?.push(
-			__check_auth,
-		);
-
-		const sig = xdr.ScVal.scvMap([
-			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
-			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
-		]);
-
-		entry
-			.credentials()
-			.address()
-			.signatureExpirationLedger(
-				secp256r1_auth
-					.credentials()
-					.address()
-					.signatureExpirationLedger(),
-			);
-		entry.credentials().address().signature(sig);
-
-		console.log(built!.toXDR());
-
-		const res = await server.send(built!.toXDR());
+		const res = await server.send(xdr);
 
 		console.log(res);
 
@@ -407,34 +304,18 @@
 
 		if (secret) {
 			const keypair = Keypair.fromSecret(secret);
-
 			const { built } = await native.transfer({
 				to: account.factory.options.contractId,
 				from: contractId,
 				amount: BigInt(10_000_000),
 			});
 
-			const { sequence } = await account.rpc.getLatestLedger();
-
-			for (const op of built!.operations) {
-				const auths = (op as Operation.InvokeHostFunction).auth;
-
-				if (auths?.length) {
-					for (let i in auths) {
-						auths[i] = await signAuthEntry(
-							auths[i],
-							keypair,
-							sequence + DEFAULT_LTL,
-							import.meta.env.VITE_networkPassphrase,
-						);
-					}
-				}
-			}
+			const xdr = await account.sign(built!, { keypair });
 
 			// NOTE won't work if the ed25519 signer has a policy signer_key restriction
 			// If you want this to work you need to remove the policy restriction from the ed25519 signer first 
 			// (though that will make the policy transfer less interesting)
-			const res = await server.send(built!.toXDR());
+			const res = await server.send(xdr);
 
 			console.log(res);
 
@@ -443,92 +324,19 @@
 	}
 
 	////
-	async function policySigTransfer() {
+	async function policyTransfer() {
 		const keypair = Keypair.fromSecret(SECRET);
 
-		const { built } = await native.transfer({
+		let { built } = await native.transfer({
 			to: account.factory.options.contractId,
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
+		
+		let xdr = await account.sign(built!, { keypair });
+			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
 
-		const { sequence } = await account.rpc.getLatestLedger();
-
-		const op = built!.operations[0] as Operation.InvokeHostFunction;
-		const auths = op.auth!;
-		const auth = xdr.SorobanAuthorizationEntry.fromXDR(auths[0].toXDR());
-		const credentials = auth.credentials().address();
-		const invokeContract = op.func.invokeContract();
-
-		const ed25519_auth = await signAuthEntry(
-			auth,
-			keypair,
-			sequence + DEFAULT_LTL,
-			import.meta.env.VITE_networkPassphrase,
-		);
-		const ed25519_sig = ed25519_auth.credentials().address().signature();
-
-		credentials.signatureExpirationLedger(sequence + DEFAULT_LTL);
-		credentials.signature(
-			xdr.ScVal.scvMap([
-				xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
-			]),
-		);
-
-		auths.splice(0, 1, auth);
-
-		const __check_auth_args = new xdr.InvokeContractArgs({
-			contractAddress: Address.fromString(contractId).toScAddress(),
-			functionName: "__check_auth",
-			args: [
-				xdr.ScVal.scvVec([
-					xdr.ScVal.scvSymbol("Contract"),
-					xdr.ScVal.scvMap([
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("args"),
-							val: xdr.ScVal.scvVec(invokeContract.args()),
-						}),
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("contract"),
-							val: Address.contract(
-								invokeContract.contractAddress().contractId(),
-							).toScVal(),
-						}),
-						new xdr.ScMapEntry({
-							key: xdr.ScVal.scvSymbol("fn_name"),
-							val: xdr.ScVal.scvSymbol(
-								invokeContract.functionName(),
-							),
-						}),
-					]),
-				]),
-			],
-		});
-
-		const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
-			function:
-				xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-					__check_auth_args,
-				),
-			subInvocations: [],
-		});
-
-		const nonce = new xdr.Int64(Math.random().toString().substring(2));
-		const __check_auth = new xdr.SorobanAuthorizationEntry({
-			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
-				new xdr.SorobanAddressCredentials({
-					address: Address.fromString(SAMPLE_POLICY).toScAddress(),
-					nonce,
-					signatureExpirationLedger: sequence + DEFAULT_LTL,
-					signature: xdr.ScVal.scvVec([]),
-				}),
-			),
-			rootInvocation: __check_auth_invocation,
-		});
-
-		auths.push(__check_auth);
-
-		const res = await server.send(built!.toXDR());
+		const res = await server.send(xdr);
 
 		console.log(res);
 
@@ -538,7 +346,7 @@
 
 	async function walletTransfer(signer: string, kind: string) {
 		if (kind === "Policy") {
-			return policySigTransfer();
+			return policyTransfer();
 		} else if (kind === "Ed25519") {
 			return ed25519Transfer();
 		}
@@ -593,9 +401,9 @@
 		<button on:click={ed25519Transfer}>Ed25519 Transfer</button>
 		<br />
 		<button on:click={addPolicySigner}>Add Policy Signer</button>
-		<button on:click={policySigTransfer}>Policy Transfer</button>
+		<button on:click={policyTransfer}>Policy Transfer</button>
 		<br />
-		<button on:click={multiSigTransfer}>Multisig Transfer</button>
+		<button on:click={multisigTransfer}>Multisig Transfer</button>
 
 		<form on:submit|preventDefault>
 			<ul style="list-style: none; padding: 0;">

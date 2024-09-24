@@ -1,6 +1,6 @@
-import { Client as PasskeyClient, type Secp256r1Signature, type Signature } from 'passkey-kit-sdk'
+import { Client as PasskeyClient, type Signature, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder, Keypair } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
@@ -52,17 +52,17 @@ export class PasskeyKit extends PasskeyBase {
             signer: {
                 tag: 'Secp256r1',
                 values: [
-                    keyId, 
-                    publicKey, 
+                    keyId,
+                    publicKey,
                     [new Map()],
-                    {tag: 'Persistent', values: undefined},
+                    { tag: 'Persistent', values: undefined },
                 ]
             },
         })
 
         if (result.isErr())
             throw new Error(result.unwrapErr().message)
-        
+
         if (!built)
             throw new Error('Failed to create wallet')
 
@@ -189,18 +189,19 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
-            keyId?: 'any' | string | Uint8Array
             rpId?: string,
+            keyId?: 'any' | string | Uint8Array
+            keypair?: Keypair,
             validUntilLedgerSeq?: number
         }
     ) {
-        let { keyId, rpId, validUntilLedgerSeq } = options || {}
+        let { rpId, keyId, keypair, validUntilLedgerSeq } = options || {}
 
         if (!validUntilLedgerSeq) {
             const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
             validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
         }
-        
+
         const credentials = entry.credentials().address();
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
@@ -212,77 +213,97 @@ export class PasskeyKit extends PasskeyBase {
         )
         const payload = hash(preimage.toXDR())
 
-        const authenticationResponse = await this.WebAuthn.startAuthentication(
-            keyId === 'any'
-                || (!keyId && !this.keyId)
-                ? {
-                    challenge: base64url(payload),
-                    rpId,
-                    // userVerification: "discouraged",
-                    // timeout: 120_000
-                }
-                : {
-                    challenge: base64url(payload),
-                    rpId,
-                    allowCredentials: [
-                        {
-                            id: keyId instanceof Uint8Array
-                                ? base64url(Buffer.from(keyId))
-                                : keyId || this.keyId!,
-                            type: "public-key",
-                        },
-                    ],
-                    // userVerification: "discouraged",
-                    // timeout: 120_000
-                }
+        let key: SignerKey
+        let val: Signature
+
+        // Sign with the keypair as an ed25519 signer
+        if (keypair) {
+            const signature = keypair.sign(payload);
+
+            key = {
+                tag: "Ed25519",
+                values: [keypair.rawPublicKey()]
+            }
+            val = {
+                tag: "Ed25519",
+                values: [signature],
+            }
+        } 
+        
+        // Default, use passkey
+        else {
+            const authenticationResponse = await this.WebAuthn.startAuthentication(
+                keyId === 'any'
+                    || (!keyId && !this.keyId)
+                    ? {
+                        challenge: base64url(payload),
+                        rpId,
+                        // userVerification: "discouraged",
+                        // timeout: 120_000
+                    }
+                    : {
+                        challenge: base64url(payload),
+                        rpId,
+                        allowCredentials: [
+                            {
+                                id: keyId instanceof Uint8Array
+                                    ? base64url(Buffer.from(keyId))
+                                    : keyId || this.keyId!,
+                                type: "public-key",
+                            },
+                        ],
+                        // userVerification: "discouraged",
+                        // timeout: 120_000
+                    }
+            );
+    
+            key = {
+                tag: "Secp256r1",
+                values: [base64url.toBuffer(authenticationResponse.id)]
+            }
+            val = {
+                tag: "Secp256r1",
+                values: [
+                    {
+                        authenticator_data: base64url.toBuffer(
+                            authenticationResponse.response.authenticatorData,
+                        ),
+                        client_data_json: base64url.toBuffer(
+                            authenticationResponse.response.clientDataJSON,
+                        ),
+                        signature: this.compactSignature(
+                            base64url.toBuffer(authenticationResponse.response.signature)
+                        ),
+                    },
+                ],
+            }
+        }
+
+        const scKeyType = xdr.ScSpecTypeDef.scSpecTypeUdt(
+            new xdr.ScSpecTypeUdt({ name: "SignerKey" }),
         );
-
-        const signature = this.compactSignature(
-            base64url.toBuffer(authenticationResponse.response.signature)
+        const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
+            new xdr.ScSpecTypeUdt({ name: "Signature" }),
         );
+        const scVal = this.wallet!.spec.nativeToScVal(val, scValType);
+        const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
+        const scEntry = new xdr.ScMapEntry({
+            key: scKey,
+            val: scVal,
+        })
 
-        // TODO No idea how to make this work
-        // https://discord.com/channels/@me/1025113063583666246/1281789018979438672
-        // const s: Signature = {
-        //     tag: 'Secp256r1',
-        //     values: [{
-        //         authenticator_data: base64url.toBuffer(authenticationResponse.response.authenticatorData),
-        //         client_data_json: base64url.toBuffer(authenticationResponse.response.clientDataJSON),
-        //         id: [base64url.toBuffer(authenticationResponse.id)],
-        //         signature
-        //     }]
-        // }
-
-        // const hmm = this.wallet!.spec.nativeToScVal(s, ??)
-
-        const sig = xdr.ScVal.scvMap([
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvVec([
-                    xdr.ScVal.scvSymbol('Secp256r1'),
-                    xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id))
-                ]),
-                val: xdr.ScVal.scvVec([
-                    xdr.ScVal.scvSymbol('Secp256r1'),
-                    xdr.ScVal.scvMap([
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol('authenticator_data'),
-                            val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.authenticatorData)),
-                        }),
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol('client_data_json'),
-                            val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.clientDataJSON)),
-                        }),
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol('signature'),
-                            val: xdr.ScVal.scvBytes(signature),
-                        }),
-                    ])  
-                ])
-            })
-        ])
+        switch (credentials.signature().switch().name) {
+            case 'scvVoid':
+                credentials.signature(xdr.ScVal.scvMap([scEntry]))
+            break;
+            case 'scvMap':
+                credentials.signature().map()?.push(scEntry)
+            break;
+            default:
+                throw new Error('Unsupported signature')
+        }
 
         credentials.signatureExpirationLedger(validUntilLedgerSeq)
-        credentials.signature(sig)
 
         return entry
     }
@@ -290,7 +311,9 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntries(
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
+            rpId?: string,
             keyId?: 'any' | string | Uint8Array
+            keypair?: Keypair,
             validUntilLedgerSeq?: number
         }
     ) {
@@ -311,10 +334,156 @@ export class PasskeyKit extends PasskeyBase {
     public async sign(
         txn: Transaction | string,
         options?: {
+            rpId?: string,
             keyId?: 'any' | string | Uint8Array
+            keypair?: Keypair,
             validUntilLedgerSeq?: number
         }
     ) {
+        txn = this.getTxn(txn)
+
+        // Only need to sign auth for `invokeHostFunction` operations
+        if (txn.operations[0].type === 'invokeHostFunction') {
+            const entries = txn.operations[0].auth
+
+            if (entries)
+                await this.signAuthEntries(entries, options)
+        }
+
+        return txn.toXDR()
+    }
+
+    public async attachPolicy(
+        txn: Transaction | string, 
+        index: number,
+        policy: string
+    ) {
+        txn = this.getTxn(txn)
+
+        // Only need to sign auth for `invokeHostFunction` operations
+        if (txn.operations[0].type !== 'invokeHostFunction')
+            return txn.toXDR()
+
+        if (!this.wallet)
+            throw new Error('Wallet not connected')
+            
+        let context_arg: xdr.ScVal
+
+        const auth = txn.operations[0].auth?.[index]
+        const context = auth?.rootInvocation().function()
+
+        if (!auth || !context)
+            throw new Error('No context found') 
+        
+        switch (context.switch().name) {
+            case 'sorobanAuthorizedFunctionTypeContractFn':
+                context_arg = xdr.ScVal.scvVec([
+                    xdr.ScVal.scvSymbol("Contract"),
+                    xdr.ScVal.scvMap([
+                        new xdr.ScMapEntry({
+                            key: xdr.ScVal.scvSymbol("args"),
+                            val: xdr.ScVal.scvVec(context.contractFn().args()),
+                        }),
+                        new xdr.ScMapEntry({
+                            key: xdr.ScVal.scvSymbol("contract"),
+                            val: Address.contract(context.contractFn().contractAddress().contractId(),).toScVal(),
+                        }),
+                        new xdr.ScMapEntry({
+                            key: xdr.ScVal.scvSymbol("fn_name"),
+                            val: xdr.ScVal.scvSymbol(context.contractFn().functionName(),),
+                        }),
+                    ]),
+                ])
+            break;
+            case 'sorobanAuthorizedFunctionTypeCreateContractHostFn':
+                // context.createContractHostFn().contractIdPreimage()
+                // context.createContractHostFn().executable()
+
+                // TODO support this context (deploy contract, deploy sac)
+                throw new Error('Not yet implemented')
+
+                // context_arg = xdr.ScVal.scvVec([
+                //     xdr.ScVal.scvSymbol("Contract"),
+                //     xdr.ScVal.scvMap([
+                //         new xdr.ScMapEntry({
+                //             key: xdr.ScVal.scvSymbol("contract_id_preimage"),
+                //             val: ,
+                //         }),
+                //         new xdr.ScMapEntry({
+                //             key: xdr.ScVal.scvSymbol("executable"),
+                //             val: ,
+                //         }),
+                //     ]),
+                // ])
+
+                // auth: VecM(
+                //     [
+                //         SorobanAuthorizationEntry {
+                //             credentials: SourceAccount,
+                //             root_invocation: SorobanAuthorizedInvocation {
+                //                 function: CreateContractHostFn(
+                //                     CreateContractArgs {
+                //                         contract_id_preimage: Address(
+                //                             ContractIdPreimageFromAddress {
+                //                                 address: Account(
+                //                                     AccountId(
+                //                                         PublicKeyTypeEd25519(
+                //                                             Uint256(857f64152fb7713065c027e9be34b34bb2cb9bc23c57276997196161fc863094),
+                //                                         ),
+                //                                     ),
+                //                                 ),
+                //                                 salt: Uint256(b876c4daf64b2515429bbd61d245e8c1ab41449f88d2a3915821eb5eb559f1f1),
+                //                             },
+                //                         ),
+                //                         executable: Wasm(
+                //                             Hash(c8a3d2b6ddefcfd448cb0ac20abcb2e11f41de30d52321281e5b6557cc9533c5),
+                //                         ),
+                //                     },
+                //                 ),
+                //                 sub_invocations: VecM(
+                //                     [],
+                //                 ),
+                //             },
+                //         },
+                //     ],
+                // ),
+            break;
+            default:
+                throw new Error('Unsupported context')
+        }
+
+        const __check_auth_args = new xdr.InvokeContractArgs({
+			contractAddress: Address.fromString(this.wallet.options.contractId).toScAddress(),
+			functionName: "__check_auth",
+			args: [context_arg],
+		});
+
+		const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
+			function:
+				xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+					__check_auth_args,
+				),
+			subInvocations: [],
+		});
+
+		const __check_auth = new xdr.SorobanAuthorizationEntry({
+			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
+				new xdr.SorobanAddressCredentials({
+					address: Address.fromString(policy).toScAddress(),
+					nonce: auth.credentials().address().nonce(),
+					signatureExpirationLedger: auth.credentials().address().signatureExpirationLedger(),
+					signature: xdr.ScVal.scvVec([]),
+				}),
+			),
+			rootInvocation: __check_auth_invocation,
+		});
+
+        txn.operations[0].auth?.push(__check_auth)
+
+        return txn.toXDR()
+    }
+
+    private getTxn(txn: Transaction | string): Transaction {
         /*
             - Hack to ensure we don't stack fees when simulating and assembling multiple times
                 AssembleTransaction always adds the resource fee onto the transaction fee. 
@@ -338,22 +507,7 @@ export class PasskeyKit extends PasskeyBase {
             ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
         }
 
-        // Only need to sign auth for `invokeHostFunction` operations
-        if (txn.operations[0].type === 'invokeHostFunction') {
-            const entries = (txn.operations[0] as Operation.InvokeHostFunction).auth
-
-            if (entries)
-                await this.signAuthEntries(entries, options)
-        }
-
-        const sim = await this.rpc.simulateTransaction(txn)
-
-        if (
-            SorobanRpc.Api.isSimulationError(sim)
-            || SorobanRpc.Api.isSimulationRestore(sim) // TODO handle state archival
-        ) throw sim
-
-        return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
+        return txn
     }
 
     /* LATER 
