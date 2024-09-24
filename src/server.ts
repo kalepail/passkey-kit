@@ -134,6 +134,10 @@ export class PasskeyServer extends PasskeyBase {
             } catch {
                 fee = 100
             }
+
+            // Adding 1 to the fee to ensure when we divide / 2 later in launchtube we don't go below the minimum fee
+            // Double because we're wrapping the tx in a fee bump so we'll need to pay for both
+            fee = (fee + 1) * 2
         }
 
         const data = new FormData();
