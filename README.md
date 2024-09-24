@@ -5,11 +5,13 @@ Passkey kit is a basic TypeScript SDK for creating and managing Stellar smart wa
 Demo site: [passkey-kit-demo.pages.dev](https://passkey-kit-demo.pages.dev/)
 
 To get started first install the package:
-```
+
+```bash
 pnpm i passkey-kit
 ```
 
 On the client:
+
 ```ts
 const account = new PasskeyKit({
     rpcUrl: env.PUBLIC_rpcUrl,
@@ -19,6 +21,7 @@ const account = new PasskeyKit({
 ```
 
 On the server:
+
 ```ts
 const account = new PasskeyServer({
     rpcUrl: env.PUBLIC_rpcUrl,
@@ -53,12 +56,13 @@ mercury-cli --jwt $MERCURY_JWT --local false --mainnet false deploy
 This is a TypeScript library and the npm package doesn't export a JavaScript version. The `@stellar/stellar-sdk` library is enormous and I really don't wan't folks bundling it up twice. Therefore you'll need to ensure you're transpiling this library into your project and that goes for either a TS project or a JS one. For many of you this will "just work" but for others you'll need to do some fiddling.
 
 For example if you're using NextJS this will mean modifying your `next.config.mjs` file to include the following packages in the `transpilePackages` key:
+
 ```mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     transpilePackages: [
-        'passkey-kit', 
-        'passkey-factory-sdk', 
+        'passkey-kit',
+        'passkey-factory-sdk',
         'passkey-kit-sdk',
         'sac-sdk',
     ]
@@ -66,11 +70,13 @@ const nextConfig = {
 
 export default nextConfig;
 ```
+
 If someone smarter than me knows how to include an optional JS build from a TS library please submit a PR. I just don't want to deploy a compiled version of this and wind up having folks doubling up on an already gargantuan dependency.
 
-## Contributing 
+## Contributing
 
 Passkey kit consists of three primary directories:
+
 - `./src` - Contains the TypeScript files for the actual TS SDK library.
 - `./demo` - Contains a basic demo of the SDK in action.
 - `./contracts` - Contains the Rust Soroban smart contracts of the smart wallet implementation.
@@ -96,8 +102,14 @@ pnpm i
 pnpm run start
 ```
 
+## Some small caveats
+
+### Using modified contracts
+
 > [!IMPORTANT]
 > If you fiddle with contracts in `./contracts` you'll need to run the make commands. Just remember to update the `WEBAUTHN_FACTORY` and `WEBAUTHN_WASM` values from the `make deploy` command before running `make init`.
+
+### Generated bindings
 
 > [!IMPORTANT]
 > Keep in mind the bindings here in `./packages` have been _heavily_ modified. Be careful when rebuilding and updating. Likely you'll only want to update the `src/index.ts` files in each respective package vs swapping out entire directories.
