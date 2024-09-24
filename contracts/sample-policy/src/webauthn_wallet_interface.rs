@@ -67,8 +67,10 @@ pub enum Signature {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Error {
     NotFound = 1,
-    NotAuthorized = 2,
-    ClientDataJsonChallengeIncorrect = 3,
-    JsonParseError = 4,
+    MissingContext = 2,
+    MissingSignerLimits = 3,
+    FailedPolicySignerLimits = 4,
     SignatureKeyValueMismatch = 5,
+    ClientDataJsonChallengeIncorrect = 6,
+    JsonParseError = 7,
 }

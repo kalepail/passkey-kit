@@ -5,10 +5,12 @@ use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Map, Vec}
 #[repr(u32)]
 pub enum Error {
     NotFound = 1,
-    NotAuthorized = 2,
-    ClientDataJsonChallengeIncorrect = 3,
-    JsonParseError = 4,
+    MissingContext = 2,
+    MissingSignerLimits = 3,
+    FailedPolicySignerLimits = 4,
     SignatureKeyValueMismatch = 5,
+    ClientDataJsonChallengeIncorrect = 6,
+    JsonParseError = 7,
 }
 
 #[contracttype]

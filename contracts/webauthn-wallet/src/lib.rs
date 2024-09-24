@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, Bytes, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec
+    auth::{Context, ContractContext, CustomAccountInterface}, contract, contractimpl, crypto::Hash, panic_with_error, symbol_short, vec, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec
 };
 use types::{Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerLimits, SignerStorage, SignerVal};
 
@@ -191,12 +191,12 @@ impl CustomAccountInterface for Contract {
         // Check all contexts for an authorizing signature
         for context in auth_contexts.iter() {
             'check: loop {
-                for (signer_key, signature) in signatures.iter() {
+                for (signer_key, _signature) in signatures.iter() {
                     if let Some((signer_val, _)) = get_signer_val_storage(&env, &signer_key, false) {
                         let signer_limits = match signer_val {
                             SignerVal::Policy(signer_limits) => signer_limits,
                             SignerVal::Ed25519(signer_limits) => signer_limits,
-                            SignerVal::Secp256r1(public_key, signer_limits) => signer_limits
+                            SignerVal::Secp256r1(_public_key, signer_limits) => signer_limits
                         };
 
                         if verify_context(&env, &context, &signer_key, &signer_limits, &signatures) {
@@ -207,7 +207,7 @@ impl CustomAccountInterface for Contract {
                     }
                 }
 
-                panic_with_error!(env, Error::NotAuthorized);
+                panic_with_error!(env, Error::MissingContext);
             }
         }
 
@@ -218,7 +218,13 @@ impl CustomAccountInterface for Contract {
                 Some((signer_val, _)) => {
                     match signature {
                         None => {
-                            // NOTE require_auth not called here because we need the appropriate context in order to call this function
+                            // If there's a policy signer in the signatures map we call it as a full forward of this __check_auth's arguments
+                            if let SignerKey::Policy(policy) = &signer_key {
+                                policy.require_auth();
+                                continue;
+                            }
+
+                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
                         }
                         Some(signature) => {
                             match signature {
@@ -235,7 +241,7 @@ impl CustomAccountInterface for Contract {
                                     panic_with_error!(&env, Error::SignatureKeyValueMismatch)
                                 }
                                 Signature::Secp256r1(signature) => {
-                                    if let SignerVal::Secp256r1(public_key, signer_limits) = signer_val {
+                                    if let SignerVal::Secp256r1(public_key, _signer_limits) = signer_val {
                                         verify_secp256r1_signature(
                                             &env,
                                             &signature_payload,
@@ -333,23 +339,29 @@ fn verify_signer_limit_keys(
 ) {
     if let Some(signer_limits_keys) = signer_limits_keys {
         for signer_limits_key in signer_limits_keys.iter() {
-            if !signatures.contains_key(signer_limits_key.clone()) {
-                // if any required key is missing this contract invocation is invalid
-                panic_with_error!(env, Error::NotAuthorized)
-            } else if let SignerKey::Policy(policy) = signer_limits_key {
-                // NOTE this is the only place we're calling require_auth_for_args for policy signers. If you want to run a policy `__check_auth` function it HAS to be in the context of SignerLimits
-                // Especially important for policies signing for themselves. Including a policy as a signature will be insufficient to actually run its `__check_auth` function
+            // Policies SignerLimits don't need to exist in the signatures map, or be stored on the smart wallet for that matter, they can be adjacent as long as they pass their own require_auth_for_args check
+            if let SignerKey::Policy(policy) = &signer_limits_key {
+                // In the case of a policy signer in the SignerLimits map we need to verify it if that key has been saved to the smart wallet
+                // NOTE watch out for infinity loops. If a policy calls itself this will indefinitely recurse
+                if let Some((signer_limits_val, _)) = get_signer_val_storage(env, &signer_limits_key, true) {
+                    if let SignerVal::Policy(signer_limits) = signer_limits_val {
+                        if !verify_context(env, context, &signer_limits_key, &signer_limits, signatures) {
+                            panic_with_error!(env, Error::FailedPolicySignerLimits)
+                        }
+                    }
+                }
+
                 policy.require_auth_for_args(vec![
                     env,
                     context.into_val(env),
                 ]);
+            // For every other SignerLimits key, it must exist in the signatures map and thus exist as a signer on the smart wallet
+            } else if !signatures.contains_key(signer_limits_key.clone()) {
+                // if any required key is missing this contract invocation is invalid
+                panic_with_error!(env, Error::MissingSignerLimits)
             }
-
-            // all required keys are present. We're gtg
         }
     }
-
-    // no key limits
 }
 
 fn get_signer_val_storage(

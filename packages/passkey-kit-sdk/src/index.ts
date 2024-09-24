@@ -30,20 +30,24 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDYJAGTWL2RE3LAOH4B6UOA5TZWTMEFOG5M7FKJZTIIXGFBRJS53TI4C",
+    contractId: "CA3WONARSZHZQCCM5WF5HLD27MIP7RWCQJMID4TLZIWPHQYGJT2CIYWX",
   }
 } as const
 
 export const Errors = {
   1: { message: "NotFound" },
 
-  2: { message: "NotAuthorized" },
+  2: { message: "MissingContext" },
 
-  3: { message: "ClientDataJsonChallengeIncorrect" },
+  3: { message: "MissingSignerLimits" },
 
-  4: { message: "JsonParseError" },
+  4: { message: "FailedPolicySignerLimits" },
 
-  5: { message: "SignatureKeyValueMismatch" }
+  5: { message: "SignatureKeyValueMismatch" },
+
+  6: { message: "ClientDataJsonChallengeIncorrect" },
+
+  7: { message: "JsonParseError" }
 }
 export type SignerLimits = readonly [Map<string, Option<Array<SignerKey>>>];
 export type SignerKey = { tag: "Policy", values: readonly [string] } | { tag: "Ed25519", values: readonly [Buffer] } | { tag: "Secp256r1", values: readonly [Buffer] };
@@ -129,7 +133,7 @@ export interface Client {
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABQAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAA1Ob3RBdXRob3JpemVkAAAAAAAAAgAAAAAAAAAgQ2xpZW50RGF0YUpzb25DaGFsbGVuZ2VJbmNvcnJlY3QAAAADAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABAAAAAAAAAAZU2lnbmF0dXJlS2V5VmFsdWVNaXNtYXRjaAAAAAAAAAU=",
+      new ContractSpec(["AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABwAAAAAAAAAITm90Rm91bmQAAAABAAAAAAAAAA5NaXNzaW5nQ29udGV4dAAAAAAAAgAAAAAAAAATTWlzc2luZ1NpZ25lckxpbWl0cwAAAAADAAAAAAAAABhGYWlsZWRQb2xpY3lTaWduZXJMaW1pdHMAAAAEAAAAAAAAABlTaWduYXR1cmVLZXlWYWx1ZU1pc21hdGNoAAAAAAAABQAAAAAAAAAgQ2xpZW50RGF0YUpzb25DaGFsbGVuZ2VJbmNvcnJlY3QAAAAGAAAAAAAAAA5Kc29uUGFyc2VFcnJvcgAAAAAABw==",
         "AAAAAQAAAAAAAAAAAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAATAAAAAAAAPsAAAAEwAAA+gAAAPqAAAH0AAAAAlTaWduZXJLZXkAAAA=",
         "AAAAAgAAAAAAAAAAAAAACVNpZ25lcktleQAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAATAAAAAQAAAAAAAAAHRWQyNTUxOQAAAAABAAAD7gAAACAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAABAAAADg==",
         "AAAAAgAAAAAAAAAAAAAACVNpZ25lclZhbAAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAfQAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAQAAB9AAAAAMU2lnbmVyTGltaXRzAAAAAQAAAAAAAAAJU2VjcDI1NnIxAAAAAAAAAgAAA+4AAABBAAAH0AAAAAxTaWduZXJMaW1pdHM=",

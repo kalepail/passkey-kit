@@ -485,7 +485,7 @@ checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
 
 [[package]]
 name = "example-contract"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
  "webauthn-wallet",
@@ -997,7 +997,7 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 
 [[package]]
 name = "sample-policy"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "soroban-sdk",
 ]
@@ -1619,7 +1619,7 @@ dependencies = [
 
 [[package]]
 name = "webauthn-wallet"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek 1.0.1",
