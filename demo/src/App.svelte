@@ -161,14 +161,14 @@
 		if (pubkey) {
 			const keypair = Keypair.fromPublicKey(pubkey);
 			const signer_limits: SignerLimits = [new Map()];
-			const signer_keys: SignerKey[] = [];
+			// const signer_keys: SignerKey[] = [];
 
-			signer_keys.push({
-				tag: "Policy",
-				values: [SAMPLE_POLICY],
-			});
+			// signer_keys.push({
+			// 	tag: "Policy",
+			// 	values: [SAMPLE_POLICY],
+			// });
 
-			signer_limits[0].set(NATIVE_SAC, signer_keys);
+			// signer_limits[0].set(NATIVE_SAC, signer_keys);
 
 			const { built } = await account.wallet!.add({
 				signer: {
@@ -378,13 +378,6 @@
 
 		const sig = xdr.ScVal.scvMap([
 			xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
-			new xdr.ScMapEntry({
-				key: xdr.ScVal.scvVec([
-					xdr.ScVal.scvSymbol("Policy"),
-					Address.fromString(SAMPLE_POLICY).toScVal(),
-				]),
-				val: xdr.ScVal.scvVoid(),
-			}),
 			xdr.ScMapEntry.fromXDR(secp256r1_sig.map()?.pop()?.toXDR()),
 		]);
 
@@ -438,7 +431,9 @@
 				}
 			}
 
-			// NOTE won't work as the ed25519 signer has a policy signer_key restriction
+			// NOTE won't work if the ed25519 signer has a policy signer_key restriction
+			// If you want this to work you need to remove the policy restriction from the ed25519 signer first 
+			// (though that will make the policy transfer less interesting)
 			const res = await server.send(built!.toXDR());
 
 			console.log(res);
@@ -477,13 +472,6 @@
 		credentials.signature(
 			xdr.ScVal.scvMap([
 				xdr.ScMapEntry.fromXDR(ed25519_sig.map()?.pop()?.toXDR()),
-				new xdr.ScMapEntry({
-					key: xdr.ScVal.scvVec([
-						xdr.ScVal.scvSymbol("Policy"),
-						Address.fromString(SAMPLE_POLICY).toScVal(),
-					]),
-					val: xdr.ScVal.scvVoid(),
-				}),
 			]),
 		);
 
