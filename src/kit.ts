@@ -185,26 +185,26 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
-            validUntilLedgerSeq?: number
+            expiration?: number
         }
     ) {
-        let { rpId, keyId, keypair, validUntilLedgerSeq } = options || {}
+        let { rpId, keyId, keypair, expiration } = options || {}
 
         if (keyId && keypair)
             throw new Error('Provide either `options.keyId` or `options.keypair` but not both')
 
         const credentials = entry.credentials().address();
 
-        if (!validUntilLedgerSeq) {
-            validUntilLedgerSeq = credentials.signatureExpirationLedger()
+        if (!expiration) {
+            expiration = credentials.signatureExpirationLedger()
 
-            if (!validUntilLedgerSeq) {
+            if (!expiration) {
                 const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
-                validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
+                expiration = lastLedger + DEFAULT_TIMEOUT / 5;
             }
         }
 
-        credentials.signatureExpirationLedger(validUntilLedgerSeq)
+        credentials.signatureExpirationLedger(expiration)
         
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
@@ -319,7 +319,7 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
-            validUntilLedgerSeq?: number
+            expiration?: number
         }
     ) {
         // TODO should there be more control over which auth entries are signed? Especially given we support multiple signers now?
@@ -342,7 +342,7 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
-            validUntilLedgerSeq?: number
+            expiration?: number
         }
     ) {
         const entries = this.getAuthEntries(txn)
@@ -353,14 +353,14 @@ export class PasskeyKit extends PasskeyBase {
 
     public async attachPolicy(
         txn: Transaction,
-        index: number,
+        authEntryIndex: number,
         policy: string
     ) {
         if (!this.wallet)
             throw new Error('Wallet not connected')
 
         const entries = this.getAuthEntries(txn)
-        const auth = entries?.[index]
+        const auth = entries?.[authEntryIndex]
         const context = auth?.rootInvocation().function()
 
         if (!entries || !auth || !context)
