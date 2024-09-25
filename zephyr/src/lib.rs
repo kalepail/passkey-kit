@@ -161,17 +161,13 @@ pub extern "C" fn get_signers_by_address() {
             kind: kind_parsed,
             key: key_parsed,
             val: val_parsed,
-            // limits: limits_parsed,
+            // limits: limits_parsed, // TODO output limits in a more sane manner
             limits: URL_SAFE.encode(signer_limits.to_xdr(&env.soroban()).to_alloc_vec()),
         })
     }
 
     env.conclude(response)
 }
-
-// fn process_signer_limits(signer_limits: SignerLimits) -> String {
-    
-// }
 
 #[derive(Deserialize)]
 pub struct AddressBySignerRequest {

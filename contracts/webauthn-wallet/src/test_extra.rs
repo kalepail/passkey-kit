@@ -63,6 +63,8 @@ fn test_deploy_contract() {
         root_invocation: root_invocation.clone(),
     };
 
+    // TODO get this test to pass
+
     example_contract_client
         .set_auths(&[root_auth])
         .deploy(&wallet_address, &wasm_hash);
