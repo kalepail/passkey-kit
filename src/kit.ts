@@ -100,11 +100,6 @@ export class PasskeyKit extends PasskeyBase {
                 displayName
             },
             authenticatorSelection,
-            // authenticatorSelection: {
-            //     requireResidentKey: false,
-            //     residentKey: "preferred",
-            //     userVerification: "discouraged",
-            // },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             // attestation: "none",
             // timeout: 120_000,
@@ -197,6 +192,9 @@ export class PasskeyKit extends PasskeyBase {
     ) {
         let { rpId, keyId, keypair, validUntilLedgerSeq } = options || {}
 
+        if (keyId && keypair)
+            throw new Error('Cannot provide both a keyId and keypair')
+
         if (!validUntilLedgerSeq) {
             const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
             validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
@@ -228,8 +226,8 @@ export class PasskeyKit extends PasskeyBase {
                 tag: "Ed25519",
                 values: [signature],
             }
-        } 
-        
+        }
+
         // Default, use passkey
         else {
             const authenticationResponse = await this.WebAuthn.startAuthentication(
@@ -256,7 +254,7 @@ export class PasskeyKit extends PasskeyBase {
                         // timeout: 120_000
                     }
             );
-    
+
             key = {
                 tag: "Secp256r1",
                 values: [base64url.toBuffer(authenticationResponse.id)]
@@ -295,10 +293,10 @@ export class PasskeyKit extends PasskeyBase {
         switch (credentials.signature().switch().name) {
             case 'scvVoid':
                 credentials.signature(xdr.ScVal.scvMap([scEntry]))
-            break;
+                break;
             case 'scvMap':
                 credentials.signature().map()?.push(scEntry)
-            break;
+                break;
             default:
                 throw new Error('Unsupported signature')
         }
@@ -354,7 +352,7 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     public async attachPolicy(
-        txn: Transaction | string, 
+        txn: Transaction | string,
         index: number,
         policy: string
     ) {
@@ -366,117 +364,94 @@ export class PasskeyKit extends PasskeyBase {
 
         if (!this.wallet)
             throw new Error('Wallet not connected')
-            
+
         let context_arg: xdr.ScVal
 
         const auth = txn.operations[0].auth?.[index]
         const context = auth?.rootInvocation().function()
 
         if (!auth || !context)
-            throw new Error('No context found') 
-        
+            throw new Error('No context found')
+
         switch (context.switch().name) {
             case 'sorobanAuthorizedFunctionTypeContractFn':
-                context_arg = xdr.ScVal.scvVec([
-                    xdr.ScVal.scvSymbol("Contract"),
-                    xdr.ScVal.scvMap([
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol("args"),
-                            val: xdr.ScVal.scvVec(context.contractFn().args()),
-                        }),
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol("contract"),
-                            val: Address.contract(context.contractFn().contractAddress().contractId(),).toScVal(),
-                        }),
-                        new xdr.ScMapEntry({
-                            key: xdr.ScVal.scvSymbol("fn_name"),
-                            val: xdr.ScVal.scvSymbol(context.contractFn().functionName(),),
-                        }),
-                    ]),
-                ])
-            break;
+                switch (context.contractFn().contractAddress().switch().name) {
+                    case 'scAddressTypeContract':
+                        context_arg = xdr.ScVal.scvVec([
+                            xdr.ScVal.scvSymbol("Contract"),
+                            xdr.ScVal.scvMap([
+                                new xdr.ScMapEntry({
+                                    key: xdr.ScVal.scvSymbol("args"),
+                                    val: xdr.ScVal.scvVec(context.contractFn().args()),
+                                }),
+                                new xdr.ScMapEntry({
+                                    key: xdr.ScVal.scvSymbol("contract"),
+                                    val: Address.contract(context.contractFn().contractAddress().contractId()).toScVal(),
+                                }),
+                                new xdr.ScMapEntry({
+                                    key: xdr.ScVal.scvSymbol("fn_name"),
+                                    val: xdr.ScVal.scvSymbol(context.contractFn().functionName()),
+                                }),
+                            ]),
+                        ])
+                        break;
+                    default:
+                        throw new Error('Unsupported contractAddress')
+                }
+                break;
             case 'sorobanAuthorizedFunctionTypeCreateContractHostFn':
-                // context.createContractHostFn().contractIdPreimage()
-                // context.createContractHostFn().executable()
-
-                // TODO support this context (deploy contract, deploy sac)
-                throw new Error('Not yet implemented')
-
-                // context_arg = xdr.ScVal.scvVec([
-                //     xdr.ScVal.scvSymbol("Contract"),
-                //     xdr.ScVal.scvMap([
-                //         new xdr.ScMapEntry({
-                //             key: xdr.ScVal.scvSymbol("contract_id_preimage"),
-                //             val: ,
-                //         }),
-                //         new xdr.ScMapEntry({
-                //             key: xdr.ScVal.scvSymbol("executable"),
-                //             val: ,
-                //         }),
-                //     ]),
-                // ])
-
-                // auth: VecM(
-                //     [
-                //         SorobanAuthorizationEntry {
-                //             credentials: SourceAccount,
-                //             root_invocation: SorobanAuthorizedInvocation {
-                //                 function: CreateContractHostFn(
-                //                     CreateContractArgs {
-                //                         contract_id_preimage: Address(
-                //                             ContractIdPreimageFromAddress {
-                //                                 address: Account(
-                //                                     AccountId(
-                //                                         PublicKeyTypeEd25519(
-                //                                             Uint256(857f64152fb7713065c027e9be34b34bb2cb9bc23c57276997196161fc863094),
-                //                                         ),
-                //                                     ),
-                //                                 ),
-                //                                 salt: Uint256(b876c4daf64b2515429bbd61d245e8c1ab41449f88d2a3915821eb5eb559f1f1),
-                //                             },
-                //                         ),
-                //                         executable: Wasm(
-                //                             Hash(c8a3d2b6ddefcfd448cb0ac20abcb2e11f41de30d52321281e5b6557cc9533c5),
-                //                         ),
-                //                     },
-                //                 ),
-                //                 sub_invocations: VecM(
-                //                     [],
-                //                 ),
-                //             },
-                //         },
-                //     ],
-                // ),
-            break;
+                switch (context.createContractHostFn().contractIdPreimage().switch().name) {
+                    case 'contractIdPreimageFromAddress':
+                        context_arg = xdr.ScVal.scvVec([
+                            xdr.ScVal.scvSymbol("CreateContractHostFn"),
+                            xdr.ScVal.scvMap([
+                                new xdr.ScMapEntry({
+                                    key: xdr.ScVal.scvSymbol("executable"),
+                                    val: xdr.ScVal.scvVec([
+                                        xdr.ScVal.scvSymbol("Wasm"),
+                                        xdr.ScVal.scvBytes(context.createContractHostFn().executable().wasmHash())
+                                    ]),
+                                }),
+                                new xdr.ScMapEntry({
+                                    key: xdr.ScVal.scvSymbol("salt"),
+                                    val: xdr.ScVal.scvBytes(context.createContractHostFn().contractIdPreimage().fromAddress().salt()),
+                                }),
+                            ]),
+                        ])
+                        break;
+                    default:
+                        throw new Error('Unsupported contractIdPreimage')
+                }
+                break;
             default:
                 throw new Error('Unsupported context')
         }
 
         const __check_auth_args = new xdr.InvokeContractArgs({
-			contractAddress: Address.fromString(this.wallet.options.contractId).toScAddress(),
-			functionName: "__check_auth",
-			args: [context_arg],
-		});
+            contractAddress: Address.fromString(this.wallet.options.contractId).toScAddress(),
+            functionName: "__check_auth",
+            args: [context_arg],
+        });
 
-		const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
-			function:
-				xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-					__check_auth_args,
-				),
-			subInvocations: [],
-		});
+        const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
+            function:
+                xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+                    __check_auth_args,
+                ),
+            subInvocations: [],
+        });
 
-		const __check_auth = new xdr.SorobanAuthorizationEntry({
-			credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
-				new xdr.SorobanAddressCredentials({
-					address: Address.fromString(policy).toScAddress(),
-					nonce: auth.credentials().address().nonce(),
-					signatureExpirationLedger: auth.credentials().address().signatureExpirationLedger(),
-					signature: xdr.ScVal.scvVec([]),
-				}),
-			),
-			rootInvocation: __check_auth_invocation,
-		});
+        const __check_auth = new xdr.SorobanAuthorizationEntry({
+            credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
+                new xdr.SorobanAddressCredentials({
+                    address: Address.fromString(policy).toScAddress(),
+                    nonce: auth.credentials().address().nonce(),
+                    signatureExpirationLedger: auth.credentials().address().signatureExpirationLedger(),
+                    signature: xdr.ScVal.scvVec([]),
+                }),
+            ),
+            rootInvocation: __check_auth_invocation,
+        });
 
         txn.operations[0].auth?.push(__check_auth)
 
@@ -484,11 +459,6 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     private getTxn(txn: Transaction | string): Transaction {
-        /*
-            - Hack to ensure we don't stack fees when simulating and assembling multiple times
-                AssembleTransaction always adds the resource fee onto the transaction fee. 
-                This is bad in cases where you need to simulate multiple times
-        */
         txn = TransactionBuilder.cloneFrom(new Transaction(
             typeof txn === 'string'
                 ? txn
@@ -555,9 +525,10 @@ export class PasskeyKit extends PasskeyBase {
             ])
         }
 
-        /* LATER
+        /* TODO
             - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
                 Hmm...Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
+            - This probably needs to be an onchain check, even if just a simulation, just to ensure everything looks good before we get too far adding value etc.
         */
 
         return publicKey

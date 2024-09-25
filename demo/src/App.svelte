@@ -8,14 +8,7 @@
 		native,
 		server,
 	} from "./lib/common";
-	import {
-		Address,
-		Keypair,
-		Operation,
-		Transaction,
-		xdr,
-	} from "@stellar/stellar-sdk";
-	import { DEFAULT_LTL } from "passkey-kit";
+	import { Keypair } from "@stellar/stellar-sdk";
 	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
 
 	// TODO need to support two toggles:

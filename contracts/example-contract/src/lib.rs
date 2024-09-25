@@ -1,12 +1,17 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, token, Address, Env};
+use soroban_sdk::{contract, contractimpl, token, Address, BytesN, Env};
 
 #[contract]
 pub struct Contract;
 
 #[contractimpl]
 impl Contract {
+    pub fn deploy(env: Env, source: Address, wasm_hash: BytesN<32>) {
+        env.deployer()
+            .with_address(source, wasm_hash.clone())
+            .deploy(wasm_hash);
+    }
     pub fn call(
         env: Env,
         sac: Address,

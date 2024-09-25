@@ -10,7 +10,9 @@ use soroban_sdk::{
     auth::{Context, ContractContext},
     map, symbol_short, token, vec,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal, ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
+        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
     },
     Address, Bytes, BytesN, Env, IntoVal, String,
 };
@@ -139,15 +141,13 @@ fn test() {
 
     wallet_client.mock_all_auths().add(&Signer::Ed25519(
         simple_ed25519_bytes,
-        SignerLimits(map![&env, 
+        SignerLimits(map![
+            &env,
             (
                 sac_address.clone(),
                 Some(vec![&env, sample_policy_signer_key.clone()])
             ),
-            (
-                example_contract_address.clone(),
-                None,
-            )
+            (example_contract_address.clone(), None,)
         ]),
         SignerStorage::Temporary,
     ));
@@ -370,7 +370,7 @@ fn test() {
             // &remove_key,
             // &add_signer,
         );
-    
+
     // Loose
     // Cpu limit: 100000000; used: 1011983
     // Mem limit: 41943040; used: 106096
