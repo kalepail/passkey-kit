@@ -1,12 +1,12 @@
 import { Client as PasskeyClient, type Signature, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, TransactionBuilder, Keypair } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+import { DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -75,7 +75,7 @@ export class PasskeyKit extends PasskeyBase {
         return {
             keyId,
             contractId,
-            xdr: built.toXDR()
+            built
         }
     }
 
@@ -214,6 +214,7 @@ export class PasskeyKit extends PasskeyBase {
                 invocation: entry.rootInvocation()
             })
         )
+        
         const payload = hash(preimage.toXDR())
 
         let key: SignerKey
@@ -310,8 +311,6 @@ export class PasskeyKit extends PasskeyBase {
             default:
                 throw new Error('Unsupported signature')
         }
-
-        return entry
     }
 
     public async signAuthEntries(
@@ -335,12 +334,10 @@ export class PasskeyKit extends PasskeyBase {
                     await this.signAuthEntry(auth, options)
             }
         }
-
-        return entries
     }
 
     public async sign(
-        txn: Transaction | string,
+        txn: Transaction,
         options?: {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
@@ -348,40 +345,28 @@ export class PasskeyKit extends PasskeyBase {
             validUntilLedgerSeq?: number
         }
     ) {
-        txn = this.getTxn(txn)
+        const entries = this.getAuthEntries(txn)
 
-        // Only need to sign auth for `invokeHostFunction` operations
-        if (txn.operations[0].type === 'invokeHostFunction') {
-            const entries = txn.operations[0].auth
-
-            if (entries)
-                await this.signAuthEntries(entries, options)
-        }
-
-        return txn.toXDR()
+        if (entries)
+            await this.signAuthEntries(entries, options)
     }
 
     public async attachPolicy(
-        txn: Transaction | string,
+        txn: Transaction,
         index: number,
         policy: string
     ) {
-        txn = this.getTxn(txn)
-
-        // Only need to sign auth for `invokeHostFunction` operations
-        if (txn.operations[0].type !== 'invokeHostFunction')
-            return txn.toXDR()
-
         if (!this.wallet)
             throw new Error('Wallet not connected')
 
-        let context_arg: xdr.ScVal
-
-        const auth = txn.operations[0].auth?.[index]
+        const entries = this.getAuthEntries(txn)
+        const auth = entries?.[index]
         const context = auth?.rootInvocation().function()
 
-        if (!auth || !context)
+        if (!entries || !auth || !context)
             throw new Error('No context found')
+
+        let context_arg: xdr.ScVal
 
         switch (context.switch().name) {
             case 'sorobanAuthorizedFunctionTypeContractFn':
@@ -463,19 +448,14 @@ export class PasskeyKit extends PasskeyBase {
             rootInvocation: __check_auth_invocation,
         });
 
-        txn.operations[0].auth?.push(__check_auth)
-
-        return txn.toXDR()
+        entries.push(__check_auth)
     }
 
-    private getTxn(txn: Transaction | string): Transaction {
-        txn = TransactionBuilder.cloneFrom(new Transaction(
-            typeof txn === 'string'
-                ? txn
-                : txn.toXDR(),
-            this.networkPassphrase
-        ), { fee: '0' }).build()
+    public prepareTransaction(txn: Tx) {
+        return new Transaction(txn.toXDR(), this.networkPassphrase);
+    }
 
+    private getAuthEntries(txn: Transaction) {
         if (txn.operations.length !== 1)
             throw new Error('Must include only one Soroban operation')
 
@@ -487,7 +467,13 @@ export class PasskeyKit extends PasskeyBase {
             ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
         }
 
-        return txn
+        // Only need to sign auth for `invokeHostFunction` operations
+        if (txn.operations[0].type === 'invokeHostFunction') {
+            const entries = txn.operations[0].auth
+
+            if (entries && entries.length)
+                return entries
+        }
     }
 
     /* LATER 

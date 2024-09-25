@@ -8,7 +8,7 @@
 		native,
 		server,
 	} from "./lib/common";
-	import { Keypair } from "@stellar/stellar-sdk";
+	import { Keypair, Transaction } from "@stellar/stellar-sdk";
 	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
 
 	// TODO need to support two toggles:
@@ -54,9 +54,9 @@
 			const {
 				keyId: kid,
 				contractId: cid,
-				xdr,
+				built,
 			} = await account.createWallet("Super Peach", user);
-			const res = await server.send(xdr);
+			const res = await server.send(built);
 
 			console.log(res);
 
@@ -131,8 +131,10 @@
 				},
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminSigner });
-			const res = await server.send(xdr);
+			const txn = account.prepareTransaction(built!);
+
+			await account.sign(txn, { keyId: adminSigner });
+			const res = await server.send(txn);
 
 			console.log(res);
 
@@ -170,8 +172,10 @@
 				},
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminSigner });
-			const res = await server.send(xdr);
+			const txn = account.prepareTransaction(built!);
+
+			await account.sign(txn, { keyId: adminSigner });
+			const res = await server.send(txn);
 
 			console.log(res);
 
@@ -201,8 +205,10 @@
 			},
 		});
 
-		const xdr = await account.sign(built!, { keyId: adminSigner });
-		const res = await server.send(xdr);
+		const txn = account.prepareTransaction(built!);
+
+		await account.sign(txn, { keyId: adminSigner });
+		const res = await server.send(txn);
 
 		console.log(res);
 
@@ -236,11 +242,13 @@
 			}
 
 			const { built } = await account.wallet!.remove({
-				signer_key
+				signer_key,
 			});
 
-			const xdr = await account.sign(built!, { keyId: adminSigner });
-			const res = await server.send(xdr);
+			const txn = account.prepareTransaction(built!);
+
+			await account.sign(txn, { keyId: adminSigner });
+			const res = await server.send(txn);
 
 			console.log(res);
 
@@ -261,7 +269,7 @@
 			signAuthEntry: (auth) => fundSigner.signAuthEntry(auth),
 		});
 
-		const res = await server.send(built!.toXDR());
+		const res = await server.send(built!);
 
 		console.log(res);
 
@@ -278,13 +286,13 @@
 			amount: BigInt(10_000_000),
 		});
 
-		let xdr = await account.sign(built!, { keyId: adminSigner });
-			xdr = await account.sign(xdr, { keypair });
-			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
+		const txn = account.prepareTransaction(built!);
 
-		console.log(xdr);
+		await account.sign(txn, { keyId: adminSigner });
+		await account.sign(txn, { keypair });
+		await account.attachPolicy(txn, 0, SAMPLE_POLICY);
 
-		const res = await server.send(xdr);
+		const res = await server.send(txn);
 
 		console.log(res);
 
@@ -303,12 +311,14 @@
 				amount: BigInt(10_000_000),
 			});
 
-			const xdr = await account.sign(built!, { keypair });
+			const txn = account.prepareTransaction(built!);
+
+			await account.sign(txn, { keypair });
 
 			// NOTE won't work if the ed25519 signer has a policy signer_key restriction
-			// If you want this to work you need to remove the policy restriction from the ed25519 signer first 
+			// If you want this to work you need to remove the policy restriction from the ed25519 signer first
 			// (though that will make the policy transfer less interesting)
-			const res = await server.send(xdr);
+			const res = await server.send(txn);
 
 			console.log(res);
 
@@ -325,11 +335,13 @@
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
-		
-		let xdr = await account.sign(built!, { keypair });
-			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
 
-		const res = await server.send(xdr);
+		const txn = account.prepareTransaction(built!);
+
+		await account.sign(txn, { keypair });
+		await account.attachPolicy(txn, 0, SAMPLE_POLICY);
+
+		const res = await server.send(txn);
 
 		console.log(res);
 
@@ -350,8 +362,10 @@
 			amount: BigInt(10_000_000),
 		});
 
-		const xdr = await account.sign(built!, { keyId: signer });
-		const res = await server.send(xdr);
+		const txn = account.prepareTransaction(built!);
+
+		await account.sign(txn, { keyId: signer });
+		const res = await server.send(txn);
 
 		console.log(res);
 
