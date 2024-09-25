@@ -1,6 +1,6 @@
 import { Client as PasskeyClient, type Signature, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder, Keypair } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, TransactionBuilder, Keypair } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
@@ -315,6 +315,8 @@ export class PasskeyKit extends PasskeyBase {
             validUntilLedgerSeq?: number
         }
     ) {
+        // TODO should there be more control over which auth entries are signed? Especially given we support multiple signers now?
+        // As-is .sign() will always sign every smart wallet auth entry. This may be okay but likely we should have more control over which auth entry the signer is signing
         for (const auth of entries) {
             if (
                 auth.credentials().switch().name === 'sorobanCredentialsAddress'
