@@ -127,23 +127,12 @@ export class PasskeyServer extends PasskeyBase {
         if (!this.launchtubeUrl || !this.launchtubeJwt)
             throw new Error('Launchtube service not configured')
 
-        if (!fee) {
-            try {
-                const res = await this.rpc?.getFeeStats()
-                fee = parseInt(res?.sorobanInclusionFee.p50 || '100')
-            } catch {
-                fee = 100
-            }
-
-            // Adding 1 to the fee to ensure when we divide / 2 later in launchtube we don't go below the minimum fee
-            // Double because we're wrapping the tx in a fee bump so we'll need to pay for both
-            fee = (fee + 1) * 2
-        }
-
         const data = new FormData();
 
         data.set('xdr', xdr);
-        data.set('fee', fee.toString());
+
+        if (fee)
+            data.set('fee', fee.toString());
 
         return fetch(this.launchtubeUrl, {
             method: 'POST',

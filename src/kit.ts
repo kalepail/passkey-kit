@@ -193,7 +193,7 @@ export class PasskeyKit extends PasskeyBase {
         let { rpId, keyId, keypair, validUntilLedgerSeq } = options || {}
 
         if (keyId && keypair)
-            throw new Error('Cannot provide both a keyId and keypair')
+            throw new Error('Provide either `options.keyId` or `options.keypair` but not both')
 
         if (!validUntilLedgerSeq) {
             const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
