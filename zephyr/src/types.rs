@@ -11,20 +11,23 @@ pub struct Signers {
     pub address: ScVal,
     pub key: ScVal,
     pub val: ScVal,
+    pub storage: ScVal,
     pub active: ScVal,
 }
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]
-pub struct SignersKeyVal {
+pub struct SignersKeyValStorage {
     pub key: ScVal,
     pub val: ScVal,
+    pub storage: ScVal,
 }
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]
-pub struct SignersValActive {
+pub struct SignersValStorageActive {
     pub val: ScVal,
+    pub storage: ScVal,
     pub active: ScVal,
 }
 

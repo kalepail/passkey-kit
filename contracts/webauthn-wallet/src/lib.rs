@@ -56,11 +56,8 @@ impl Contract {
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        // TODO Record the signer_storage type as well as this is useful information
-        // Also update and utilize this info in Zephyr
-
         env.events()
-            .publish((EVENT_TAG, symbol_short!("add"), signer_key), signer_val);
+            .publish((EVENT_TAG, symbol_short!("add"), signer_key), (signer_val, signer_storage));
 
         Ok(())
     }

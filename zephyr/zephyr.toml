@@ -47,5 +47,9 @@ name = "val"
 col_type = "BYTEA"
 
 [[tables.columns]]
+name = "storage"
+col_type = "BYTEA"
+
+[[tables.columns]]
 name = "active"
 col_type = "BYTEA"

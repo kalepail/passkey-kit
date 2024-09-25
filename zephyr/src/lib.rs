@@ -1,9 +1,9 @@
 use base64::{engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use serde::{Deserialize, Serialize};
 use stellar_strkey::{ed25519, Contract, Strkey};
-use types::{Signers, SignersActive, SignersAddress, SignersKeyVal, SignersValActive};
+use types::{Signers, SignersActive, SignersAddress, SignersKeyValStorage, SignersValStorageActive};
 use webauthn_wallet::types::{
-    SignerKey, SignerVal
+    SignerKey, SignerStorage, SignerVal
 };
 use zephyr_sdk::{
     soroban_sdk::{
@@ -34,9 +34,10 @@ pub extern "C" fn on_close() {
                             );
                             let address = env.to_scval(address);
                             let key = &event.topics[2];
+                            let (signer_val, signer_storage): (SignerVal, SignerStorage) = env.from_scval(&event.data);
 
                             if etype == symbol_short!("add") {
-                                let mut older: Vec<SignersValActive> = env
+                                let mut older: Vec<SignersValStorageActive> = env
                                     .read_filter()
                                     .column_equal_to_xdr("address", &address)
                                     .column_equal_to_xdr("key", key)
@@ -44,7 +45,9 @@ pub extern "C" fn on_close() {
                                     .unwrap();
 
                                 if let Some(older) = older.get_mut(0) {
-                                    older.val = event.data;
+                                    // older.val = event.data;
+                                    older.val = env.to_scval(signer_val);
+                                    older.storage = env.to_scval(signer_storage);
                                     older.active = ScVal::Bool(true);
 
                                     env.update()
@@ -56,7 +59,8 @@ pub extern "C" fn on_close() {
                                     let signer = Signers {
                                         address,
                                         key: key.clone(),
-                                        val: event.data,
+                                        val: env.to_scval(signer_val),
+                                        storage: env.to_scval(signer_storage),
                                         active: ScVal::Bool(true),
                                     };
 
@@ -98,6 +102,7 @@ pub struct SignersByAddressResponse {
     kind: String,
     key: String,
     val: Option<String>,
+    storage: String,
     limits: String,
 }
 
@@ -109,7 +114,7 @@ pub extern "C" fn get_signers_by_address() {
     let address = address_from_str(&env, address.as_str());
     let address = env.to_scval(address);
 
-    let signers: Vec<SignersKeyVal> = env
+    let signers: Vec<SignersKeyValStorage> = env
         .read_filter()
         .column_equal_to_xdr("address", &address)
         .column_equal_to_xdr("active", &ScVal::Bool(true))
@@ -118,19 +123,16 @@ pub extern "C" fn get_signers_by_address() {
 
     let mut response: Vec<SignersByAddressResponse> = vec![];
 
-    for SignersKeyVal { key, val } in signers {
+    for SignersKeyValStorage { key, val, storage } in signers {
         let signer_key = env.from_scval::<SignerKey>(&key);
         let signer_val = env.from_scval::<SignerVal>(&val);
-
-        let mut val_parsed: Option<String> = None;
-        // let limits_parsed: String;
+        let signer_storage = env.from_scval::<SignerStorage>(&storage);
 
         let (kind_parsed, key_parsed) = match signer_key {
-            SignerKey::Policy(policy) =>
-                (
-                    String::from("Policy"),
-                    address_to_alloc_string(&env, policy),
-                ),
+            SignerKey::Policy(policy) => (
+                String::from("Policy"),
+                address_to_alloc_string(&env, policy),
+            ),
             SignerKey::Ed25519(ed25519) => (
                 String::from("Ed25519"),
                 Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.to_array())).to_string(),
@@ -141,27 +143,30 @@ pub extern "C" fn get_signers_by_address() {
             )
         };
 
+        let mut val_parsed: Option<String> = None;
         let signer_limits = match signer_val {
             SignerVal::Policy(signer_limits) => {
-                // limits_parsed = process_signer_type(signer_limits);
                 signer_limits
             }
             SignerVal::Ed25519(signer_limits) => {
-                // limits_parsed = process_signer_type(signer_limits);
                 signer_limits
             }
-            SignerVal::Secp256r1(secp256r1, signer_limits) => {
-                // limits_parsed = process_signer_type(signer_limits);
-                val_parsed = Some(URL_SAFE_NO_PAD.encode(secp256r1.to_array()));
+            SignerVal::Secp256r1(public_key, signer_limits) => {
+                val_parsed = Some(URL_SAFE_NO_PAD.encode(public_key.to_array()));
                 signer_limits
             }
+        };
+
+        let storage_parsed = match signer_storage {
+            SignerStorage::Persistent => String::from("Persistent"),
+            SignerStorage::Temporary => String::from("Temporary"),
         };
 
         response.push(SignersByAddressResponse {
             kind: kind_parsed,
             key: key_parsed,
             val: val_parsed,
-            // limits: limits_parsed, // TODO output limits in a more sane manner
+            storage: storage_parsed,
             limits: URL_SAFE.encode(signer_limits.to_xdr(&env.soroban()).to_alloc_vec()),
         })
     }

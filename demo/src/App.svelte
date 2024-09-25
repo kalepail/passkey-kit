@@ -278,6 +278,7 @@
 			amount: BigInt(10_000_000),
 		});
 
+		// TODO see what happens when double signing auth entries since we sign all auth entries by default for each .sign()
 		let xdr = await account.sign(built!, { keypair });
 			xdr = await account.sign(xdr, { keyId: adminSigner });
 			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
