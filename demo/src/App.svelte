@@ -278,8 +278,8 @@
 			amount: BigInt(10_000_000),
 		});
 
-		let xdr = await account.sign(built!, { keypair });
-			xdr = await account.sign(xdr, { keyId: adminSigner });
+		let xdr = await account.sign(built!, { keyId: adminSigner });
+			xdr = await account.sign(xdr, { keypair });
 			xdr = await account.attachPolicy(xdr, 0, SAMPLE_POLICY);
 
 		console.log(xdr);

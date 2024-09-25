@@ -8,8 +8,6 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
-export const DEFAULT_LTL = 12
-
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
     declare public rpcUrl: string
@@ -195,17 +193,24 @@ export class PasskeyKit extends PasskeyBase {
         if (keyId && keypair)
             throw new Error('Provide either `options.keyId` or `options.keypair` but not both')
 
+        const credentials = entry.credentials().address();
+
         if (!validUntilLedgerSeq) {
-            const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
-            validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
+            validUntilLedgerSeq = credentials.signatureExpirationLedger()
+
+            if (!validUntilLedgerSeq) {
+                const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+                validUntilLedgerSeq = lastLedger + DEFAULT_TIMEOUT / 5;
+            }
         }
 
-        const credentials = entry.credentials().address();
+        credentials.signatureExpirationLedger(validUntilLedgerSeq)
+        
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
                 nonce: credentials.nonce(),
-                signatureExpirationLedger: validUntilLedgerSeq,
+                signatureExpirationLedger: credentials.signatureExpirationLedger(),
                 invocation: entry.rootInvocation()
             })
         )
@@ -295,13 +300,16 @@ export class PasskeyKit extends PasskeyBase {
                 credentials.signature(xdr.ScVal.scvMap([scEntry]))
                 break;
             case 'scvMap':
+                // Add the new signature to the existing map
                 credentials.signature().map()?.push(scEntry)
+                // Order the map by key
+                credentials.signature().map()?.sort((a, b) => 
+                    a.key().toXDR().compare(b.key().toXDR())
+                )
                 break;
             default:
                 throw new Error('Unsupported signature')
         }
-
-        credentials.signatureExpirationLedger(validUntilLedgerSeq)
 
         return entry
     }
