@@ -18,7 +18,7 @@
   "dependencies": {
     "@darkedges/capacitor-native-webauthn": "^0.0.4",
     "@simplewebauthn/browser": "^10.0.0",
-    "@stellar/stellar-sdk": "12.3.0",
+    "@stellar/stellar-sdk": "file:./ext/js-stellar-sdk",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-factory-sdk": "workspace:*",
@@ -27,10 +27,13 @@
   },
   "devDependencies": {
     "@simplewebauthn/types": "^10.0.0",
+    "@types/node": "^22.7.3",
     "typescript": "^5.6.2"
   },
   "workspaces": [
-    "packages/*"
+    "packages/passkey-factory-sdk",
+    "packages/passkey-kit-sdk",
+    "packages/sac-sdk"
   ],
   "engine": {
     "node": ">=20"
