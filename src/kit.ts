@@ -185,13 +185,14 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
+            policy?: string,
             expiration?: number
         }
     ) {
-        let { rpId, keyId, keypair, expiration } = options || {}
+        let { rpId, keyId, keypair, policy, expiration } = options || {}
 
-        if (keyId && keypair)
-            throw new Error('Provide either `options.keyId` or `options.keypair` but not both')
+        if ([keyId, keypair, policy].filter((arg) => arg).length !== 1)
+            throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
         const credentials = entry.credentials().address();
 
@@ -218,10 +219,18 @@ export class PasskeyKit extends PasskeyBase {
         const payload = hash(preimage.toXDR())
 
         let key: SignerKey
-        let val: Signature
+        let val: Signature | undefined
+        
+        // Sign with a policy
+        if (policy) {
+            key = {
+                tag: "Policy",
+                values: [policy]
+            }
+        }
 
         // Sign with the keypair as an ed25519 signer
-        if (keypair) {
+        else if (keypair) {
             const signature = keypair.sign(payload);
 
             key = {
@@ -289,12 +298,18 @@ export class PasskeyKit extends PasskeyBase {
         const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
             new xdr.ScSpecTypeUdt({ name: "Signature" }),
         );
-        const scVal = this.wallet!.spec.nativeToScVal(val, scValType);
         const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
+        const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
         const scEntry = new xdr.ScMapEntry({
             key: scKey,
             val: scVal,
         })
+
+        // console.log(
+        //     key.tag,
+        //     scKey.vec()?.[0].sym(),
+        //     scKey.vec()?.[1].toXDR().join(''),
+        // )
 
         switch (credentials.signature().switch().name) {
             case 'scvVoid':
@@ -303,10 +318,18 @@ export class PasskeyKit extends PasskeyBase {
             case 'scvMap':
                 // Add the new signature to the existing map
                 credentials.signature().map()?.push(scEntry)
+
                 // Order the map by key
-                credentials.signature().map()?.sort((a, b) => 
-                    a.key().toXDR().compare(b.key().toXDR())
-                )
+                // Not using Buffer.compare because Symbols are 9 bytes and unused bytes _append_ 0s vs prepending them, which is too bad
+                credentials.signature().map()?.sort((a, b) => {
+                    return (
+                        a.key().vec()?.[0].sym() +
+                        a.key().vec()?.[1].toXDR().join('')
+                    ).localeCompare(
+                        b.key().vec()?.[0].sym() +
+                        b.key().vec()?.[1].toXDR().join('')
+                    )
+                })
                 break;
             default:
                 throw new Error('Unsupported signature')
@@ -319,6 +342,7 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
+            policy?: string,
             expiration?: number
         }
     ) {
@@ -342,6 +366,7 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
+            policy?: string,
             expiration?: number
         }
     ) {
@@ -350,107 +375,7 @@ export class PasskeyKit extends PasskeyBase {
         if (entries)
             await this.signAuthEntries(entries, options)
     }
-
-    public async attachPolicy(
-        txn: Transaction,
-        authEntryIndex: number,
-        policy: string
-    ) {
-        if (!this.wallet)
-            throw new Error('Wallet not connected')
-
-        const entries = this.getAuthEntries(txn)
-        const auth = entries?.[authEntryIndex]
-        const context = auth?.rootInvocation().function()
-
-        if (!entries || !auth || !context)
-            throw new Error('No context found')
-
-        let context_arg: xdr.ScVal
-
-        switch (context.switch().name) {
-            case 'sorobanAuthorizedFunctionTypeContractFn':
-                switch (context.contractFn().contractAddress().switch().name) {
-                    case 'scAddressTypeContract':
-                        context_arg = xdr.ScVal.scvVec([
-                            xdr.ScVal.scvSymbol("Contract"),
-                            xdr.ScVal.scvMap([
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("args"),
-                                    val: xdr.ScVal.scvVec(context.contractFn().args()),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("contract"),
-                                    val: Address.contract(context.contractFn().contractAddress().contractId()).toScVal(),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("fn_name"),
-                                    val: xdr.ScVal.scvSymbol(context.contractFn().functionName()),
-                                }),
-                            ]),
-                        ])
-                        break;
-                    default:
-                        throw new Error('Unsupported contractAddress')
-                }
-                break;
-            case 'sorobanAuthorizedFunctionTypeCreateContractHostFn':
-                switch (context.createContractHostFn().contractIdPreimage().switch().name) {
-                    case 'contractIdPreimageFromAddress':
-                        context_arg = xdr.ScVal.scvVec([
-                            xdr.ScVal.scvSymbol("CreateContractHostFn"),
-                            xdr.ScVal.scvMap([
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("executable"),
-                                    val: xdr.ScVal.scvVec([
-                                        xdr.ScVal.scvSymbol("Wasm"),
-                                        xdr.ScVal.scvBytes(context.createContractHostFn().executable().wasmHash())
-                                    ]),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("salt"),
-                                    val: xdr.ScVal.scvBytes(context.createContractHostFn().contractIdPreimage().fromAddress().salt()),
-                                }),
-                            ]),
-                        ])
-                        break;
-                    default:
-                        throw new Error('Unsupported contractIdPreimage')
-                }
-                break;
-            default:
-                throw new Error('Unsupported context')
-        }
-
-        const __check_auth_args = new xdr.InvokeContractArgs({
-            contractAddress: Address.fromString(this.wallet.options.contractId).toScAddress(),
-            functionName: "__check_auth",
-            args: [context_arg],
-        });
-
-        const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
-            function:
-                xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-                    __check_auth_args,
-                ),
-            subInvocations: [],
-        });
-
-        const __check_auth = new xdr.SorobanAuthorizationEntry({
-            credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
-                new xdr.SorobanAddressCredentials({
-                    address: Address.fromString(policy).toScAddress(),
-                    nonce: auth.credentials().address().nonce(),
-                    signatureExpirationLedger: auth.credentials().address().signatureExpirationLedger(),
-                    signature: xdr.ScVal.scvVec([]),
-                }),
-            ),
-            rootInvocation: __check_auth_invocation,
-        });
-
-        entries.push(__check_auth)
-    }
-
+    
     public prepareTransaction(txn: Tx) {
         return new Transaction(txn.toXDR(), this.networkPassphrase);
     }

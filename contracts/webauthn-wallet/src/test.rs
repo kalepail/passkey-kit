@@ -33,6 +33,7 @@ fn test() {
     let wallet_address = env.register_contract(None, Contract);
     let wallet_client = ContractClient::new(&env, &wallet_address);
 
+    // let example_contract_address = env.register_contract_wasm(None, ExampleContractWASM);
     let example_contract_address = env.register_contract(None, ExampleContract);
     let example_contract_client = ExampleContractClient::new(&env, &example_contract_address);
 
@@ -124,6 +125,7 @@ fn test() {
     //
 
     // Policy
+    // let sample_policy_address = env.register_contract_wasm(None, PolicyContractWASM);
     let sample_policy_address = env.register_contract(None, PolicyContract);
     let sample_policy_signer_key = SignerKey::Policy(sample_policy_address.clone());
     //
@@ -278,6 +280,10 @@ fn test() {
                     Some(simple_ed25519_signature)
                 ),
                 // (
+                //     sample_policy_signer_key.clone(),
+                //     None
+                // ),
+                // (
                 //     super_ed25519_signer_key.clone(),
                 //     Some(super_ed25519_signature)
                 // ),
@@ -288,80 +294,78 @@ fn test() {
         root_invocation: root_invocation.clone(),
     };
 
-    let __check_auth_invocation = SorobanAuthorizedInvocation {
-        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-            contract_address: wallet_address.clone().try_into().unwrap(),
-            function_name: "__check_auth".try_into().unwrap(),
-            args: std::vec![Context::Contract(ContractContext {
-                contract: sac_address.clone(),
-                fn_name: symbol_short!("transfer"),
-                args: vec![
-                    &env,
-                    wallet_address.to_val(),
-                    sac_address.to_val(),
-                    amount.into_val(&env)
-                ]
-            })
-            .try_into()
-            .unwrap(),]
-            .try_into()
-            .unwrap(),
-        }),
-        sub_invocations: VecM::default(),
-    };
+    // let __check_auth_invocation = SorobanAuthorizedInvocation {
+    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+    //         contract_address: wallet_address.clone().try_into().unwrap(),
+    //         function_name: "policy__".try_into().unwrap(),
+    //         args: std::vec![Context::Contract(ContractContext {
+    //             contract: sac_address.clone(),
+    //             fn_name: symbol_short!("transfer"),
+    //             args: vec![
+    //                 &env,
+    //                 wallet_address.to_val(),
+    //                 sac_address.to_val(),
+    //                 amount.into_val(&env)
+    //             ]
+    //         })
+    //         .try_into()
+    //         .unwrap(),]
+    //         .try_into()
+    //         .unwrap(),
+    //     }),
+    //     sub_invocations: VecM::default(),
+    // };
 
-    let __evil_check_auth_invocation = SorobanAuthorizedInvocation {
-        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
-            contract_address: wallet_address.clone().try_into().unwrap(),
-            function_name: "__check_auth".try_into().unwrap(),
-            args: std::vec![Context::Contract(ContractContext {
-                contract: sac_address.clone(),
-                fn_name: symbol_short!("transfer"),
-                args: vec![
-                    &env,
-                    wallet_address.to_val(),
-                    sac_address.to_val(),
-                    evil_amount.into_val(&env)
-                ]
-            })
-            .try_into()
-            .unwrap(),]
-            .try_into()
-            .unwrap(),
-        }),
-        sub_invocations: VecM::default(),
-    };
+    // let __evil_check_auth_invocation = SorobanAuthorizedInvocation {
+    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+    //         contract_address: wallet_address.clone().try_into().unwrap(),
+    //         function_name: "policy__".try_into().unwrap(),
+    //         args: std::vec![Context::Contract(ContractContext {
+    //             contract: sac_address.clone(),
+    //             fn_name: symbol_short!("transfer"),
+    //             args: vec![
+    //                 &env,
+    //                 wallet_address.to_val(),
+    //                 sac_address.to_val(),
+    //                 evil_amount.into_val(&env)
+    //             ]
+    //         })
+    //         .try_into()
+    //         .unwrap(),]
+    //         .try_into()
+    //         .unwrap(),
+    //     }),
+    //     sub_invocations: VecM::default(),
+    // };
 
-    let __check_auth = SorobanAuthorizationEntry {
-        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-            address: sample_policy_address.clone().try_into().unwrap(),
-            nonce: 4,
-            signature: ScVal::Vec(Some(ScVec::default())),
-            signature_expiration_ledger,
-        }),
-        root_invocation: __check_auth_invocation.clone(),
-    };
+    // let __check_auth = SorobanAuthorizationEntry {
+    //     credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+    //         address: sample_policy_address.clone().try_into().unwrap(),
+    //         nonce: 4,
+    //         signature: ScVal::Vec(Some(ScVec::default())),
+    //         signature_expiration_ledger,
+    //     }),
+    //     root_invocation: __check_auth_invocation.clone(),
+    // };
 
-    let __evil_check_auth = SorobanAuthorizationEntry {
-        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
-            address: sample_policy_address.clone().try_into().unwrap(),
-            nonce: 5,
-            signature: ScVal::Vec(Some(ScVec::default())),
-            signature_expiration_ledger,
-        }),
-        root_invocation: __evil_check_auth_invocation.clone(),
-    };
-
-    // println!("\n{:?}\n", root_auth.to_xdr_base64(Limits::none()).unwrap());
-    // println!(
-    //     "\n{:?}\n",
-    //     __check_auth.to_xdr_base64(Limits::none()).unwrap()
-    // );
+    // let __evil_check_auth = SorobanAuthorizationEntry {
+    //     credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+    //         address: sample_policy_address.clone().try_into().unwrap(),
+    //         nonce: 5,
+    //         signature: ScVal::Vec(Some(ScVec::default())),
+    //         signature_expiration_ledger,
+    //     }),
+    //     root_invocation: __evil_check_auth_invocation.clone(),
+    // };
 
     env.budget().reset_default();
 
     example_contract_client
-        .set_auths(&[root_auth, __check_auth, __evil_check_auth])
+        .set_auths(&[
+            root_auth,
+            // __check_auth,
+            // __evil_check_auth
+        ])
         .call(
             &sac_address,
             &wallet_address,
@@ -376,8 +380,8 @@ fn test() {
     // Mem limit: 41943040; used: 106096
 
     // Careful
-    // Cpu limit: 100000000; used: 1151236
-    // Mem limit: 41943040; used: 126594
+    // Cpu limit: 100000000; used: 999991
+    // Mem limit: 41943040; used: 86036
 
     println!("{:?}", env.budget().print());
 }

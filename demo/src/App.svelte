@@ -8,7 +8,7 @@
 		native,
 		server,
 	} from "./lib/common";
-	import { Keypair, Transaction } from "@stellar/stellar-sdk";
+	import { Keypair } from "@stellar/stellar-sdk";
 	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
 
 	// TODO need to support two toggles:
@@ -20,7 +20,7 @@
 	const NATIVE_SAC =
 		"CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 	const SAMPLE_POLICY =
-		"CAPPNPLUWDDMQNA2AZFFSVE7BEWSVQMRP3NBJ3OSAGT2UH4WWRE7XTRJ";
+		"CBVU5UPAIRXWA7EHQYFYY32R6VE4KXWXOILHEFENAONBIEYFKGWK6TS6";
 	const SECRET = "SBEIDWQVWNLPCP35EYQ6GLWKFQ2MDY7APRLOQ3AJNU6KSE7FXGA7C55W";
 	const PUBLIC = "GBVQMKYWGELU6IKLK2U6EIIHTNW5LIUYJE7FUQPG4FAB3QQ3KAINFVYS";
 
@@ -290,7 +290,7 @@
 
 		await account.sign(txn, { keyId: adminSigner });
 		await account.sign(txn, { keypair });
-		await account.attachPolicy(txn, 0, SAMPLE_POLICY);
+		await account.sign(txn, { policy: SAMPLE_POLICY });
 
 		const res = await server.send(txn);
 
@@ -339,7 +339,9 @@
 		const txn = account.prepareTransaction(built!);
 
 		await account.sign(txn, { keypair });
-		await account.attachPolicy(txn, 0, SAMPLE_POLICY);
+		await account.sign(txn, { policy: SAMPLE_POLICY });
+
+		console.log(txn.toXDR());
 
 		const res = await server.send(txn);
 

@@ -1,14 +1,16 @@
-use base64::{engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
-use serde::{Deserialize, Serialize};
-use stellar_strkey::{ed25519, Contract, Strkey};
-use types::{Signers, SignersActive, SignersAddress, SignersKeyValStorage, SignersValStorageActive};
-use webauthn_wallet::types::{
-    SignerKey, SignerStorage, SignerVal
+use base64::{
+    engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
 };
+use serde::{Deserialize, Serialize};
+use stellar_strkey::{ed25519, Strkey};
+use types::{
+    Signers, SignersActive, SignersAddress, SignersKeyValStorage, SignersValStorageActive,
+};
+use webauthn_wallet::types::{SignerKey, SignerStorage, SignerVal};
 use zephyr_sdk::{
     soroban_sdk::{
         self, symbol_short,
-        xdr::{ScVal, ToXdr},
+        xdr::{Hash, ScAddress, ScVal, ToXdr},
         Address, Bytes, BytesN, Symbol,
     },
     utils::{address_from_str, address_to_alloc_string},
@@ -17,71 +19,73 @@ use zephyr_sdk::{
 
 mod types;
 
+const SW_V1: Symbol = symbol_short!("sw_v1");
+const ADD: Symbol = symbol_short!("add");
+const REMOVE: Symbol = symbol_short!("remove");
+
 #[no_mangle]
 pub extern "C" fn on_close() {
     let env = EnvClient::new();
-    let event_tag = symbol_short!("sw_v1");
 
     for event in env.reader().pretty().soroban_events() {
         if let Some(topic0) = event.topics.get(0) {
             if let Ok(t0) = env.try_from_scval::<Symbol>(topic0) {
-                if let Some(topic1) = event.topics.get(1) {
-                    if let Ok(etype) = env.try_from_scval::<Symbol>(topic1) {
-                        if t0 == event_tag {
-                            let address = address_from_str(
-                                &env,
-                                Contract(event.contract).to_string().as_str(),
-                            );
-                            let address = env.to_scval(address);
-                            let key = &event.topics[2];
-                            let (signer_val, signer_storage): (SignerVal, SignerStorage) = env.from_scval(&event.data);
+                if t0 == SW_V1 {
+                    if let Some(topic1) = event.topics.get(1) {
+                        if let Ok(t1) = env.try_from_scval::<Symbol>(topic1) {
+                            if let Some(key) = event.topics.get(2) {
+                                let address =
+                                    ScVal::Address(ScAddress::Contract(Hash::from(event.contract)));
 
-                            if etype == symbol_short!("add") {
-                                let mut older: Vec<SignersValStorageActive> = env
-                                    .read_filter()
-                                    .column_equal_to_xdr("address", &address)
-                                    .column_equal_to_xdr("key", key)
-                                    .read()
-                                    .unwrap();
-
-                                if let Some(older) = older.get_mut(0) {
-                                    // older.val = event.data;
-                                    older.val = env.to_scval(signer_val);
-                                    older.storage = env.to_scval(signer_storage);
-                                    older.active = ScVal::Bool(true);
-
-                                    env.update()
+                                if t1 == ADD {
+                                    let mut older: Vec<SignersValStorageActive> = env
+                                        .read_filter()
                                         .column_equal_to_xdr("address", &address)
                                         .column_equal_to_xdr("key", key)
-                                        .execute(older)
+                                        .read()
                                         .unwrap();
-                                } else {
-                                    let signer = Signers {
-                                        address,
-                                        key: key.clone(),
-                                        val: env.to_scval(signer_val),
-                                        storage: env.to_scval(signer_storage),
-                                        active: ScVal::Bool(true),
-                                    };
 
-                                    env.put(&signer);
-                                }
-                            } else if etype == symbol_short!("remove") {
-                                let mut older: Vec<SignersActive> = env
-                                    .read_filter()
-                                    .column_equal_to_xdr("address", &address)
-                                    .column_equal_to_xdr("key", key)
-                                    .read()
-                                    .unwrap();
+                                    let (signer_val, signer_storage): (SignerVal, SignerStorage) =
+                                        env.from_scval(&event.data);
 
-                                if let Some(older) = older.get_mut(0) {
-                                    older.active = ScVal::Bool(false);
+                                    if let Some(older) = older.get_mut(0) {
+                                        older.val = env.to_scval(signer_val);
+                                        older.storage = env.to_scval(signer_storage);
+                                        older.active = ScVal::Bool(true);
 
-                                    env.update()
+                                        env.update()
+                                            .column_equal_to_xdr("address", &address)
+                                            .column_equal_to_xdr("key", key)
+                                            .execute(older)
+                                            .unwrap();
+                                    } else {
+                                        let signer = Signers {
+                                            address,
+                                            key: key.clone(),
+                                            val: env.to_scval(signer_val),
+                                            storage: env.to_scval(signer_storage),
+                                            active: ScVal::Bool(true),
+                                        };
+
+                                        env.put(&signer);
+                                    }
+                                } else if t1 == REMOVE {
+                                    let mut older: Vec<SignersActive> = env
+                                        .read_filter()
                                         .column_equal_to_xdr("address", &address)
                                         .column_equal_to_xdr("key", key)
-                                        .execute(older)
+                                        .read()
                                         .unwrap();
+
+                                    if let Some(older) = older.get_mut(0) {
+                                        older.active = ScVal::Bool(false);
+
+                                        env.update()
+                                            .column_equal_to_xdr("address", &address)
+                                            .column_equal_to_xdr("key", key)
+                                            .execute(older)
+                                            .unwrap();
+                                    }
                                 }
                             }
                         }
@@ -140,17 +144,13 @@ pub extern "C" fn get_signers_by_address() {
             SignerKey::Secp256r1(secp256r1) => (
                 String::from("Secp256r1"),
                 URL_SAFE_NO_PAD.encode(secp256r1.to_alloc_vec()),
-            )
+            ),
         };
 
         let mut val_parsed: Option<String> = None;
         let signer_limits = match signer_val {
-            SignerVal::Policy(signer_limits) => {
-                signer_limits
-            }
-            SignerVal::Ed25519(signer_limits) => {
-                signer_limits
-            }
+            SignerVal::Policy(signer_limits) => signer_limits,
+            SignerVal::Ed25519(signer_limits) => signer_limits,
             SignerVal::Secp256r1(public_key, signer_limits) => {
                 val_parsed = Some(URL_SAFE_NO_PAD.encode(public_key.to_array()));
                 signer_limits
