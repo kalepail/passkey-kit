@@ -4,7 +4,7 @@ use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
-    panic_with_error, symbol_short, vec, BytesN, Env, FromVal, IntoVal, Map, Symbol, Vec,
+    panic_with_error, symbol_short, vec, BytesN, Env, FromVal, Map, Symbol, Vec,
 };
 use types::{
     Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerLimits, SignerStorage, SignerVal,
@@ -56,8 +56,10 @@ impl Contract {
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
 
-        env.events()
-            .publish((EVENT_TAG, symbol_short!("add"), signer_key), (signer_val, signer_storage));
+        env.events().publish(
+            (EVENT_TAG, symbol_short!("add"), signer_key),
+            (signer_val, signer_storage),
+        );
 
         Ok(())
     }
@@ -227,7 +229,12 @@ impl CustomAccountInterface for Contract {
                         None => {
                             // If there's a policy signer in the signatures map we call it as a full forward of this __check_auth's arguments
                             if let SignerKey::Policy(policy) = &signer_key {
-                                policy.require_auth();
+                                // policy.require_auth(); // TODO test this scenario
+                                env.invoke_contract::<()>(
+                                    policy,
+                                    &symbol_short!("policy__"),
+                                    vec![&env, auth_contexts.clone().into()],
+                                );
                                 continue;
                             }
 
@@ -352,8 +359,13 @@ fn verify_signer_limit_keys(
                     }
                 }
 
-                policy.require_auth_for_args(vec![env, context.into_val(env)]);
-            // For every other SignerLimits key, it must exist in the signatures map and thus exist as a signer on the smart wallet
+                env.invoke_contract::<()>(
+                    policy,
+                    &symbol_short!("policy__"),
+                    vec![env, vec![env, context.clone()].to_val()],
+                );
+                // policy.require_auth_for_args(vec![env, context.into_val(env)]);
+                // For every other SignerLimits key, it must exist in the signatures map and thus exist as a signer on the smart wallet
             } else if !signatures.contains_key(signer_limits_key.clone()) {
                 // if any required key is missing this contract invocation is invalid
                 panic_with_error!(env, Error::MissingSignerLimits)

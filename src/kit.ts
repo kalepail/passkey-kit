@@ -1,12 +1,12 @@
 import { Client as PasskeyClient, type Signature, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction, Operation } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
+import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -185,13 +185,14 @@ export class PasskeyKit extends PasskeyBase {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
+            policy?: string,
             expiration?: number
         }
     ) {
-        let { rpId, keyId, keypair, expiration } = options || {}
+        let { rpId, keyId, keypair, policy, expiration } = options || {}
 
-        if (keyId && keypair)
-            throw new Error('Provide either `options.keyId` or `options.keypair` but not both')
+        if ([keyId, keypair, policy].filter((arg) => arg).length !== 1)
+            throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
         const credentials = entry.credentials().address();
 
@@ -205,7 +206,7 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         credentials.signatureExpirationLedger(expiration)
-        
+
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
@@ -214,14 +215,22 @@ export class PasskeyKit extends PasskeyBase {
                 invocation: entry.rootInvocation()
             })
         )
-        
+
         const payload = hash(preimage.toXDR())
 
         let key: SignerKey
-        let val: Signature
+        let val: Signature | undefined
+
+        // Sign with a policy
+        if (policy) {
+            key = {
+                tag: "Policy",
+                values: [policy]
+            }
+        }
 
         // Sign with the keypair as an ed25519 signer
-        if (keypair) {
+        else if (keypair) {
             const signature = keypair.sign(payload);
 
             key = {
@@ -289,8 +298,8 @@ export class PasskeyKit extends PasskeyBase {
         const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
             new xdr.ScSpecTypeUdt({ name: "Signature" }),
         );
-        const scVal = this.wallet!.spec.nativeToScVal(val, scValType);
         const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
+        const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
         const scEntry = new xdr.ScMapEntry({
             key: scKey,
             val: scVal,
@@ -303,178 +312,89 @@ export class PasskeyKit extends PasskeyBase {
             case 'scvMap':
                 // Add the new signature to the existing map
                 credentials.signature().map()?.push(scEntry)
+
                 // Order the map by key
-                credentials.signature().map()?.sort((a, b) => 
-                    a.key().toXDR().compare(b.key().toXDR())
-                )
+                // Not using Buffer.compare because Symbols are 9 bytes and unused bytes _append_ 0s vs prepending them, which is too bad
+                credentials.signature().map()?.sort((a, b) => {
+                    return (
+                        a.key().vec()![0].sym() +
+                        a.key().vec()![1].toXDR().join('')
+                    ).localeCompare(
+                        b.key().vec()![0].sym() +
+                        b.key().vec()![1].toXDR().join('')
+                    )
+                })
                 break;
             default:
                 throw new Error('Unsupported signature')
         }
+
+        return entry
     }
 
-    public async signAuthEntries(
-        entries: xdr.SorobanAuthorizationEntry[],
-        options?: {
-            rpId?: string,
-            keyId?: 'any' | string | Uint8Array
-            keypair?: Keypair,
-            expiration?: number
-        }
-    ) {
-        // TODO should there be more control over which auth entries are signed? Especially given we support multiple signers now?
-        // As-is .sign() will always sign every smart wallet auth entry. This may be okay but likely we should have more control over which auth entry the signer is signing
-        for (const auth of entries) {
-            if (
-                auth.credentials().switch().name === 'sorobanCredentialsAddress'
-                && auth.credentials().address().address().switch().name === 'scAddressTypeContract'
-            ) {
-                // If auth entry matches our Smart Wallet move forward with the signature request
-                if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet?.options.contractId)
-                    await this.signAuthEntry(auth, options)
-            }
-        }
-    }
+    // public async signAuthEntries(
+    //     entries: xdr.SorobanAuthorizationEntry[],
+    //     options?: {
+    //         rpId?: string,
+    //         keyId?: 'any' | string | Uint8Array
+    //         keypair?: Keypair,
+    //         policy?: string,
+    //         expiration?: number
+    //     }
+    // ) {
+    //     // TODO should there be more control over which auth entries are signed? Especially given we support multiple signers now?
+    //     // As-is .sign() will always sign every smart wallet auth entry. This may be okay but likely we should have more control over which auth entry the signer is signing
+    //     for (const auth of entries) {
+    //         if (
+    //             auth.credentials().switch().name === 'sorobanCredentialsAddress'
+    //             && auth.credentials().address().address().switch().name === 'scAddressTypeContract'
+    //         ) {
+    //             // If auth entry matches our Smart Wallet move forward with the signature request
+    //             if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet?.options.contractId)
+    //                 await this.signAuthEntry(auth, options)
+    //         }
+    //     }
+    // }
 
     public async sign(
-        txn: Transaction,
+        txn: AssembledTransaction<unknown>,
         options?: {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
             keypair?: Keypair,
+            policy?: string,
             expiration?: number
         }
     ) {
-        const entries = this.getAuthEntries(txn)
-
-        if (entries)
-            await this.signAuthEntries(entries, options)
+        await txn.signAuthEntries({
+            address: this.wallet!.options.contractId,
+            authorizeEntry: (entry) => {
+                const clone = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR())
+                return this.signAuthEntry(clone, options)    
+            },
+        })
     }
 
-    public async attachPolicy(
-        txn: Transaction,
-        authEntryIndex: number,
-        policy: string
-    ) {
-        if (!this.wallet)
-            throw new Error('Wallet not connected')
+    // private getAuthEntries(txn: Transaction) {
+    //     if (txn.operations.length !== 1)
+    //         throw new Error('Must include only one Soroban operation')
 
-        const entries = this.getAuthEntries(txn)
-        const auth = entries?.[authEntryIndex]
-        const context = auth?.rootInvocation().function()
+    //     for (const op of txn.operations) {
+    //         if (
+    //             op.type !== 'invokeHostFunction'
+    //             && op.type !== 'extendFootprintTtl'
+    //             && op.type !== 'restoreFootprint'
+    //         ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
+    //     }
 
-        if (!entries || !auth || !context)
-            throw new Error('No context found')
+    //     // Only need to sign auth for `invokeHostFunction` operations
+    //     if (txn.operations[0].type === 'invokeHostFunction') {
+    //         const entries = txn.operations[0].auth
 
-        let context_arg: xdr.ScVal
-
-        switch (context.switch().name) {
-            case 'sorobanAuthorizedFunctionTypeContractFn':
-                switch (context.contractFn().contractAddress().switch().name) {
-                    case 'scAddressTypeContract':
-                        context_arg = xdr.ScVal.scvVec([
-                            xdr.ScVal.scvSymbol("Contract"),
-                            xdr.ScVal.scvMap([
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("args"),
-                                    val: xdr.ScVal.scvVec(context.contractFn().args()),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("contract"),
-                                    val: Address.contract(context.contractFn().contractAddress().contractId()).toScVal(),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("fn_name"),
-                                    val: xdr.ScVal.scvSymbol(context.contractFn().functionName()),
-                                }),
-                            ]),
-                        ])
-                        break;
-                    default:
-                        throw new Error('Unsupported contractAddress')
-                }
-                break;
-            case 'sorobanAuthorizedFunctionTypeCreateContractHostFn':
-                switch (context.createContractHostFn().contractIdPreimage().switch().name) {
-                    case 'contractIdPreimageFromAddress':
-                        context_arg = xdr.ScVal.scvVec([
-                            xdr.ScVal.scvSymbol("CreateContractHostFn"),
-                            xdr.ScVal.scvMap([
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("executable"),
-                                    val: xdr.ScVal.scvVec([
-                                        xdr.ScVal.scvSymbol("Wasm"),
-                                        xdr.ScVal.scvBytes(context.createContractHostFn().executable().wasmHash())
-                                    ]),
-                                }),
-                                new xdr.ScMapEntry({
-                                    key: xdr.ScVal.scvSymbol("salt"),
-                                    val: xdr.ScVal.scvBytes(context.createContractHostFn().contractIdPreimage().fromAddress().salt()),
-                                }),
-                            ]),
-                        ])
-                        break;
-                    default:
-                        throw new Error('Unsupported contractIdPreimage')
-                }
-                break;
-            default:
-                throw new Error('Unsupported context')
-        }
-
-        const __check_auth_args = new xdr.InvokeContractArgs({
-            contractAddress: Address.fromString(this.wallet.options.contractId).toScAddress(),
-            functionName: "__check_auth",
-            args: [context_arg],
-        });
-
-        const __check_auth_invocation = new xdr.SorobanAuthorizedInvocation({
-            function:
-                xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-                    __check_auth_args,
-                ),
-            subInvocations: [],
-        });
-
-        const __check_auth = new xdr.SorobanAuthorizationEntry({
-            credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(
-                new xdr.SorobanAddressCredentials({
-                    address: Address.fromString(policy).toScAddress(),
-                    nonce: auth.credentials().address().nonce(),
-                    signatureExpirationLedger: auth.credentials().address().signatureExpirationLedger(),
-                    signature: xdr.ScVal.scvVec([]),
-                }),
-            ),
-            rootInvocation: __check_auth_invocation,
-        });
-
-        entries.push(__check_auth)
-    }
-
-    public prepareTransaction(txn: Tx) {
-        return new Transaction(txn.toXDR(), this.networkPassphrase);
-    }
-
-    private getAuthEntries(txn: Transaction) {
-        if (txn.operations.length !== 1)
-            throw new Error('Must include only one Soroban operation')
-
-        for (const op of txn.operations) {
-            if (
-                op.type !== 'invokeHostFunction'
-                && op.type !== 'extendFootprintTtl'
-                && op.type !== 'restoreFootprint'
-            ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
-        }
-
-        // Only need to sign auth for `invokeHostFunction` operations
-        if (txn.operations[0].type === 'invokeHostFunction') {
-            const entries = txn.operations[0].auth
-
-            if (entries && entries.length)
-                return entries
-        }
-    }
+    //         if (entries && entries.length)
+    //             return entries
+    //     }
+    // }
 
     /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey

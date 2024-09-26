@@ -19,7 +19,7 @@
     "tslib": "^2.7.0",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
-    "@stellar/stellar-sdk": "^12.3.0",
+    "@stellar/stellar-sdk": "file:../ext/js-stellar-sdk",
     "base64url": "^3.0.1"
   }
 }
