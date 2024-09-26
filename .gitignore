@@ -179,3 +179,5 @@ meta.json
 types/
 package/
 target/
+
+ext/js-stellar-sdk/

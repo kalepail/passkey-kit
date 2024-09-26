@@ -119,7 +119,7 @@
 				pk = publicKey;
 			}
 
-			const { built } = await account.wallet!.add({
+			const at = await account.wallet!.add({
 				signer: {
 					tag: "Secp256r1",
 					values: [
@@ -131,10 +131,8 @@
 				},
 			});
 
-			const txn = account.prepareTransaction(built!);
-
-			await account.sign(txn, { keyId: adminSigner });
-			const res = await server.send(txn);
+			await account.sign(at, { keyId: adminSigner });
+			const res = await server.send(at.built!);
 
 			console.log(res);
 
@@ -161,7 +159,7 @@
 
 			// signer_limits[0].set(NATIVE_SAC, signer_keys);
 
-			const { built } = await account.wallet!.add({
+			const at = await account.wallet!.add({
 				signer: {
 					tag: "Ed25519",
 					values: [
@@ -172,10 +170,8 @@
 				},
 			});
 
-			const txn = account.prepareTransaction(built!);
-
-			await account.sign(txn, { keyId: adminSigner });
-			const res = await server.send(txn);
+			await account.sign(at, { keyId: adminSigner });
+			const res = await server.send(at.built!);
 
 			console.log(res);
 
@@ -194,7 +190,7 @@
 
 		signer_limits[0].set(NATIVE_SAC, signer_keys);
 
-		const { built } = await account.wallet!.add({
+		const at = await account.wallet!.add({
 			signer: {
 				tag: "Policy",
 				values: [
@@ -205,10 +201,8 @@
 			},
 		});
 
-		const txn = account.prepareTransaction(built!);
-
-		await account.sign(txn, { keyId: adminSigner });
-		const res = await server.send(txn);
+		await account.sign(at, { keyId: adminSigner });
+		const res = await server.send(at.built!);
 
 		console.log(res);
 
@@ -241,14 +235,12 @@
 					throw new Error("Invalid signer type");
 			}
 
-			const { built } = await account.wallet!.remove({
+			const at = await account.wallet!.remove({
 				signer_key,
 			});
 
-			const txn = account.prepareTransaction(built!);
-
-			await account.sign(txn, { keyId: adminSigner });
-			const res = await server.send(txn);
+			await account.sign(at, { keyId: adminSigner });
+			const res = await server.send(at.built!);
 
 			console.log(res);
 
@@ -265,8 +257,8 @@
 		});
 
 		await transfer.signAuthEntries({
-			publicKey: fundPubkey,
-			signAuthEntry: (auth) => fundSigner.signAuthEntry(auth),
+			address: fundPubkey,
+			signAuthEntry: fundSigner.signAuthEntry,
 		});
 
 		const res = await server.send(built!);
@@ -280,19 +272,17 @@
 	async function multisigTransfer() {
 		const keypair = Keypair.fromSecret(SECRET);
 
-		const { built } = await native.transfer({
+		const at = await native.transfer({
 			to: account.factory.options.contractId,
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
 
-		const txn = account.prepareTransaction(built!);
+		await account.sign(at, { keyId: adminSigner });
+		await account.sign(at, { keypair });
+		await account.sign(at, { policy: SAMPLE_POLICY });
 
-		await account.sign(txn, { keyId: adminSigner });
-		await account.sign(txn, { keypair });
-		await account.sign(txn, { policy: SAMPLE_POLICY });
-
-		const res = await server.send(txn);
+		const res = await server.send(at.built!);
 
 		console.log(res);
 
@@ -305,20 +295,18 @@
 
 		if (secret) {
 			const keypair = Keypair.fromSecret(secret);
-			const { built } = await native.transfer({
+			const at = await native.transfer({
 				to: account.factory.options.contractId,
 				from: contractId,
 				amount: BigInt(10_000_000),
 			});
 
-			const txn = account.prepareTransaction(built!);
-
-			await account.sign(txn, { keypair });
+			await account.sign(at, { keypair });
 
 			// NOTE won't work if the ed25519 signer has a policy signer_key restriction
 			// If you want this to work you need to remove the policy restriction from the ed25519 signer first
 			// (though that will make the policy transfer less interesting)
-			const res = await server.send(txn);
+			const res = await server.send(at.built!);
 
 			console.log(res);
 
@@ -330,20 +318,20 @@
 	async function policyTransfer() {
 		const keypair = Keypair.fromSecret(SECRET);
 
-		let { built } = await native.transfer({
+		let at = await native.transfer({
 			to: account.factory.options.contractId,
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
 
-		const txn = account.prepareTransaction(built!);
+		// const txn = account.prepareTransaction(built!);
 
-		await account.sign(txn, { keypair });
-		await account.sign(txn, { policy: SAMPLE_POLICY });
+		await account.sign(at, { keypair });
+		await account.sign(at, { policy: SAMPLE_POLICY });
 
-		console.log(txn.toXDR());
+		console.log(at.built!.toXDR());
 
-		const res = await server.send(txn);
+		const res = await server.send(at.built!);
 
 		console.log(res);
 
@@ -358,16 +346,14 @@
 			return ed25519Transfer();
 		}
 
-		const { built } = await native.transfer({
+		const at = await native.transfer({
 			to: account.factory.options.contractId,
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
 
-		const txn = account.prepareTransaction(built!);
-
-		await account.sign(txn, { keyId: signer });
-		const res = await server.send(txn);
+		await account.sign(at, { keyId: signer });
+		const res = await server.send(at.built!);
 
 		console.log(res);
 
