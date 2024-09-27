@@ -1000,6 +1000,7 @@ name = "sample-policy"
 version = "0.0.0"
 dependencies = [
  "soroban-sdk",
+ "webauthn-wallet-interface",
 ]
 
 [[package]]
@@ -1615,6 +1616,7 @@ name = "webauthn-factory"
 version = "0.4.0"
 dependencies = [
  "soroban-sdk",
+ "webauthn-wallet-interface",
 ]
 
 [[package]]
@@ -1632,6 +1634,14 @@ dependencies = [
  "soroban-sdk",
  "stellar-strkey 0.0.11",
  "stellar-xdr",
+ "webauthn-wallet-interface",
+]
+
+[[package]]
+name = "webauthn-wallet-interface"
+version = "0.4.1"
+dependencies = [
+ "soroban-sdk",
 ]
 
 [[package]]

@@ -6,7 +6,7 @@ use stellar_strkey::{ed25519, Strkey};
 use types::{
     Signers, SignersActive, SignersAddress, SignersKeyValStorage, SignersValStorageActive,
 };
-use webauthn_wallet::types::{SignerKey, SignerStorage, SignerVal};
+use webauthn_wallet_interface::types::{SignerKey, SignerStorage, SignerVal};
 use zephyr_sdk::{
     soroban_sdk::{
         self, symbol_short,

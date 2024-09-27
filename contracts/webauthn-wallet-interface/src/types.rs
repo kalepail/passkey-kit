@@ -1,6 +1,6 @@
 use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Map, Vec};
 
-#[contracterror]
+#[contracterror(export = false)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(u32)]
 pub enum Error {
@@ -13,7 +13,7 @@ pub enum Error {
     JsonParseError = 7,
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 // Map of contexts this signer can authorize if present in the __check_auth auth_contexts list
 // Map value is a list of SignerKeys which must all be present in the __check_auth signatures list in order for the signer to authorize the context
@@ -21,7 +21,7 @@ pub enum Error {
 // e.g. an ed25519 signer can only be used to authorize a specific contract's invocations and no further keys are required
 pub struct SignerLimits(pub Map<Address, Option<Vec<SignerKey>>>);
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerKey {
     Policy(Address),
@@ -29,7 +29,7 @@ pub enum SignerKey {
     Secp256r1(Bytes),
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerVal {
     Policy(SignerLimits),
@@ -37,14 +37,14 @@ pub enum SignerVal {
     Secp256r1(BytesN<65>, SignerLimits),
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerStorage {
     Persistent,
     Temporary,
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signer {
     Policy(Address, SignerLimits, SignerStorage),
@@ -52,7 +52,7 @@ pub enum Signer {
     Secp256r1(Bytes, BytesN<65>, SignerLimits, SignerStorage),
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Secp256r1Signature {
     pub authenticator_data: Bytes,
@@ -60,13 +60,13 @@ pub struct Secp256r1Signature {
     pub signature: BytesN<64>,
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signature {
     Ed25519(BytesN<64>),
     Secp256r1(Secp256r1Signature),
 }
 
-#[contracttype]
+#[contracttype(export = false)]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Signatures(pub Map<SignerKey, Option<Signature>>);

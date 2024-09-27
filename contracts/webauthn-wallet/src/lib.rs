@@ -4,14 +4,18 @@ use soroban_sdk::{
     auth::{Context, ContractContext, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
-    panic_with_error, symbol_short, vec, BytesN, Env, FromVal, Map, Symbol, Vec,
+    panic_with_error, symbol_short, vec, BytesN, Env, FromVal, Symbol, Vec,
 };
-use types::{
-    Error, Secp256r1Signature, Signature, Signer, SignerKey, SignerLimits, SignerStorage, SignerVal,
+use webauthn_wallet_interface::{
+    types::{
+        Error, Secp256r1Signature, Signature, Signatures, Signer, SignerKey, SignerLimits,
+        SignerStorage, SignerVal,
+    },
+    PolicyClient, WebAuthnInterface,
 };
 
 mod base64_url;
-pub mod types;
+mod types;
 
 mod test;
 mod test_extra;
@@ -24,8 +28,8 @@ const EVENT_TAG: Symbol = symbol_short!("sw_v1");
 const SIGNER_COUNT: Symbol = symbol_short!("signers");
 
 #[contractimpl]
-impl Contract {
-    pub fn add(env: Env, signer: Signer) -> Result<(), Error> {
+impl WebAuthnInterface for Contract {
+    fn add(env: Env, signer: Signer) -> Result<(), Error> {
         if env.storage().instance().has(&SIGNER_COUNT) {
             env.current_contract_address().require_auth();
         }
@@ -63,7 +67,7 @@ impl Contract {
 
         Ok(())
     }
-    pub fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
+    fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
         if let Some((_, signer_storage)) = get_signer_val_storage(&env, &signer_key, false) {
@@ -90,7 +94,7 @@ impl Contract {
 
         Ok(())
     }
-    pub fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+    fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
         env.current_contract_address().require_auth();
 
         env.deployer().update_current_contract_wasm(hash);
@@ -186,19 +190,19 @@ struct ClientDataJson<'a> {
 #[contractimpl]
 impl CustomAccountInterface for Contract {
     type Error = Error;
-    type Signature = Map<SignerKey, Option<Signature>>;
+    type Signature = Signatures;
 
     #[allow(non_snake_case)]
     fn __check_auth(
         env: Env,
         signature_payload: Hash<32>,
-        signatures: Map<SignerKey, Option<Signature>>,
+        signatures: Signatures,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
         // Check all contexts for an authorizing signature
         for context in auth_contexts.iter() {
             'check: loop {
-                for (signer_key, _signature) in signatures.iter() {
+                for (signer_key, _signature) in signatures.0.iter() {
                     if let Some((signer_val, _)) = get_signer_val_storage(&env, &signer_key, false)
                     {
                         let signer_limits = match signer_val {
@@ -221,7 +225,7 @@ impl CustomAccountInterface for Contract {
         }
 
         // Check all signatures for a matching context
-        for (signer_key, signature) in signatures.iter() {
+        for (signer_key, signature) in signatures.0.iter() {
             match get_signer_val_storage(&env, &signer_key, true) {
                 None => panic_with_error!(env, Error::NotFound),
                 Some((signer_val, _)) => {
@@ -229,12 +233,13 @@ impl CustomAccountInterface for Contract {
                         None => {
                             // If there's a policy signer in the signatures map we call it as a full forward of this __check_auth's arguments
                             if let SignerKey::Policy(policy) = &signer_key {
-                                // policy.require_auth(); // TODO test this scenario
-                                env.invoke_contract::<()>(
-                                    policy,
-                                    &symbol_short!("policy__"),
-                                    vec![&env, auth_contexts.clone().into()],
-                                );
+                                PolicyClient::new(&env, policy)
+                                    .policy__(&env.current_contract_address(), &auth_contexts);
+                                // env.invoke_contract::<()>(
+                                //     policy,
+                                //     &symbol_short!("policy__"),
+                                //     vec![&env, auth_contexts.clone().into()],
+                                // );
                                 continue;
                             }
 
@@ -288,7 +293,7 @@ fn verify_context(
     context: &Context,
     signer_key: &SignerKey,
     signer_limits: &SignerLimits,
-    signatures: &Map<SignerKey, Option<Signature>>,
+    signatures: &Signatures,
 ) -> bool {
     if signer_limits.0.is_empty() {
         return true;
@@ -333,7 +338,7 @@ fn verify_context(
 
 fn verify_signer_limit_keys(
     env: &Env,
-    signatures: &Map<SignerKey, Option<Signature>>,
+    signatures: &Signatures,
     signer_limits_keys: &Option<Vec<SignerKey>>,
     context: &Context,
 ) {
@@ -359,14 +364,15 @@ fn verify_signer_limit_keys(
                     }
                 }
 
-                env.invoke_contract::<()>(
-                    policy,
-                    &symbol_short!("policy__"),
-                    vec![env, vec![env, context.clone()].to_val()],
-                );
-                // policy.require_auth_for_args(vec![env, context.into_val(env)]);
+                PolicyClient::new(&env, policy)
+                    .policy__(&env.current_contract_address(), &vec![env, context.clone()]);
+                // env.invoke_contract::<()>(
+                //     policy,
+                //     &symbol_short!("policy__"),
+                //     vec![env, vec![env, context.clone()].to_val()],
+                // );
                 // For every other SignerLimits key, it must exist in the signatures map and thus exist as a signer on the smart wallet
-            } else if !signatures.contains_key(signer_limits_key.clone()) {
+            } else if !signatures.0.contains_key(signer_limits_key.clone()) {
                 // if any required key is missing this contract invocation is invalid
                 panic_with_error!(env, Error::MissingSignerLimits)
             }

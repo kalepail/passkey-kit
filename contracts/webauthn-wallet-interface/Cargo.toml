@@ -1,6 +1,6 @@
 [package]
-name = "sample-policy"
-version = "0.0.0"
+name = "webauthn-wallet-interface"
+version = "0.4.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
 edition = "2021"
@@ -15,7 +15,3 @@ testutils = []
 
 [dependencies]
 soroban-sdk = { workspace = true }
-webauthn-wallet-interface = { workspace = true }
-
-[dev-dependencies]
-soroban-sdk = { workspace = true, features = ["testutils"] }

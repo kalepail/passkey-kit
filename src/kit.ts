@@ -1,6 +1,6 @@
-import { Client as PasskeyClient, type Signature, type SignerKey } from 'passkey-kit-sdk'
+import { Client as PasskeyClient, type Signature, type Signatures, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction, Operation } from '@stellar/stellar-sdk'
+import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction, Operation, nativeToScVal } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
@@ -191,7 +191,7 @@ export class PasskeyKit extends PasskeyBase {
     ) {
         let { rpId, keyId, keypair, policy, expiration } = options || {}
 
-        if ([keyId, keypair, policy].filter((arg) => arg).length !== 1)
+        if ([keyId, keypair, policy].filter((arg) => !!arg).length > 1)
             throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
         const credentials = entry.credentials().address();
@@ -218,8 +218,21 @@ export class PasskeyKit extends PasskeyBase {
 
         const payload = hash(preimage.toXDR())
 
+        let signatures: Signatures
         let key: SignerKey
         let val: Signature | undefined
+
+        const scSpecTypeDefSignatures = xdr.ScSpecTypeDef.scSpecTypeUdt(
+            new xdr.ScSpecTypeUdt({ name: "Signatures" }),
+        );
+
+        switch (credentials.signature().switch()) {
+            case xdr.ScValType.scvVoid():
+                signatures = [new Map()]
+                break;
+            default:
+                signatures = this.wallet!.spec.scValToNative(credentials.signature(), scSpecTypeDefSignatures)
+        }
 
         // Sign with a policy
         if (policy) {
@@ -292,69 +305,27 @@ export class PasskeyKit extends PasskeyBase {
             }
         }
 
-        const scKeyType = xdr.ScSpecTypeDef.scSpecTypeUdt(
-            new xdr.ScSpecTypeUdt({ name: "SignerKey" }),
-        );
-        const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
-            new xdr.ScSpecTypeUdt({ name: "Signature" }),
-        );
-        const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
-        const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
-        const scEntry = new xdr.ScMapEntry({
-            key: scKey,
-            val: scVal,
+        // Insert the new signature into the signatures Map
+        signatures[0].set(key, val)
+
+        // Insert the new signatures Map into the credentials
+        credentials.signature(
+            this.wallet!.spec.nativeToScVal(signatures, scSpecTypeDefSignatures)
+        )
+
+        // Order the signatures map
+        credentials.signature().vec()?.[0].map()?.sort((a, b) => {
+            return (
+                a.key().vec()![0].sym() +
+                a.key().vec()![1].toXDR().join('')
+            ).localeCompare(
+                b.key().vec()![0].sym() +
+                b.key().vec()![1].toXDR().join('')
+            )
         })
-
-        switch (credentials.signature().switch().name) {
-            case 'scvVoid':
-                credentials.signature(xdr.ScVal.scvMap([scEntry]))
-                break;
-            case 'scvMap':
-                // Add the new signature to the existing map
-                credentials.signature().map()?.push(scEntry)
-
-                // Order the map by key
-                // Not using Buffer.compare because Symbols are 9 bytes and unused bytes _append_ 0s vs prepending them, which is too bad
-                credentials.signature().map()?.sort((a, b) => {
-                    return (
-                        a.key().vec()![0].sym() +
-                        a.key().vec()![1].toXDR().join('')
-                    ).localeCompare(
-                        b.key().vec()![0].sym() +
-                        b.key().vec()![1].toXDR().join('')
-                    )
-                })
-                break;
-            default:
-                throw new Error('Unsupported signature')
-        }
 
         return entry
     }
-
-    // public async signAuthEntries(
-    //     entries: xdr.SorobanAuthorizationEntry[],
-    //     options?: {
-    //         rpId?: string,
-    //         keyId?: 'any' | string | Uint8Array
-    //         keypair?: Keypair,
-    //         policy?: string,
-    //         expiration?: number
-    //     }
-    // ) {
-    //     // TODO should there be more control over which auth entries are signed? Especially given we support multiple signers now?
-    //     // As-is .sign() will always sign every smart wallet auth entry. This may be okay but likely we should have more control over which auth entry the signer is signing
-    //     for (const auth of entries) {
-    //         if (
-    //             auth.credentials().switch().name === 'sorobanCredentialsAddress'
-    //             && auth.credentials().address().address().switch().name === 'scAddressTypeContract'
-    //         ) {
-    //             // If auth entry matches our Smart Wallet move forward with the signature request
-    //             if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet?.options.contractId)
-    //                 await this.signAuthEntry(auth, options)
-    //         }
-    //     }
-    // }
 
     public async sign(
         txn: AssembledTransaction<unknown>,
@@ -374,27 +345,6 @@ export class PasskeyKit extends PasskeyBase {
             },
         })
     }
-
-    // private getAuthEntries(txn: Transaction) {
-    //     if (txn.operations.length !== 1)
-    //         throw new Error('Must include only one Soroban operation')
-
-    //     for (const op of txn.operations) {
-    //         if (
-    //             op.type !== 'invokeHostFunction'
-    //             && op.type !== 'extendFootprintTtl'
-    //             && op.type !== 'restoreFootprint'
-    //         ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
-    //     }
-
-    //     // Only need to sign auth for `invokeHostFunction` operations
-    //     if (txn.operations[0].type === 'invokeHostFunction') {
-    //         const entries = txn.operations[0].auth
-
-    //         if (entries && entries.length)
-    //             return entries
-    //     }
-    // }
 
     /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey

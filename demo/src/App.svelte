@@ -370,9 +370,11 @@
 		console.log(signers);
 
 		const adminKeys = signers.filter(({ limits }) => limits === ADMIN_KEY);
+
 		adminSigner = (
 			adminKeys.find(({ key }) => keyId === key) || adminKeys[0]
 		).key;
+
 		admins = adminKeys.length;
 	}
 </script>
