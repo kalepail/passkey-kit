@@ -21550,19 +21550,21 @@ var AssembledTransaction = function () {
                 while (1) switch (_context6.prev = _context6.next) {
                   case 0:
                     _step$value = _slicedToArray(_step.value, 2), i = _step$value[0], entry = _step$value[1];
+                    console.log(entry.credentials().switch() !== lib.xdr.SorobanCredentialsType.sorobanCredentialsAddress());
                     if (!(entry.credentials().switch() !== lib.xdr.SorobanCredentialsType.sorobanCredentialsAddress())) {
-                      _context6.next = 3;
+                      _context6.next = 4;
                       break;
                     }
                     return _context6.abrupt("return", 0);
-                  case 3:
+                  case 4:
                     authEntryAddress = lib.Address.fromScAddress(entry.credentials().address().address()).toString();
+                    console.log(authEntryAddress !== address);
                     if (!(authEntryAddress !== address)) {
-                      _context6.next = 6;
+                      _context6.next = 8;
                       break;
                     }
                     return _context6.abrupt("return", 0);
-                  case 6:
+                  case 8:
                     sign = signAuthEntry !== null && signAuthEntry !== void 0 ? signAuthEntry : function fakeSignAuthEntry(x) {
                       return Promise.resolve(x);
                     };
@@ -21591,16 +21593,16 @@ var AssembledTransaction = function () {
                         return _ref11.apply(this, arguments);
                       };
                     }();
-                    _context6.next = 12;
+                    _context6.next = 14;
                     return expiration;
-                  case 12:
+                  case 14:
                     _context6.t3 = _context6.sent;
                     _context6.t4 = _this.options.networkPassphrase;
-                    _context6.next = 16;
+                    _context6.next = 18;
                     return (0, _context6.t0)(_context6.t1, _context6.t2, _context6.t3, _context6.t4);
-                  case 16:
+                  case 18:
                     authEntries[i] = _context6.sent;
-                  case 17:
+                  case 19:
                   case "end":
                     return _context6.stop();
                 }

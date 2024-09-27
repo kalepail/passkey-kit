@@ -9,13 +9,13 @@ var _exportNames = {
 };
 Object.defineProperty(exports, "FEDERATION_RESPONSE_MAX_SIZE", {
   enumerable: true,
-  get: function get() {
+  get: function () {
     return _server.FEDERATION_RESPONSE_MAX_SIZE;
   }
 });
 Object.defineProperty(exports, "Server", {
   enumerable: true,
-  get: function get() {
+  get: function () {
     return _server.FederationServer;
   }
 });
@@ -27,7 +27,7 @@ Object.keys(_api).forEach(function (key) {
   if (key in exports && exports[key] === _api[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _api[key];
     }
   });

@@ -5,7 +5,6 @@ npm publish --workspaces
 pnpm publish --no-git-checks
 
 # Stellar commands
-stellar contract bindings rust --wasm target/wasm32-unknown-unknown/release/webauthn_wallet.wasm
 stellar contract deploy --wasm target/wasm32-unknown-unknown/release/sample_policy.wasm --network testnet --source default
 
 # Mercury commands

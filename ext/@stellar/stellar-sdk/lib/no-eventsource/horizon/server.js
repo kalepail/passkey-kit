@@ -28,34 +28,50 @@ var _trade_aggregation_call_builder = require("./trade_aggregation_call_builder"
 var _trades_call_builder = require("./trades_call_builder");
 var _transaction_call_builder = require("./transaction_call_builder");
 var _horizon_axios_client = _interopRequireWildcard(require("./horizon_axios_client"));
-function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function _getRequireWildcardCache(e) { return e ? t : r; })(e); }
-function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != _typeof(e) && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
+function _getRequireWildcardCache(e) { if ("function" != typeof WeakMap) return null; var r = new WeakMap(), t = new WeakMap(); return (_getRequireWildcardCache = function (e) { return e ? t : r; })(e); }
+function _interopRequireWildcard(e, r) { if (!r && e && e.__esModule) return e; if (null === e || "object" != typeof e && "function" != typeof e) return { default: e }; var t = _getRequireWildcardCache(r); if (t && t.has(e)) return t.get(e); var n = { __proto__: null }, a = Object.defineProperty && Object.getOwnPropertyDescriptor; for (var u in e) if ("default" !== u && {}.hasOwnProperty.call(e, u)) { var i = a ? Object.getOwnPropertyDescriptor(e, u) : null; i && (i.get || i.set) ? Object.defineProperty(n, u, i) : n[u] = e[u]; } return n.default = e, t && t.set(e, n), n; }
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _regeneratorRuntime() { "use strict"; _regeneratorRuntime = function _regeneratorRuntime() { return e; }; var t, e = {}, r = Object.prototype, n = r.hasOwnProperty, o = Object.defineProperty || function (t, e, r) { t[e] = r.value; }, i = "function" == typeof Symbol ? Symbol : {}, a = i.iterator || "@@iterator", c = i.asyncIterator || "@@asyncIterator", u = i.toStringTag || "@@toStringTag"; function define(t, e, r) { return Object.defineProperty(t, e, { value: r, enumerable: !0, configurable: !0, writable: !0 }), t[e]; } try { define({}, ""); } catch (t) { define = function define(t, e, r) { return t[e] = r; }; } function wrap(t, e, r, n) { var i = e && e.prototype instanceof Generator ? e : Generator, a = Object.create(i.prototype), c = new Context(n || []); return o(a, "_invoke", { value: makeInvokeMethod(t, r, c) }), a; } function tryCatch(t, e, r) { try { return { type: "normal", arg: t.call(e, r) }; } catch (t) { return { type: "throw", arg: t }; } } e.wrap = wrap; var h = "suspendedStart", l = "suspendedYield", f = "executing", s = "completed", y = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} var p = {}; define(p, a, function () { return this; }); var d = Object.getPrototypeOf, v = d && d(d(values([]))); v && v !== r && n.call(v, a) && (p = v); var g = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(p); function defineIteratorMethods(t) { ["next", "throw", "return"].forEach(function (e) { define(t, e, function (t) { return this._invoke(e, t); }); }); } function AsyncIterator(t, e) { function invoke(r, o, i, a) { var c = tryCatch(t[r], t, o); if ("throw" !== c.type) { var u = c.arg, h = u.value; return h && "object" == _typeof(h) && n.call(h, "__await") ? e.resolve(h.__await).then(function (t) { invoke("next", t, i, a); }, function (t) { invoke("throw", t, i, a); }) : e.resolve(h).then(function (t) { u.value = t, i(u); }, function (t) { return invoke("throw", t, i, a); }); } a(c.arg); } var r; o(this, "_invoke", { value: function value(t, n) { function callInvokeWithMethodAndArg() { return new e(function (e, r) { invoke(t, n, e, r); }); } return r = r ? r.then(callInvokeWithMethodAndArg, callInvokeWithMethodAndArg) : callInvokeWithMethodAndArg(); } }); } function makeInvokeMethod(e, r, n) { var o = h; return function (i, a) { if (o === f) throw Error("Generator is already running"); if (o === s) { if ("throw" === i) throw a; return { value: t, done: !0 }; } for (n.method = i, n.arg = a;;) { var c = n.delegate; if (c) { var u = maybeInvokeDelegate(c, n); if (u) { if (u === y) continue; return u; } } if ("next" === n.method) n.sent = n._sent = n.arg;else if ("throw" === n.method) { if (o === h) throw o = s, n.arg; n.dispatchException(n.arg); } else "return" === n.method && n.abrupt("return", n.arg); o = f; var p = tryCatch(e, r, n); if ("normal" === p.type) { if (o = n.done ? s : l, p.arg === y) continue; return { value: p.arg, done: n.done }; } "throw" === p.type && (o = s, n.method = "throw", n.arg = p.arg); } }; } function maybeInvokeDelegate(e, r) { var n = r.method, o = e.iterator[n]; if (o === t) return r.delegate = null, "throw" === n && e.iterator.return && (r.method = "return", r.arg = t, maybeInvokeDelegate(e, r), "throw" === r.method) || "return" !== n && (r.method = "throw", r.arg = new TypeError("The iterator does not provide a '" + n + "' method")), y; var i = tryCatch(o, e.iterator, r.arg); if ("throw" === i.type) return r.method = "throw", r.arg = i.arg, r.delegate = null, y; var a = i.arg; return a ? a.done ? (r[e.resultName] = a.value, r.next = e.nextLoc, "return" !== r.method && (r.method = "next", r.arg = t), r.delegate = null, y) : a : (r.method = "throw", r.arg = new TypeError("iterator result is not an object"), r.delegate = null, y); } function pushTryEntry(t) { var e = { tryLoc: t[0] }; 1 in t && (e.catchLoc = t[1]), 2 in t && (e.finallyLoc = t[2], e.afterLoc = t[3]), this.tryEntries.push(e); } function resetTryEntry(t) { var e = t.completion || {}; e.type = "normal", delete e.arg, t.completion = e; } function Context(t) { this.tryEntries = [{ tryLoc: "root" }], t.forEach(pushTryEntry, this), this.reset(!0); } function values(e) { if (e || "" === e) { var r = e[a]; if (r) return r.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) { var o = -1, i = function next() { for (; ++o < e.length;) if (n.call(e, o)) return next.value = e[o], next.done = !1, next; return next.value = t, next.done = !0, next; }; return i.next = i; } } throw new TypeError(_typeof(e) + " is not iterable"); } return GeneratorFunction.prototype = GeneratorFunctionPrototype, o(g, "constructor", { value: GeneratorFunctionPrototype, configurable: !0 }), o(GeneratorFunctionPrototype, "constructor", { value: GeneratorFunction, configurable: !0 }), GeneratorFunction.displayName = define(GeneratorFunctionPrototype, u, "GeneratorFunction"), e.isGeneratorFunction = function (t) { var e = "function" == typeof t && t.constructor; return !!e && (e === GeneratorFunction || "GeneratorFunction" === (e.displayName || e.name)); }, e.mark = function (t) { return Object.setPrototypeOf ? Object.setPrototypeOf(t, GeneratorFunctionPrototype) : (t.__proto__ = GeneratorFunctionPrototype, define(t, u, "GeneratorFunction")), t.prototype = Object.create(g), t; }, e.awrap = function (t) { return { __await: t }; }, defineIteratorMethods(AsyncIterator.prototype), define(AsyncIterator.prototype, c, function () { return this; }), e.AsyncIterator = AsyncIterator, e.async = function (t, r, n, o, i) { void 0 === i && (i = Promise); var a = new AsyncIterator(wrap(t, r, n, o), i); return e.isGeneratorFunction(r) ? a : a.next().then(function (t) { return t.done ? t.value : a.next(); }); }, defineIteratorMethods(g), define(g, u, "Generator"), define(g, a, function () { return this; }), define(g, "toString", function () { return "[object Generator]"; }), e.keys = function (t) { var e = Object(t), r = []; for (var n in e) r.push(n); return r.reverse(), function next() { for (; r.length;) { var t = r.pop(); if (t in e) return next.value = t, next.done = !1, next; } return next.done = !0, next; }; }, e.values = values, Context.prototype = { constructor: Context, reset: function reset(e) { if (this.prev = 0, this.next = 0, this.sent = this._sent = t, this.done = !1, this.delegate = null, this.method = "next", this.arg = t, this.tryEntries.forEach(resetTryEntry), !e) for (var r in this) "t" === r.charAt(0) && n.call(this, r) && !isNaN(+r.slice(1)) && (this[r] = t); }, stop: function stop() { this.done = !0; var t = this.tryEntries[0].completion; if ("throw" === t.type) throw t.arg; return this.rval; }, dispatchException: function dispatchException(e) { if (this.done) throw e; var r = this; function handle(n, o) { return a.type = "throw", a.arg = e, r.next = n, o && (r.method = "next", r.arg = t), !!o; } for (var o = this.tryEntries.length - 1; o >= 0; --o) { var i = this.tryEntries[o], a = i.completion; if ("root" === i.tryLoc) return handle("end"); if (i.tryLoc <= this.prev) { var c = n.call(i, "catchLoc"), u = n.call(i, "finallyLoc"); if (c && u) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } else if (c) { if (this.prev < i.catchLoc) return handle(i.catchLoc, !0); } else { if (!u) throw Error("try statement without catch or finally"); if (this.prev < i.finallyLoc) return handle(i.finallyLoc); } } } }, abrupt: function abrupt(t, e) { for (var r = this.tryEntries.length - 1; r >= 0; --r) { var o = this.tryEntries[r]; if (o.tryLoc <= this.prev && n.call(o, "finallyLoc") && this.prev < o.finallyLoc) { var i = o; break; } } i && ("break" === t || "continue" === t) && i.tryLoc <= e && e <= i.finallyLoc && (i = null); var a = i ? i.completion : {}; return a.type = t, a.arg = e, i ? (this.method = "next", this.next = i.finallyLoc, y) : this.complete(a); }, complete: function complete(t, e) { if ("throw" === t.type) throw t.arg; return "break" === t.type || "continue" === t.type ? this.next = t.arg : "return" === t.type ? (this.rval = this.arg = t.arg, this.method = "return", this.next = "end") : "normal" === t.type && e && (this.next = e), y; }, finish: function finish(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.finallyLoc === t) return this.complete(r.completion, r.afterLoc), resetTryEntry(r), y; } }, catch: function _catch(t) { for (var e = this.tryEntries.length - 1; e >= 0; --e) { var r = this.tryEntries[e]; if (r.tryLoc === t) { var n = r.completion; if ("throw" === n.type) { var o = n.arg; resetTryEntry(r); } return o; } } throw Error("illegal catch attempt"); }, delegateYield: function delegateYield(e, r, n) { return this.delegate = { iterator: values(e), resultName: r, nextLoc: n }, "next" === this.method && (this.arg = t), y; } }, e; }
-function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
-function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
-function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
-function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-var SUBMIT_TRANSACTION_TIMEOUT = exports.SUBMIT_TRANSACTION_TIMEOUT = 60 * 1000;
-var STROOPS_IN_LUMEN = 10000000;
-var ACCOUNT_REQUIRES_MEMO = "MQ==";
+/* tslint:disable:variable-name no-namespace */
+
+// eslint-disable-next-line import/no-named-as-default
+
+/**
+ * Default transaction submission timeout for Horizon requests, in milliseconds
+ * @constant {number}
+ * @default 60000
+ * @memberof module:Horizon.Server
+ */
+const SUBMIT_TRANSACTION_TIMEOUT = exports.SUBMIT_TRANSACTION_TIMEOUT = 60 * 1000;
+const STROOPS_IN_LUMEN = 10000000;
+
+// ACCOUNT_REQUIRES_MEMO is the base64 encoding of "1".
+// SEP 29 uses this value to define transaction memo requirements for incoming payments.
+const ACCOUNT_REQUIRES_MEMO = "MQ==";
 function getAmountInLumens(amt) {
   return new _bignumber.default(amt).div(STROOPS_IN_LUMEN).toString();
 }
-var HorizonServer = exports.HorizonServer = function () {
-  function HorizonServer(serverURL) {
-    var opts = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
-    _classCallCheck(this, HorizonServer);
+
+/**
+ * Server handles the network connection to a [Horizon](https://developers.stellar.org/docs/data/horizon)
+ * instance and exposes an interface for requests to that instance.
+ * @class
+ * @alias module:Horizon.Server
+ * @memberof module:Horizon
+ *
+ * @param {string} serverURL Horizon Server URL (ex. `https://horizon-testnet.stellar.org`).
+ * @param {module:Horizon.Server.Options} [opts] Options object
+ */
+class HorizonServer {
+  /**
+   * Horizon Server URL (ex. `https://horizon-testnet.stellar.org`)
+   *
+   * @todo Solve `URI(this.serverURL as any)`.
+   */
+
+  constructor(serverURL, opts = {}) {
     this.serverURL = (0, _urijs.default)(serverURL);
-    var allowHttp = typeof opts.allowHttp === "undefined" ? _config.Config.isAllowHttp() : opts.allowHttp;
-    var customHeaders = {};
+    const allowHttp = typeof opts.allowHttp === "undefined" ? _config.Config.isAllowHttp() : opts.allowHttp;
+    const customHeaders = {};
     if (opts.appName) {
       customHeaders["X-App-Name"] = opts.appName;
     }
@@ -69,7 +85,9 @@ var HorizonServer = exports.HorizonServer = function () {
       Object.assign(customHeaders, opts.headers);
     }
     if (Object.keys(customHeaders).length > 0) {
-      _horizon_axios_client.default.interceptors.request.use(function (config) {
+      _horizon_axios_client.default.interceptors.request.use(config => {
+        // merge the custom headers with an existing headers, where customs
+        // override defaults
         config.headers = config.headers || {};
         config.headers = Object.assign(config.headers, customHeaders);
         return config;
@@ -79,472 +97,627 @@ var HorizonServer = exports.HorizonServer = function () {
       throw new Error("Cannot connect to insecure horizon server");
     }
   }
-  return _createClass(HorizonServer, [{
-    key: "fetchTimebounds",
-    value: (function () {
-      var _fetchTimebounds = _asyncToGenerator(_regeneratorRuntime().mark(function _callee(seconds) {
-        var _isRetry,
-          currentTime,
-          _args = arguments;
-        return _regeneratorRuntime().wrap(function _callee$(_context) {
-          while (1) switch (_context.prev = _context.next) {
-            case 0:
-              _isRetry = _args.length > 1 && _args[1] !== undefined ? _args[1] : false;
-              currentTime = (0, _horizon_axios_client.getCurrentServerTime)(this.serverURL.hostname());
-              if (!currentTime) {
-                _context.next = 4;
-                break;
-              }
-              return _context.abrupt("return", {
-                minTime: 0,
-                maxTime: currentTime + seconds
-              });
-            case 4:
-              if (!_isRetry) {
-                _context.next = 6;
-                break;
-              }
-              return _context.abrupt("return", {
-                minTime: 0,
-                maxTime: Math.floor(new Date().getTime() / 1000) + seconds
-              });
-            case 6:
-              _context.next = 8;
-              return _horizon_axios_client.default.get((0, _urijs.default)(this.serverURL).toString());
-            case 8:
-              return _context.abrupt("return", this.fetchTimebounds(seconds, true));
-            case 9:
-            case "end":
-              return _context.stop();
-          }
-        }, _callee, this);
-      }));
-      function fetchTimebounds(_x) {
-        return _fetchTimebounds.apply(this, arguments);
+
+  /**
+   * Get timebounds for N seconds from now, when you're creating a transaction
+   * with {@link TransactionBuilder}.
+   *
+   * By default, {@link TransactionBuilder} uses the current local time, but
+   * your machine's local time could be different from Horizon's. This gives you
+   * more assurance that your timebounds will reflect what you want.
+   *
+   * Note that this will generate your timebounds when you **init the transaction**,
+   * not when you build or submit the transaction! So give yourself enough time to get
+   * the transaction built and signed before submitting.
+   *
+   * @example
+   * const transaction = new StellarSdk.TransactionBuilder(accountId, {
+   *   fee: await StellarSdk.Server.fetchBaseFee(),
+   *   timebounds: await StellarSdk.Server.fetchTimebounds(100)
+   * })
+   *   .addOperation(operation)
+   *   // normally we would need to call setTimeout here, but setting timebounds
+   *   // earlier does the trick!
+   *   .build();
+   *
+   * @param {number} seconds Number of seconds past the current time to wait.
+   * @param {boolean} [_isRetry] True if this is a retry. Only set this internally!
+   * This is to avoid a scenario where Horizon is horking up the wrong date.
+   * @returns {Promise<Timebounds>} Promise that resolves a `timebounds` object
+   * (with the shape `{ minTime: 0, maxTime: N }`) that you can set the `timebounds` option to.
+   */
+  async fetchTimebounds(seconds, _isRetry = false) {
+    // AxiosClient instead of this.ledgers so we can get at them headers
+    const currentTime = (0, _horizon_axios_client.getCurrentServerTime)(this.serverURL.hostname());
+    if (currentTime) {
+      return {
+        minTime: 0,
+        maxTime: currentTime + seconds
+      };
+    }
+
+    // if this is a retry, then the retry has failed, so use local time
+    if (_isRetry) {
+      return {
+        minTime: 0,
+        maxTime: Math.floor(new Date().getTime() / 1000) + seconds
+      };
+    }
+
+    // otherwise, retry (by calling the root endpoint)
+    // toString automatically adds the trailing slash
+    await _horizon_axios_client.default.get((0, _urijs.default)(this.serverURL).toString());
+    return this.fetchTimebounds(seconds, true);
+  }
+
+  /**
+   * Fetch the base fee. Since this hits the server, if the server call fails,
+   * you might get an error. You should be prepared to use a default value if
+   * that happens!
+   * @returns {Promise<number>} Promise that resolves to the base fee.
+   */
+  async fetchBaseFee() {
+    const response = await this.feeStats();
+    return parseInt(response.last_ledger_base_fee, 10) || 100;
+  }
+
+  /**
+   * Fetch the fee stats endpoint.
+   * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/aggregations/fee-stats|Fee Stats}
+   * @returns {Promise<HorizonApi.FeeStatsResponse>} Promise that resolves to the fee stats returned by Horizon.
+   */
+  // eslint-disable-next-line require-await
+  async feeStats() {
+    const cb = new _call_builder.CallBuilder((0, _urijs.default)(this.serverURL));
+    cb.filter.push(["fee_stats"]);
+    return cb.call();
+  }
+
+  /**
+   * Submits a transaction to the network.
+   *
+   * By default this function calls {@link Horizon.Server#checkMemoRequired}, you can
+   * skip this check by setting the option `skipMemoRequiredCheck` to `true`.
+   *
+   * If you submit any number of `manageOffer` operations, this will add an
+   * attribute to the response that will help you analyze what happened with
+   * your offers.
+   *
+   * For example, you'll want to examine `offerResults` to add affordances like
+   * these to your app:
+   * - If `wasImmediatelyFilled` is true, then no offer was created. So if you
+   *   normally watch the `Server.offers` endpoint for offer updates, you
+   *   instead need to check `Server.trades` to find the result of this filled
+   *   offer.
+   * - If `wasImmediatelyDeleted` is true, then the offer you submitted was
+   *   deleted without reaching the orderbook or being matched (possibly because
+   *   your amounts were rounded down to zero). So treat the just-submitted
+   *   offer request as if it never happened.
+   * - If `wasPartiallyFilled` is true, you can tell the user that
+   *   `amountBought` or `amountSold` have already been transferred.
+   *
+   * @example
+   * const res = {
+   *   ...response,
+   *   offerResults: [
+   *     {
+   *       // Exact ordered list of offers that executed, with the exception
+   *       // that the last one may not have executed entirely.
+   *       offersClaimed: [
+   *         sellerId: String,
+   *         offerId: String,
+   *         assetSold: {
+   *           type: 'native|credit_alphanum4|credit_alphanum12',
+   *
+   *           // these are only present if the asset is not native
+   *           assetCode: String,
+   *           issuer: String,
+   *         },
+   *
+   *         // same shape as assetSold
+   *         assetBought: {}
+   *       ],
+   *
+   *       // What effect your manageOffer op had
+   *       effect: "manageOfferCreated|manageOfferUpdated|manageOfferDeleted",
+   *
+   *       // Whether your offer immediately got matched and filled
+   *       wasImmediatelyFilled: Boolean,
+   *
+   *       // Whether your offer immediately got deleted, if for example the order was too small
+   *       wasImmediatelyDeleted: Boolean,
+   *
+   *       // Whether the offer was partially, but not completely, filled
+   *       wasPartiallyFilled: Boolean,
+   *
+   *       // The full requested amount of the offer is open for matching
+   *       isFullyOpen: Boolean,
+   *
+   *       // The total amount of tokens bought / sold during transaction execution
+   *       amountBought: Number,
+   *       amountSold: Number,
+   *
+   *       // if the offer was created, updated, or partially filled, this is
+   *       // the outstanding offer
+   *       currentOffer: {
+   *         offerId: String,
+   *         amount: String,
+   *         price: {
+   *           n: String,
+   *           d: String,
+   *         },
+   *
+   *         selling: {
+   *           type: 'native|credit_alphanum4|credit_alphanum12',
+   *
+   *           // these are only present if the asset is not native
+   *           assetCode: String,
+   *           issuer: String,
+   *         },
+   *
+   *         // same as `selling`
+   *         buying: {},
+   *       },
+   *
+   *       // the index of this particular operation in the op stack
+   *       operationIndex: Number
+   *     }
+   *   ]
+   * }
+   *
+   * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/submit-a-transaction|Submit a Transaction}
+   * @param {Transaction|FeeBumpTransaction} transaction - The transaction to submit.
+   * @param {object} [opts] Options object
+   * @param {boolean} [opts.skipMemoRequiredCheck] - Allow skipping memo
+   * required check, default: `false`. See
+   * [SEP0029](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0029.md).
+   * @returns {Promise} Promise that resolves or rejects with response from
+   * horizon.
+   */
+  async submitTransaction(transaction, opts = {
+    skipMemoRequiredCheck: false
+  }) {
+    // only check for memo required if skipMemoRequiredCheck is false and the transaction doesn't include a memo.
+    if (!opts.skipMemoRequiredCheck) {
+      await this.checkMemoRequired(transaction);
+    }
+    const tx = encodeURIComponent(transaction.toEnvelope().toXDR().toString("base64"));
+    return _horizon_axios_client.default.post((0, _urijs.default)(this.serverURL).segment("transactions").toString(), `tx=${tx}`, {
+      timeout: SUBMIT_TRANSACTION_TIMEOUT
+    }).then(response => {
+      if (!response.data.result_xdr) {
+        return response.data;
       }
-      return fetchTimebounds;
-    }())
-  }, {
-    key: "fetchBaseFee",
-    value: (function () {
-      var _fetchBaseFee = _asyncToGenerator(_regeneratorRuntime().mark(function _callee2() {
-        var response;
-        return _regeneratorRuntime().wrap(function _callee2$(_context2) {
-          while (1) switch (_context2.prev = _context2.next) {
-            case 0:
-              _context2.next = 2;
-              return this.feeStats();
-            case 2:
-              response = _context2.sent;
-              return _context2.abrupt("return", parseInt(response.last_ledger_base_fee, 10) || 100);
-            case 4:
-            case "end":
-              return _context2.stop();
+      const responseXDR = _stellarBase.xdr.TransactionResult.fromXDR(response.data.result_xdr, "base64");
+
+      // TODO: fix stellar-base types.
+      const results = responseXDR.result().value();
+      let offerResults;
+      let hasManageOffer;
+      if (results.length) {
+        offerResults = results
+        // TODO: fix stellar-base types.
+        .map((result, i) => {
+          if (result.value().switch().name !== "manageBuyOffer" && result.value().switch().name !== "manageSellOffer") {
+            return null;
           }
-        }, _callee2, this);
-      }));
-      function fetchBaseFee() {
-        return _fetchBaseFee.apply(this, arguments);
-      }
-      return fetchBaseFee;
-    }())
-  }, {
-    key: "feeStats",
-    value: (function () {
-      var _feeStats = _asyncToGenerator(_regeneratorRuntime().mark(function _callee3() {
-        var cb;
-        return _regeneratorRuntime().wrap(function _callee3$(_context3) {
-          while (1) switch (_context3.prev = _context3.next) {
-            case 0:
-              cb = new _call_builder.CallBuilder((0, _urijs.default)(this.serverURL));
-              cb.filter.push(["fee_stats"]);
-              return _context3.abrupt("return", cb.call());
-            case 3:
-            case "end":
-              return _context3.stop();
+          hasManageOffer = true;
+          let amountBought = new _bignumber.default(0);
+          let amountSold = new _bignumber.default(0);
+          const offerSuccess = result.value().value().success();
+          const offersClaimed = offerSuccess.offersClaimed()
+          // TODO: fix stellar-base types.
+          .map(offerClaimedAtom => {
+            const offerClaimed = offerClaimedAtom.value();
+            let sellerId = "";
+            switch (offerClaimedAtom.switch()) {
+              case _stellarBase.xdr.ClaimAtomType.claimAtomTypeV0():
+                sellerId = _stellarBase.StrKey.encodeEd25519PublicKey(offerClaimed.sellerEd25519());
+                break;
+              case _stellarBase.xdr.ClaimAtomType.claimAtomTypeOrderBook():
+                sellerId = _stellarBase.StrKey.encodeEd25519PublicKey(offerClaimed.sellerId().ed25519());
+                break;
+              // It shouldn't be possible for a claimed offer to have type
+              // claimAtomTypeLiquidityPool:
+              //
+              // https://github.com/stellar/stellar-core/blob/c5f6349b240818f716617ca6e0f08d295a6fad9a/src/transactions/TransactionUtils.cpp#L1284
+              //
+              // However, you can never be too careful.
+              default:
+                throw new Error(`Invalid offer result type: ${offerClaimedAtom.switch()}`);
+            }
+            const claimedOfferAmountBought = new _bignumber.default(
+            // amountBought is a js-xdr hyper
+            offerClaimed.amountBought().toString());
+            const claimedOfferAmountSold = new _bignumber.default(
+            // amountBought is a js-xdr hyper
+            offerClaimed.amountSold().toString());
+
+            // This is an offer that was filled by the one just submitted.
+            // So this offer has an _opposite_ bought/sold frame of ref
+            // than from what we just submitted!
+            // So add this claimed offer's bought to the SOLD count and vice v
+
+            amountBought = amountBought.plus(claimedOfferAmountSold);
+            amountSold = amountSold.plus(claimedOfferAmountBought);
+            const sold = _stellarBase.Asset.fromOperation(offerClaimed.assetSold());
+            const bought = _stellarBase.Asset.fromOperation(offerClaimed.assetBought());
+            const assetSold = {
+              type: sold.getAssetType(),
+              assetCode: sold.getCode(),
+              issuer: sold.getIssuer()
+            };
+            const assetBought = {
+              type: bought.getAssetType(),
+              assetCode: bought.getCode(),
+              issuer: bought.getIssuer()
+            };
+            return {
+              sellerId,
+              offerId: offerClaimed.offerId().toString(),
+              assetSold,
+              amountSold: getAmountInLumens(claimedOfferAmountSold),
+              assetBought,
+              amountBought: getAmountInLumens(claimedOfferAmountBought)
+            };
+          });
+          const effect = offerSuccess.offer().switch().name;
+          let currentOffer;
+          if (typeof offerSuccess.offer().value === "function" && offerSuccess.offer().value()) {
+            const offerXDR = offerSuccess.offer().value();
+            currentOffer = {
+              offerId: offerXDR.offerId().toString(),
+              selling: {},
+              buying: {},
+              amount: getAmountInLumens(offerXDR.amount().toString()),
+              price: {
+                n: offerXDR.price().n(),
+                d: offerXDR.price().d()
+              }
+            };
+            const selling = _stellarBase.Asset.fromOperation(offerXDR.selling());
+            currentOffer.selling = {
+              type: selling.getAssetType(),
+              assetCode: selling.getCode(),
+              issuer: selling.getIssuer()
+            };
+            const buying = _stellarBase.Asset.fromOperation(offerXDR.buying());
+            currentOffer.buying = {
+              type: buying.getAssetType(),
+              assetCode: buying.getCode(),
+              issuer: buying.getIssuer()
+            };
           }
-        }, _callee3, this);
-      }));
-      function feeStats() {
-        return _feeStats.apply(this, arguments);
+          return {
+            offersClaimed,
+            effect,
+            operationIndex: i,
+            currentOffer,
+            // this value is in stroops so divide it out
+            amountBought: getAmountInLumens(amountBought),
+            amountSold: getAmountInLumens(amountSold),
+            isFullyOpen: !offersClaimed.length && effect !== "manageOfferDeleted",
+            wasPartiallyFilled: !!offersClaimed.length && effect !== "manageOfferDeleted",
+            wasImmediatelyFilled: !!offersClaimed.length && effect === "manageOfferDeleted",
+            wasImmediatelyDeleted: !offersClaimed.length && effect === "manageOfferDeleted"
+          };
+        })
+        // TODO: fix stellar-base types.
+        .filter(result => !!result);
       }
-      return feeStats;
-    }())
-  }, {
-    key: "submitTransaction",
-    value: (function () {
-      var _submitTransaction = _asyncToGenerator(_regeneratorRuntime().mark(function _callee4(transaction) {
-        var opts,
-          tx,
-          _args4 = arguments;
-        return _regeneratorRuntime().wrap(function _callee4$(_context4) {
-          while (1) switch (_context4.prev = _context4.next) {
-            case 0:
-              opts = _args4.length > 1 && _args4[1] !== undefined ? _args4[1] : {
-                skipMemoRequiredCheck: false
-              };
-              if (opts.skipMemoRequiredCheck) {
-                _context4.next = 4;
-                break;
-              }
-              _context4.next = 4;
-              return this.checkMemoRequired(transaction);
-            case 4:
-              tx = encodeURIComponent(transaction.toEnvelope().toXDR().toString("base64"));
-              return _context4.abrupt("return", _horizon_axios_client.default.post((0, _urijs.default)(this.serverURL).segment("transactions").toString(), "tx=".concat(tx), {
-                timeout: SUBMIT_TRANSACTION_TIMEOUT
-              }).then(function (response) {
-                if (!response.data.result_xdr) {
-                  return response.data;
-                }
-                var responseXDR = _stellarBase.xdr.TransactionResult.fromXDR(response.data.result_xdr, "base64");
-                var results = responseXDR.result().value();
-                var offerResults;
-                var hasManageOffer;
-                if (results.length) {
-                  offerResults = results.map(function (result, i) {
-                    if (result.value().switch().name !== "manageBuyOffer" && result.value().switch().name !== "manageSellOffer") {
-                      return null;
-                    }
-                    hasManageOffer = true;
-                    var amountBought = new _bignumber.default(0);
-                    var amountSold = new _bignumber.default(0);
-                    var offerSuccess = result.value().value().success();
-                    var offersClaimed = offerSuccess.offersClaimed().map(function (offerClaimedAtom) {
-                      var offerClaimed = offerClaimedAtom.value();
-                      var sellerId = "";
-                      switch (offerClaimedAtom.switch()) {
-                        case _stellarBase.xdr.ClaimAtomType.claimAtomTypeV0():
-                          sellerId = _stellarBase.StrKey.encodeEd25519PublicKey(offerClaimed.sellerEd25519());
-                          break;
-                        case _stellarBase.xdr.ClaimAtomType.claimAtomTypeOrderBook():
-                          sellerId = _stellarBase.StrKey.encodeEd25519PublicKey(offerClaimed.sellerId().ed25519());
-                          break;
-                        default:
-                          throw new Error("Invalid offer result type: ".concat(offerClaimedAtom.switch()));
-                      }
-                      var claimedOfferAmountBought = new _bignumber.default(offerClaimed.amountBought().toString());
-                      var claimedOfferAmountSold = new _bignumber.default(offerClaimed.amountSold().toString());
-                      amountBought = amountBought.plus(claimedOfferAmountSold);
-                      amountSold = amountSold.plus(claimedOfferAmountBought);
-                      var sold = _stellarBase.Asset.fromOperation(offerClaimed.assetSold());
-                      var bought = _stellarBase.Asset.fromOperation(offerClaimed.assetBought());
-                      var assetSold = {
-                        type: sold.getAssetType(),
-                        assetCode: sold.getCode(),
-                        issuer: sold.getIssuer()
-                      };
-                      var assetBought = {
-                        type: bought.getAssetType(),
-                        assetCode: bought.getCode(),
-                        issuer: bought.getIssuer()
-                      };
-                      return {
-                        sellerId: sellerId,
-                        offerId: offerClaimed.offerId().toString(),
-                        assetSold: assetSold,
-                        amountSold: getAmountInLumens(claimedOfferAmountSold),
-                        assetBought: assetBought,
-                        amountBought: getAmountInLumens(claimedOfferAmountBought)
-                      };
-                    });
-                    var effect = offerSuccess.offer().switch().name;
-                    var currentOffer;
-                    if (typeof offerSuccess.offer().value === "function" && offerSuccess.offer().value()) {
-                      var offerXDR = offerSuccess.offer().value();
-                      currentOffer = {
-                        offerId: offerXDR.offerId().toString(),
-                        selling: {},
-                        buying: {},
-                        amount: getAmountInLumens(offerXDR.amount().toString()),
-                        price: {
-                          n: offerXDR.price().n(),
-                          d: offerXDR.price().d()
-                        }
-                      };
-                      var selling = _stellarBase.Asset.fromOperation(offerXDR.selling());
-                      currentOffer.selling = {
-                        type: selling.getAssetType(),
-                        assetCode: selling.getCode(),
-                        issuer: selling.getIssuer()
-                      };
-                      var buying = _stellarBase.Asset.fromOperation(offerXDR.buying());
-                      currentOffer.buying = {
-                        type: buying.getAssetType(),
-                        assetCode: buying.getCode(),
-                        issuer: buying.getIssuer()
-                      };
-                    }
-                    return {
-                      offersClaimed: offersClaimed,
-                      effect: effect,
-                      operationIndex: i,
-                      currentOffer: currentOffer,
-                      amountBought: getAmountInLumens(amountBought),
-                      amountSold: getAmountInLumens(amountSold),
-                      isFullyOpen: !offersClaimed.length && effect !== "manageOfferDeleted",
-                      wasPartiallyFilled: !!offersClaimed.length && effect !== "manageOfferDeleted",
-                      wasImmediatelyFilled: !!offersClaimed.length && effect === "manageOfferDeleted",
-                      wasImmediatelyDeleted: !offersClaimed.length && effect === "manageOfferDeleted"
-                    };
-                  }).filter(function (result) {
-                    return !!result;
-                  });
-                }
-                return _objectSpread(_objectSpread({}, response.data), {}, {
-                  offerResults: hasManageOffer ? offerResults : undefined
-                });
-              }).catch(function (response) {
-                if (response instanceof Error) {
-                  return Promise.reject(response);
-                }
-                return Promise.reject(new _errors.BadResponseError("Transaction submission failed. Server responded: ".concat(response.status, " ").concat(response.statusText), response.data));
-              }));
-            case 6:
-            case "end":
-              return _context4.stop();
-          }
-        }, _callee4, this);
-      }));
-      function submitTransaction(_x2) {
-        return _submitTransaction.apply(this, arguments);
+      return {
+        ...response.data,
+        offerResults: hasManageOffer ? offerResults : undefined
+      };
+    }).catch(response => {
+      if (response instanceof Error) {
+        return Promise.reject(response);
       }
-      return submitTransaction;
-    }())
-  }, {
-    key: "submitAsyncTransaction",
-    value: (function () {
-      var _submitAsyncTransaction = _asyncToGenerator(_regeneratorRuntime().mark(function _callee5(transaction) {
-        var opts,
-          tx,
-          _args5 = arguments;
-        return _regeneratorRuntime().wrap(function _callee5$(_context5) {
-          while (1) switch (_context5.prev = _context5.next) {
-            case 0:
-              opts = _args5.length > 1 && _args5[1] !== undefined ? _args5[1] : {
-                skipMemoRequiredCheck: false
-              };
-              if (opts.skipMemoRequiredCheck) {
-                _context5.next = 4;
-                break;
-              }
-              _context5.next = 4;
-              return this.checkMemoRequired(transaction);
-            case 4:
-              tx = encodeURIComponent(transaction.toEnvelope().toXDR().toString("base64"));
-              return _context5.abrupt("return", _horizon_axios_client.default.post((0, _urijs.default)(this.serverURL).segment("transactions_async").toString(), "tx=".concat(tx)).then(function (response) {
-                return response.data;
-              }).catch(function (response) {
-                if (response instanceof Error) {
-                  return Promise.reject(response);
-                }
-                return Promise.reject(new _errors.BadResponseError("Transaction submission failed. Server responded: ".concat(response.status, " ").concat(response.statusText), response.data));
-              }));
-            case 6:
-            case "end":
-              return _context5.stop();
-          }
-        }, _callee5, this);
-      }));
-      function submitAsyncTransaction(_x3) {
-        return _submitAsyncTransaction.apply(this, arguments);
+      return Promise.reject(new _errors.BadResponseError(`Transaction submission failed. Server responded: ${response.status} ${response.statusText}`, response.data));
+    });
+  }
+
+  /**
+   * Submits an asynchronous transaction to the network. Unlike the synchronous version, which blocks
+   * and waits for the transaction to be ingested in Horizon, this endpoint relays the response from
+   * core directly back to the user.
+   *
+   * By default, this function calls {@link HorizonServer#checkMemoRequired}, you can
+   * skip this check by setting the option `skipMemoRequiredCheck` to `true`.
+   *
+   * @see [Submit-Async-Transaction](https://developers.stellar.org/docs/data/horizon/api-reference/resources/submit-async-transaction)
+   * @param {Transaction|FeeBumpTransaction} transaction - The transaction to submit.
+   * @param {object} [opts] Options object
+   * @param {boolean} [opts.skipMemoRequiredCheck] - Allow skipping memo
+   * required check, default: `false`. See
+   * [SEP0029](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0029.md).
+   * @returns {Promise} Promise that resolves or rejects with response from
+   * horizon.
+   */
+  async submitAsyncTransaction(transaction, opts = {
+    skipMemoRequiredCheck: false
+  }) {
+    // only check for memo required if skipMemoRequiredCheck is false and the transaction doesn't include a memo.
+    if (!opts.skipMemoRequiredCheck) {
+      await this.checkMemoRequired(transaction);
+    }
+    const tx = encodeURIComponent(transaction.toEnvelope().toXDR().toString("base64"));
+    return _horizon_axios_client.default.post((0, _urijs.default)(this.serverURL).segment("transactions_async").toString(), `tx=${tx}`).then(response => response.data).catch(response => {
+      if (response instanceof Error) {
+        return Promise.reject(response);
       }
-      return submitAsyncTransaction;
-    }())
-  }, {
-    key: "accounts",
-    value: function accounts() {
-      return new _account_call_builder.AccountCallBuilder((0, _urijs.default)(this.serverURL));
+      return Promise.reject(new _errors.BadResponseError(`Transaction submission failed. Server responded: ${response.status} ${response.statusText}`, response.data));
+    });
+  }
+
+  /**
+   * @returns {AccountCallBuilder} New {@link AccountCallBuilder} object configured by a current Horizon server configuration.
+   */
+  accounts() {
+    return new _account_call_builder.AccountCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {ClaimableBalanceCallBuilder} New {@link ClaimableBalanceCallBuilder} object configured by a current Horizon server configuration.
+   */
+  claimableBalances() {
+    return new _claimable_balances_call_builder.ClaimableBalanceCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {LedgerCallBuilder} New {@link LedgerCallBuilder} object configured by a current Horizon server configuration.
+   */
+  ledgers() {
+    return new _ledger_call_builder.LedgerCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {TransactionCallBuilder} New {@link TransactionCallBuilder} object configured by a current Horizon server configuration.
+   */
+  transactions() {
+    return new _transaction_call_builder.TransactionCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * People on the Stellar network can make offers to buy or sell assets. This endpoint represents all the offers on the DEX.
+   *
+   * You can query all offers for account using the function `.accountId`.
+   *
+   * @example
+   * server.offers()
+   *   .forAccount(accountId).call()
+   *   .then(function(offers) {
+   *     console.log(offers);
+   *   });
+   *
+   * @returns {OfferCallBuilder} New {@link OfferCallBuilder} object
+   */
+  offers() {
+    return new _offer_call_builder.OfferCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @param {Asset} selling Asset being sold
+   * @param {Asset} buying Asset being bought
+   * @returns {OrderbookCallBuilder} New {@link OrderbookCallBuilder} object configured by a current Horizon server configuration.
+   */
+  orderbook(selling, buying) {
+    return new _orderbook_call_builder.OrderbookCallBuilder((0, _urijs.default)(this.serverURL), selling, buying);
+  }
+
+  /**
+   * Returns
+   * @returns {TradesCallBuilder} New {@link TradesCallBuilder} object configured by a current Horizon server configuration.
+   */
+  trades() {
+    return new _trades_call_builder.TradesCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {OperationCallBuilder} New {@link OperationCallBuilder} object configured by a current Horizon server configuration.
+   */
+  operations() {
+    return new _operation_call_builder.OperationCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {LiquidityPoolCallBuilder} New {@link LiquidityPoolCallBuilder}
+   *     object configured to the current Horizon server settings.
+   */
+  liquidityPools() {
+    return new _liquidity_pool_call_builder.LiquidityPoolCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * The Stellar Network allows payments to be made between assets through path
+   * payments. A strict receive path payment specifies a series of assets to
+   * route a payment through, from source asset (the asset debited from the
+   * payer) to destination asset (the asset credited to the payee).
+   *
+   * A strict receive path search is specified using:
+   *
+   * * The destination address.
+   * * The source address or source assets.
+   * * The asset and amount that the destination account should receive.
+   *
+   * As part of the search, horizon will load a list of assets available to the
+   * source address and will find any payment paths from those source assets to
+   * the desired destination asset. The search's amount parameter will be used
+   * to determine if there a given path can satisfy a payment of the desired
+   * amount.
+   *
+   * If a list of assets is passed as the source, horizon will find any payment
+   * paths from those source assets to the desired destination asset.
+   *
+   * @param {string|Asset[]} source The sender's account ID or a list of assets. Any returned path will use a source that the sender can hold.
+   * @param {Asset} destinationAsset The destination asset.
+   * @param {string} destinationAmount The amount, denominated in the destination asset, that any returned path should be able to satisfy.
+   * @returns {StrictReceivePathCallBuilder} New {@link StrictReceivePathCallBuilder} object configured with the current Horizon server configuration.
+   */
+  strictReceivePaths(source, destinationAsset, destinationAmount) {
+    return new _strict_receive_path_call_builder.StrictReceivePathCallBuilder((0, _urijs.default)(this.serverURL), source, destinationAsset, destinationAmount);
+  }
+
+  /**
+   * The Stellar Network allows payments to be made between assets through path payments. A strict send path payment specifies a
+   * series of assets to route a payment through, from source asset (the asset debited from the payer) to destination
+   * asset (the asset credited to the payee).
+   *
+   * A strict send path search is specified using:
+   *
+   * The asset and amount that is being sent.
+   * The destination account or the destination assets.
+   *
+   * @param {Asset} sourceAsset The asset to be sent.
+   * @param {string} sourceAmount The amount, denominated in the source asset, that any returned path should be able to satisfy.
+   * @param {string|Asset[]} destination The destination account or the destination assets.
+   * @returns {StrictSendPathCallBuilder} New {@link StrictSendPathCallBuilder} object configured with the current Horizon server configuration.
+   */
+  strictSendPaths(sourceAsset, sourceAmount, destination) {
+    return new _strict_send_path_call_builder.StrictSendPathCallBuilder((0, _urijs.default)(this.serverURL), sourceAsset, sourceAmount, destination);
+  }
+
+  /**
+   * @returns {PaymentCallBuilder} New {@link PaymentCallBuilder} instance configured with the current
+   * Horizon server configuration.
+   */
+  payments() {
+    return new _payment_call_builder.PaymentCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @returns {EffectCallBuilder} New {@link EffectCallBuilder} instance configured with the current
+   * Horizon server configuration
+   */
+  effects() {
+    return new _effect_call_builder.EffectCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * @param {string} address The Stellar ID that you want Friendbot to send lumens to
+   * @returns {FriendbotBuilder} New {@link FriendbotBuilder} instance configured with the current
+   * Horizon server configuration
+   * @private
+   */
+  friendbot(address) {
+    return new _friendbot_builder.FriendbotBuilder((0, _urijs.default)(this.serverURL), address);
+  }
+
+  /**
+   * Get a new {@link AssetsCallBuilder} instance configured with the current
+   * Horizon server configuration.
+   * @returns {AssetsCallBuilder} New AssetsCallBuilder instance
+   */
+  assets() {
+    return new _assets_call_builder.AssetsCallBuilder((0, _urijs.default)(this.serverURL));
+  }
+
+  /**
+   * Fetches an account's most current state in the ledger, then creates and
+   * returns an {@link AccountResponse} object.
+   *
+   * @param {string} accountId - The account to load.
+   *
+   * @returns {Promise} Returns a promise to the {@link AccountResponse} object
+   * with populated sequence number.
+   */
+  async loadAccount(accountId) {
+    const res = await this.accounts().accountId(accountId).call();
+    return new _account_response.AccountResponse(res);
+  }
+
+  /**
+   *
+   * @param {Asset} base base asset
+   * @param {Asset} counter counter asset
+   * @param {number} start_time lower time boundary represented as millis since epoch
+   * @param {number} end_time upper time boundary represented as millis since epoch
+   * @param {number} resolution segment duration as millis since epoch. *Supported values are 5 minutes (300000), 15 minutes (900000), 1 hour (3600000), 1 day (86400000) and 1 week (604800000).
+   * @param {number} offset segments can be offset using this parameter. Expressed in milliseconds. *Can only be used if the resolution is greater than 1 hour. Value must be in whole hours, less than the provided resolution, and less than 24 hours.
+   * Returns new {@link TradeAggregationCallBuilder} object configured with the current Horizon server configuration.
+   * @returns {TradeAggregationCallBuilder} New TradeAggregationCallBuilder instance
+   */
+  tradeAggregation(base, counter, start_time, end_time, resolution, offset) {
+    return new _trade_aggregation_call_builder.TradeAggregationCallBuilder((0, _urijs.default)(this.serverURL), base, counter, start_time, end_time, resolution, offset);
+  }
+
+  /**
+   * Check if any of the destination accounts requires a memo.
+   *
+   * This function implements a memo required check as defined in
+   * [SEP-29](https://stellar.org/protocol/sep-29). It will load each account
+   * which is the destination and check if it has the data field
+   * `config.memo_required` set to `"MQ=="`.
+   *
+   * Each account is checked sequentially instead of loading multiple accounts
+   * at the same time from Horizon.
+   *
+   * @see {@link https://stellar.org/protocol/sep-29|SEP-29: Account Memo Requirements}
+   * @param {Transaction} transaction - The transaction to check.
+   * @returns {Promise<void, Error>} - If any of the destination account
+   * requires a memo, the promise will throw {@link AccountRequiresMemoError}.
+   * @throws  {AccountRequiresMemoError}
+   */
+  async checkMemoRequired(transaction) {
+    if (transaction instanceof _stellarBase.FeeBumpTransaction) {
+      transaction = transaction.innerTransaction;
     }
-  }, {
-    key: "claimableBalances",
-    value: function claimableBalances() {
-      return new _claimable_balances_call_builder.ClaimableBalanceCallBuilder((0, _urijs.default)(this.serverURL));
+    if (transaction.memo.type !== "none") {
+      return;
     }
-  }, {
-    key: "ledgers",
-    value: function ledgers() {
-      return new _ledger_call_builder.LedgerCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "transactions",
-    value: function transactions() {
-      return new _transaction_call_builder.TransactionCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "offers",
-    value: function offers() {
-      return new _offer_call_builder.OfferCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "orderbook",
-    value: function orderbook(selling, buying) {
-      return new _orderbook_call_builder.OrderbookCallBuilder((0, _urijs.default)(this.serverURL), selling, buying);
-    }
-  }, {
-    key: "trades",
-    value: function trades() {
-      return new _trades_call_builder.TradesCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "operations",
-    value: function operations() {
-      return new _operation_call_builder.OperationCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "liquidityPools",
-    value: function liquidityPools() {
-      return new _liquidity_pool_call_builder.LiquidityPoolCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "strictReceivePaths",
-    value: function strictReceivePaths(source, destinationAsset, destinationAmount) {
-      return new _strict_receive_path_call_builder.StrictReceivePathCallBuilder((0, _urijs.default)(this.serverURL), source, destinationAsset, destinationAmount);
-    }
-  }, {
-    key: "strictSendPaths",
-    value: function strictSendPaths(sourceAsset, sourceAmount, destination) {
-      return new _strict_send_path_call_builder.StrictSendPathCallBuilder((0, _urijs.default)(this.serverURL), sourceAsset, sourceAmount, destination);
-    }
-  }, {
-    key: "payments",
-    value: function payments() {
-      return new _payment_call_builder.PaymentCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "effects",
-    value: function effects() {
-      return new _effect_call_builder.EffectCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "friendbot",
-    value: function friendbot(address) {
-      return new _friendbot_builder.FriendbotBuilder((0, _urijs.default)(this.serverURL), address);
-    }
-  }, {
-    key: "assets",
-    value: function assets() {
-      return new _assets_call_builder.AssetsCallBuilder((0, _urijs.default)(this.serverURL));
-    }
-  }, {
-    key: "loadAccount",
-    value: (function () {
-      var _loadAccount = _asyncToGenerator(_regeneratorRuntime().mark(function _callee6(accountId) {
-        var res;
-        return _regeneratorRuntime().wrap(function _callee6$(_context6) {
-          while (1) switch (_context6.prev = _context6.next) {
-            case 0:
-              _context6.next = 2;
-              return this.accounts().accountId(accountId).call();
-            case 2:
-              res = _context6.sent;
-              return _context6.abrupt("return", new _account_response.AccountResponse(res));
-            case 4:
-            case "end":
-              return _context6.stop();
-          }
-        }, _callee6, this);
-      }));
-      function loadAccount(_x4) {
-        return _loadAccount.apply(this, arguments);
+    const destinations = new Set();
+
+    /* eslint-disable no-continue */
+    for (let i = 0; i < transaction.operations.length; i += 1) {
+      const operation = transaction.operations[i];
+      switch (operation.type) {
+        case "payment":
+        case "pathPaymentStrictReceive":
+        case "pathPaymentStrictSend":
+        case "accountMerge":
+          break;
+        default:
+          continue;
       }
-      return loadAccount;
-    }())
-  }, {
-    key: "tradeAggregation",
-    value: function tradeAggregation(base, counter, start_time, end_time, resolution, offset) {
-      return new _trade_aggregation_call_builder.TradeAggregationCallBuilder((0, _urijs.default)(this.serverURL), base, counter, start_time, end_time, resolution, offset);
-    }
-  }, {
-    key: "checkMemoRequired",
-    value: (function () {
-      var _checkMemoRequired = _asyncToGenerator(_regeneratorRuntime().mark(function _callee7(transaction) {
-        var destinations, i, operation, destination, account;
-        return _regeneratorRuntime().wrap(function _callee7$(_context7) {
-          while (1) switch (_context7.prev = _context7.next) {
-            case 0:
-              if (transaction instanceof _stellarBase.FeeBumpTransaction) {
-                transaction = transaction.innerTransaction;
-              }
-              if (!(transaction.memo.type !== "none")) {
-                _context7.next = 3;
-                break;
-              }
-              return _context7.abrupt("return");
-            case 3:
-              destinations = new Set();
-              i = 0;
-            case 5:
-              if (!(i < transaction.operations.length)) {
-                _context7.next = 36;
-                break;
-              }
-              operation = transaction.operations[i];
-              _context7.t0 = operation.type;
-              _context7.next = _context7.t0 === "payment" ? 10 : _context7.t0 === "pathPaymentStrictReceive" ? 10 : _context7.t0 === "pathPaymentStrictSend" ? 10 : _context7.t0 === "accountMerge" ? 10 : 11;
-              break;
-            case 10:
-              return _context7.abrupt("break", 12);
-            case 11:
-              return _context7.abrupt("continue", 33);
-            case 12:
-              destination = operation.destination;
-              if (!destinations.has(destination)) {
-                _context7.next = 15;
-                break;
-              }
-              return _context7.abrupt("continue", 33);
-            case 15:
-              destinations.add(destination);
-              if (!destination.startsWith("M")) {
-                _context7.next = 18;
-                break;
-              }
-              return _context7.abrupt("continue", 33);
-            case 18:
-              _context7.prev = 18;
-              _context7.next = 21;
-              return this.loadAccount(destination);
-            case 21:
-              account = _context7.sent;
-              if (!(account.data_attr["config.memo_required"] === ACCOUNT_REQUIRES_MEMO)) {
-                _context7.next = 24;
-                break;
-              }
-              throw new _errors.AccountRequiresMemoError("account requires memo", destination, i);
-            case 24:
-              _context7.next = 33;
-              break;
-            case 26:
-              _context7.prev = 26;
-              _context7.t1 = _context7["catch"](18);
-              if (!(_context7.t1 instanceof _errors.AccountRequiresMemoError)) {
-                _context7.next = 30;
-                break;
-              }
-              throw _context7.t1;
-            case 30:
-              if (_context7.t1 instanceof _errors.NotFoundError) {
-                _context7.next = 32;
-                break;
-              }
-              throw _context7.t1;
-            case 32:
-              return _context7.abrupt("continue", 33);
-            case 33:
-              i += 1;
-              _context7.next = 5;
-              break;
-            case 36:
-            case "end":
-              return _context7.stop();
-          }
-        }, _callee7, this, [[18, 26]]);
-      }));
-      function checkMemoRequired(_x5) {
-        return _checkMemoRequired.apply(this, arguments);
+      const destination = operation.destination;
+      if (destinations.has(destination)) {
+        continue;
       }
-      return checkMemoRequired;
-    }())
-  }]);
-}();
+      destinations.add(destination);
+
+      // skip M account checks since it implies a memo
+      if (destination.startsWith("M")) {
+        continue;
+      }
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const account = await this.loadAccount(destination);
+        if (account.data_attr["config.memo_required"] === ACCOUNT_REQUIRES_MEMO) {
+          throw new _errors.AccountRequiresMemoError("account requires memo", destination, i);
+        }
+      } catch (e) {
+        if (e instanceof _errors.AccountRequiresMemoError) {
+          throw e;
+        }
+
+        // fail if the error is different to account not found
+        if (!(e instanceof _errors.NotFoundError)) {
+          throw e;
+        }
+        continue;
+      }
+    }
+    /* eslint-enable no-continue */
+  }
+}
+
+/**
+ * Options for configuring connections to Horizon servers.
+ * @typedef {object} Options
+ * @memberof module:Horizon.Server
+ * @property {boolean} [allowHttp] Allow connecting to http servers, default: `false`. This must be set to false in production deployments! You can also use {@link Config} class to set this globally.
+ * @property {string} [appName] Allow set custom header `X-App-Name`, default: `undefined`.
+ * @property {string} [appVersion] Allow set custom header `X-App-Version`, default: `undefined`.
+ * @property {string} [authToken] Allow set custom header `X-Auth-Token`, default: `undefined`.
+ */
+exports.HorizonServer = HorizonServer;

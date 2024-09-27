@@ -9,7 +9,7 @@ Object.keys(_assembled_transaction).forEach(function (key) {
   if (key in exports && exports[key] === _assembled_transaction[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _assembled_transaction[key];
     }
   });
@@ -20,7 +20,7 @@ Object.keys(_basic_node_signer).forEach(function (key) {
   if (key in exports && exports[key] === _basic_node_signer[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _basic_node_signer[key];
     }
   });
@@ -31,7 +31,7 @@ Object.keys(_client).forEach(function (key) {
   if (key in exports && exports[key] === _client[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _client[key];
     }
   });
@@ -42,7 +42,7 @@ Object.keys(_rust_result).forEach(function (key) {
   if (key in exports && exports[key] === _rust_result[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _rust_result[key];
     }
   });
@@ -53,7 +53,7 @@ Object.keys(_sent_transaction).forEach(function (key) {
   if (key in exports && exports[key] === _sent_transaction[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _sent_transaction[key];
     }
   });
@@ -64,7 +64,7 @@ Object.keys(_spec).forEach(function (key) {
   if (key in exports && exports[key] === _spec[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _spec[key];
     }
   });
@@ -75,7 +75,7 @@ Object.keys(_types).forEach(function (key) {
   if (key in exports && exports[key] === _types[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function get() {
+    get: function () {
       return _types[key];
     }
   });
