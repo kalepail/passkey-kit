@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "buffer": "6.0.3",
-    "@stellar/stellar-sdk": "file:../../ext/js-stellar-sdk"
+    "@stellar/stellar-sdk": "file:../../ext/@stellar/stellar-sdk"
   },
   "devDependencies": {
     "typescript": "5.6.2"

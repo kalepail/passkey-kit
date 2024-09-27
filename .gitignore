@@ -177,6 +177,7 @@ out
 meta.json
 
 types/
+!ext/**/types/
 package/
 target/
 

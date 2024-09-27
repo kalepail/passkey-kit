@@ -15,8 +15,8 @@ importers:
         specifier: ^10.0.0
         version: 10.0.0
       '@stellar/stellar-sdk':
-        specifier: file:./ext/js-stellar-sdk
-        version: file:ext/js-stellar-sdk
+        specifier: file:./ext/@stellar/stellar-sdk
+        version: file:ext/@stellar/stellar-sdk
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -46,8 +46,8 @@ importers:
   packages/passkey-factory-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/js-stellar-sdk
-        version: file:ext/js-stellar-sdk
+        specifier: file:../../ext/@stellar/stellar-sdk
+        version: file:ext/@stellar/stellar-sdk
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -59,8 +59,8 @@ importers:
   packages/passkey-kit-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/js-stellar-sdk
-        version: file:ext/js-stellar-sdk
+        specifier: file:../../ext/@stellar/stellar-sdk
+        version: file:ext/@stellar/stellar-sdk
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -72,8 +72,8 @@ importers:
   packages/sac-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/js-stellar-sdk
-        version: file:ext/js-stellar-sdk
+        specifier: file:../../ext/@stellar/stellar-sdk
+        version: file:ext/@stellar/stellar-sdk
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -110,8 +110,8 @@ packages:
   '@stellar/stellar-base@12.1.1':
     resolution: {integrity: sha512-gOBSOFDepihslcInlqnxKZdIW9dMUO1tpOm3AtJR33K2OvpXG6SaVHCzAmCFArcCqI9zXTEiSoh70T48TmiHJA==}
 
-  '@stellar/stellar-sdk@file:ext/js-stellar-sdk':
-    resolution: {directory: ext/js-stellar-sdk, type: directory}
+  '@stellar/stellar-sdk@file:ext/@stellar/stellar-sdk':
+    resolution: {directory: ext/@stellar/stellar-sdk, type: directory}
 
   '@types/node@22.7.3':
     resolution: {integrity: sha512-qXKfhXXqGTyBskvWEzJZPUxSslAiLaB6JGP1ic/XTH9ctGgzdgYguuLP1C601aRTSDNlLb0jbKqXjZ48GNraSA==}
@@ -261,7 +261,7 @@ snapshots:
     optionalDependencies:
       sodium-native: 4.2.0
 
-  '@stellar/stellar-sdk@file:ext/js-stellar-sdk':
+  '@stellar/stellar-sdk@file:ext/@stellar/stellar-sdk':
     dependencies:
       '@stellar/stellar-base': 12.1.1
       axios: 1.7.7
