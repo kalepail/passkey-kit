@@ -4,15 +4,14 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.HorizonApi = void 0;
-/* tslint:disable-next-line:no-namespace */
-let HorizonApi = exports.HorizonApi = void 0;
+var HorizonApi;
 (function (_HorizonApi) {
-  let LiquidityPoolType = /*#__PURE__*/function (LiquidityPoolType) {
+  var LiquidityPoolType = function (LiquidityPoolType) {
     LiquidityPoolType["constantProduct"] = "constant_product";
     return LiquidityPoolType;
   }({});
   _HorizonApi.LiquidityPoolType = LiquidityPoolType;
-  let OperationResponseType = /*#__PURE__*/function (OperationResponseType) {
+  var OperationResponseType = function (OperationResponseType) {
     OperationResponseType["createAccount"] = "create_account";
     OperationResponseType["payment"] = "payment";
     OperationResponseType["pathPayment"] = "path_payment_strict_receive";
@@ -43,7 +42,7 @@ let HorizonApi = exports.HorizonApi = void 0;
     return OperationResponseType;
   }({});
   _HorizonApi.OperationResponseType = OperationResponseType;
-  let OperationResponseTypeI = /*#__PURE__*/function (OperationResponseTypeI) {
+  var OperationResponseTypeI = function (OperationResponseTypeI) {
     OperationResponseTypeI[OperationResponseTypeI["createAccount"] = 0] = "createAccount";
     OperationResponseTypeI[OperationResponseTypeI["payment"] = 1] = "payment";
     OperationResponseTypeI[OperationResponseTypeI["pathPayment"] = 2] = "pathPayment";
@@ -75,7 +74,7 @@ let HorizonApi = exports.HorizonApi = void 0;
   }({});
   _HorizonApi.OperationResponseTypeI = OperationResponseTypeI;
   ;
-  let TransactionFailedResultCodes = /*#__PURE__*/function (TransactionFailedResultCodes) {
+  var TransactionFailedResultCodes = function (TransactionFailedResultCodes) {
     TransactionFailedResultCodes["TX_FAILED"] = "tx_failed";
     TransactionFailedResultCodes["TX_BAD_SEQ"] = "tx_bad_seq";
     TransactionFailedResultCodes["TX_BAD_AUTH"] = "tx_bad_auth";

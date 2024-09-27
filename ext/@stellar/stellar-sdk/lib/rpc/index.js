@@ -12,32 +12,32 @@ var _exportNames = {
 };
 Object.defineProperty(exports, "AxiosClient", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _axios.default;
   }
 });
 Object.defineProperty(exports, "Durability", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _server.Durability;
   }
 });
 Object.defineProperty(exports, "Server", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _server.RpcServer;
   }
 });
 exports.default = void 0;
 Object.defineProperty(exports, "parseRawEvents", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _parsers.parseRawEvents;
   }
 });
 Object.defineProperty(exports, "parseRawSimulation", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _parsers.parseRawSimulation;
   }
 });
@@ -48,7 +48,7 @@ Object.keys(_api).forEach(function (key) {
   if (key in exports && exports[key] === _api[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _api[key];
     }
   });
@@ -63,15 +63,10 @@ Object.keys(_transaction).forEach(function (key) {
   if (key in exports && exports[key] === _transaction[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _transaction[key];
     }
   });
 });
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
-/** @module rpc */
-// tslint:disable-next-line: no-reference
-/// <reference path="../../types/dom-monkeypatch.d.ts" />
-// Expose all types
-// soroban-client classes to expose
 var _default = exports.default = module.exports;

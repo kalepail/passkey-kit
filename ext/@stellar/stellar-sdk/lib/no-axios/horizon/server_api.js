@@ -5,11 +5,9 @@ Object.defineProperty(exports, "__esModule", {
 });
 exports.ServerApi = void 0;
 var _horizon_api = require("./horizon_api");
-// more types
-/* tslint:disable-next-line: no-namespace */
-let ServerApi = exports.ServerApi = void 0;
+var ServerApi;
 (function (_ServerApi) {
-  let TradeType = /*#__PURE__*/function (TradeType) {
+  var TradeType = function (TradeType) {
     TradeType["all"] = "all";
     TradeType["liquidityPools"] = "liquidity_pool";
     TradeType["orderbook"] = "orderbook";

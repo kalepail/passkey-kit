@@ -8,7 +8,7 @@ var _exportNames = {
 };
 Object.defineProperty(exports, "InvalidChallengeError", {
   enumerable: true,
-  get: function () {
+  get: function get() {
     return _errors.InvalidChallengeError;
   }
 });
@@ -19,7 +19,7 @@ Object.keys(_utils).forEach(function (key) {
   if (key in exports && exports[key] === _utils[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _utils[key];
     }
   });

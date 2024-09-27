@@ -1,91 +1,72 @@
 "use strict";
 
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.TradesCallBuilder = void 0;
 var _call_builder = require("./call_builder");
-/**
- * Creates a new {@link TradesCallBuilder} pointed to server defined by serverUrl.
- *
- * Do not create this object directly, use {@link Horizon.Server#trades}.
- *
- * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/trades|Trades}
- *
- * @augments CallBuilder
- * @private
- * @class
- *
- * @param {string} serverUrl serverUrl Horizon server URL.
- */
-class TradesCallBuilder extends _call_builder.CallBuilder {
-  constructor(serverUrl) {
-    super(serverUrl, "trades");
-    this.url.segment("trades");
+function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
+function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
+function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+function _callSuper(t, o, e) { return o = _getPrototypeOf(o), _possibleConstructorReturn(t, _isNativeReflectConstruct() ? Reflect.construct(o, e || [], _getPrototypeOf(t).constructor) : o.apply(t, e)); }
+function _possibleConstructorReturn(t, e) { if (e && ("object" == _typeof(e) || "function" == typeof e)) return e; if (void 0 !== e) throw new TypeError("Derived constructors may only return object or undefined"); return _assertThisInitialized(t); }
+function _assertThisInitialized(e) { if (void 0 === e) throw new ReferenceError("this hasn't been initialised - super() hasn't been called"); return e; }
+function _isNativeReflectConstruct() { try { var t = !Boolean.prototype.valueOf.call(Reflect.construct(Boolean, [], function () {})); } catch (t) {} return (_isNativeReflectConstruct = function _isNativeReflectConstruct() { return !!t; })(); }
+function _getPrototypeOf(t) { return _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf.bind() : function (t) { return t.__proto__ || Object.getPrototypeOf(t); }, _getPrototypeOf(t); }
+function _inherits(t, e) { if ("function" != typeof e && null !== e) throw new TypeError("Super expression must either be null or a function"); t.prototype = Object.create(e && e.prototype, { constructor: { value: t, writable: !0, configurable: !0 } }), Object.defineProperty(t, "prototype", { writable: !1 }), e && _setPrototypeOf(t, e); }
+function _setPrototypeOf(t, e) { return _setPrototypeOf = Object.setPrototypeOf ? Object.setPrototypeOf.bind() : function (t, e) { return t.__proto__ = e, t; }, _setPrototypeOf(t, e); }
+var TradesCallBuilder = exports.TradesCallBuilder = function (_CallBuilder) {
+  function TradesCallBuilder(serverUrl) {
+    var _this;
+    _classCallCheck(this, TradesCallBuilder);
+    _this = _callSuper(this, TradesCallBuilder, [serverUrl, "trades"]);
+    _this.url.segment("trades");
+    return _this;
   }
-
-  /**
-   * Filter trades for a specific asset pair (orderbook)
-   * @param {Asset} base asset
-   * @param {Asset} counter asset
-   * @returns {TradesCallBuilder} current TradesCallBuilder instance
-   */
-  forAssetPair(base, counter) {
-    if (!base.isNative()) {
-      this.url.setQuery("base_asset_type", base.getAssetType());
-      this.url.setQuery("base_asset_code", base.getCode());
-      this.url.setQuery("base_asset_issuer", base.getIssuer());
-    } else {
-      this.url.setQuery("base_asset_type", "native");
+  _inherits(TradesCallBuilder, _CallBuilder);
+  return _createClass(TradesCallBuilder, [{
+    key: "forAssetPair",
+    value: function forAssetPair(base, counter) {
+      if (!base.isNative()) {
+        this.url.setQuery("base_asset_type", base.getAssetType());
+        this.url.setQuery("base_asset_code", base.getCode());
+        this.url.setQuery("base_asset_issuer", base.getIssuer());
+      } else {
+        this.url.setQuery("base_asset_type", "native");
+      }
+      if (!counter.isNative()) {
+        this.url.setQuery("counter_asset_type", counter.getAssetType());
+        this.url.setQuery("counter_asset_code", counter.getCode());
+        this.url.setQuery("counter_asset_issuer", counter.getIssuer());
+      } else {
+        this.url.setQuery("counter_asset_type", "native");
+      }
+      return this;
     }
-    if (!counter.isNative()) {
-      this.url.setQuery("counter_asset_type", counter.getAssetType());
-      this.url.setQuery("counter_asset_code", counter.getCode());
-      this.url.setQuery("counter_asset_issuer", counter.getIssuer());
-    } else {
-      this.url.setQuery("counter_asset_type", "native");
+  }, {
+    key: "forOffer",
+    value: function forOffer(offerId) {
+      this.url.setQuery("offer_id", offerId);
+      return this;
     }
-    return this;
-  }
-
-  /**
-   * Filter trades for a specific offer
-   * @param {string} offerId ID of the offer
-   * @returns {TradesCallBuilder} current TradesCallBuilder instance
-   */
-  forOffer(offerId) {
-    this.url.setQuery("offer_id", offerId);
-    return this;
-  }
-
-  /**
-   * Filter trades by a specific type.
-   * @param {ServerApi.TradeType} tradeType the trade type to filter by.
-   * @returns {TradesCallBuilder} current TradesCallBuilder instance.
-   */
-  forType(tradeType) {
-    this.url.setQuery("trade_type", tradeType);
-    return this;
-  }
-
-  /**
-   * Filter trades for a specific account
-   * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/get-trades-by-account-id|Trades for Account}
-   * @param {string} accountId For example: `GBYTR4MC5JAX4ALGUBJD7EIKZVM7CUGWKXIUJMRSMK573XH2O7VAK3SR`
-   * @returns {TradesCallBuilder} current TradesCallBuilder instance
-   */
-  forAccount(accountId) {
-    return this.forEndpoint("accounts", accountId);
-  }
-
-  /**
-   * Filter trades for a specific liquidity pool
-   * @see {@link https://developers.stellar.org/docs/data/horizon/api-reference/resources/retrieve-related-trades|Trades for Liquidity Pool}
-   * @param {string} liquidityPoolId For example: `3b476aff8a406a6ec3b61d5c038009cef85f2ddfaf616822dc4fec92845149b4`
-   * @returns {TradesCallBuilder} current TradesCallBuilder instance
-   */
-  forLiquidityPool(liquidityPoolId) {
-    return this.forEndpoint("liquidity_pools", liquidityPoolId);
-  }
-}
-exports.TradesCallBuilder = TradesCallBuilder;
+  }, {
+    key: "forType",
+    value: function forType(tradeType) {
+      this.url.setQuery("trade_type", tradeType);
+      return this;
+    }
+  }, {
+    key: "forAccount",
+    value: function forAccount(accountId) {
+      return this.forEndpoint("accounts", accountId);
+    }
+  }, {
+    key: "forLiquidityPool",
+    value: function forLiquidityPool(liquidityPoolId) {
+      return this.forEndpoint("liquidity_pools", liquidityPoolId);
+    }
+  }]);
+}(_call_builder.CallBuilder);

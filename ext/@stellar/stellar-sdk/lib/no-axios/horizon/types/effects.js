@@ -4,8 +4,7 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.EffectType = void 0;
-// Reference: GO SDK https://github.com/stellar/go/blob/ec5600bd6b2b6900d26988ff670b9ca7992313b8/services/horizon/internal/resourceadapter/effects.go
-let EffectType = exports.EffectType = /*#__PURE__*/function (EffectType) {
+var EffectType = exports.EffectType = function (EffectType) {
   EffectType[EffectType["account_created"] = 0] = "account_created";
   EffectType[EffectType["account_removed"] = 1] = "account_removed";
   EffectType[EffectType["account_credited"] = 2] = "account_credited";

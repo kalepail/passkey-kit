@@ -9,7 +9,7 @@ Object.keys(_network).forEach(function (key) {
   if (key in exports && exports[key] === _network[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _network[key];
     }
   });
@@ -20,7 +20,7 @@ Object.keys(_not_found).forEach(function (key) {
   if (key in exports && exports[key] === _not_found[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _not_found[key];
     }
   });
@@ -31,7 +31,7 @@ Object.keys(_bad_request).forEach(function (key) {
   if (key in exports && exports[key] === _bad_request[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _bad_request[key];
     }
   });
@@ -42,7 +42,7 @@ Object.keys(_bad_response).forEach(function (key) {
   if (key in exports && exports[key] === _bad_response[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _bad_response[key];
     }
   });
@@ -53,7 +53,7 @@ Object.keys(_account_requires_memo).forEach(function (key) {
   if (key in exports && exports[key] === _account_requires_memo[key]) return;
   Object.defineProperty(exports, key, {
     enumerable: true,
-    get: function () {
+    get: function get() {
       return _account_requires_memo[key];
     }
   });
