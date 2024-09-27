@@ -13,7 +13,8 @@
     "build:sac": "pnpm --filter ./packages/sac-sdk run build",
     "build:pfs": "pnpm --filter ./packages/passkey-factory-sdk run build",
     "build:pks": "pnpm --filter ./packages/passkey-kit-sdk run build",
-    "build": "pnpm run build:sac && pnpm run build:pfs && pnpm run build:pks && tsc"
+    "build": "pnpm run build:sac && pnpm run build:pfs && pnpm run build:pks && tsc",
+    "ext:cp": "./clone-js-sdk.sh"
   },
   "dependencies": {
     "@darkedges/capacitor-native-webauthn": "^0.0.4",
