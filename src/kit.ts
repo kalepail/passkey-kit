@@ -8,8 +8,6 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
-// TODO ensure we're outputting a built transaction that's actually useful in the case you don't intend to use Launchtube
-
 export class SignerKey {
     private constructor(public type: "Policy" | "Ed25519" | "Secp256r1", public value: string | Buffer) { }
 
@@ -219,7 +217,7 @@ export class PasskeyKit extends PasskeyBase {
         if ([keyId, keypair, policy].filter((arg) => !!arg).length > 1)
             throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
-        const credentials = entry.credentials().address(); // TODO review this for using the Signatures type again. Might be just `credentials`
+        const credentials = entry.credentials().address();
 
         if (!expiration) {
             expiration = credentials.signatureExpirationLedger()
@@ -402,6 +400,8 @@ export class PasskeyKit extends PasskeyBase {
             expiration?: number
         }
     ) {
+        // TODO ensure we're outputting a built transaction that's actually useful in the case you don't intend to use launchtube
+        // Pretty sure we'll always be woefully under budget
         return txn.signAuthEntries({
             address: this.wallet!.options.contractId,
             authorizeEntry: (entry) => {
