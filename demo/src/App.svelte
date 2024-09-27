@@ -159,11 +159,10 @@
 		}
 	}
 	async function addPolicySigner() {
-		const keypair = Keypair.fromPublicKey(PUBLIC);
 		const signer_limits: SignerLimits = new Map();
 		const signer_keys: SignerKey[] = [];
 
-		signer_keys.push(SignerKey.Ed25519(keypair.rawPublicKey()));
+		signer_keys.push(SignerKey.Ed25519(PUBLIC));
 
 		signer_limits.set(NATIVE_SAC, signer_keys);
 
@@ -185,10 +184,10 @@
 					key = SignerKey.Policy(signer);
 					break;
 				case "Ed25519":
-					key = SignerKey.Ed25519(Keypair.fromPublicKey(signer).rawPublicKey());
+					key = SignerKey.Ed25519(signer);
 					break;
 				case "Secp256r1":
-					key = SignerKey.Secp256r1(base64url.toBuffer(signer));
+					key = SignerKey.Secp256r1(signer);
 					break;
 				default:
 					throw new Error("Invalid signer type");

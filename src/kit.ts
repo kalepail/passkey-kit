@@ -9,18 +9,18 @@ import { PasskeyBase } from './base'
 import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
 export class SignerKey {
-    private constructor(public type: "Policy" | "Ed25519" | "Secp256r1", public value: string | Buffer) { }
+    private constructor(public key: "Policy" | "Ed25519" | "Secp256r1", public value: string) { }
 
-    static Policy(value: string): SignerKey {
-        return new SignerKey("Policy", value);
+    static Policy(policy: string): SignerKey {
+        return new SignerKey("Policy", policy);
     }
 
-    static Ed25519(value: Buffer): SignerKey {
-        return new SignerKey("Ed25519", value);
+    static Ed25519(publicKey: string): SignerKey {
+        return new SignerKey("Ed25519", publicKey);
     }
 
-    static Secp256r1(value: Buffer): SignerKey {
-        return new SignerKey("Secp256r1", value);
+    static Secp256r1(id: string): SignerKey {
+        return new SignerKey("Secp256r1", id);
     }
 }
 
@@ -449,32 +449,9 @@ export class PasskeyKit extends PasskeyBase {
         });
     }
 
-    public remove(key: SignerKey) {
-        let signer_key: SDKSignerKey
-
-        switch (key.type) {
-            case 'Policy':
-                signer_key = {
-                    tag: key.type,
-                    values: [key.value as string]
-                }
-                break;
-            case 'Ed25519':
-                signer_key = {
-                    tag: key.type,
-                    values: [key.value as Buffer]
-                }
-                break;
-            case 'Secp256r1':
-                signer_key = {
-                    tag: key.type,
-                    values: [key.value as Buffer]
-                }
-                break;
-        }
-
+    public remove(signer: SignerKey) {
         return this.wallet!.remove({
-            signer_key,
+            signer_key: this.getSignerKey(signer)
         });
     }
 
@@ -493,26 +470,9 @@ export class PasskeyKit extends PasskeyBase {
                 sdk_signer_keys = []
 
                 for (const signer_key of signer_keys) {
-                    switch (signer_key.type) {
-                        case 'Policy':
-                            sdk_signer_keys.push({
-                                tag: signer_key.type,
-                                values: [signer_key.value as string]
-                            })
-                            break;
-                        case 'Ed25519':
-                            sdk_signer_keys.push({
-                                tag: signer_key.type,
-                                values: [signer_key.value as Buffer]
-                            })
-                            break;
-                        case 'Secp256r1':
-                            sdk_signer_keys.push({
-                                tag: signer_key.type,
-                                values: [signer_key.value as Buffer]
-                            })
-                            break;
-                    }
+                    sdk_signer_keys.push(
+                        this.getSignerKey(signer_key)
+                    )
                 }
             }
 
@@ -520,6 +480,33 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         return sdk_limits
+    }
+
+    private getSignerKey({ key: tag, value }: SignerKey) {
+        let signer_key: SDKSignerKey
+
+        switch (tag) {
+            case 'Policy':
+                signer_key = {
+                    tag,
+                    values: [value]
+                }
+                break;
+            case 'Ed25519':
+                signer_key = {
+                    tag,
+                    values: [Keypair.fromPublicKey(value).rawPublicKey()]
+                }
+                break;
+            case 'Secp256r1':
+                signer_key = {
+                    tag,
+                    values: [base64url.toBuffer(value)]
+                }
+                break;
+        }
+
+        return signer_key
     }
 
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
