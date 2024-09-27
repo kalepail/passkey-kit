@@ -367,8 +367,8 @@ export class PasskeyKit extends PasskeyBase {
         return entry
     }
 
-    public async sign(
-        txn: AssembledTransaction<unknown>,
+    public async sign<T>(
+        txn: AssembledTransaction<T>,
         options?: {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array

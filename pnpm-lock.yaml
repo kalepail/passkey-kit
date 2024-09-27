@@ -38,7 +38,7 @@ importers:
         version: 10.0.0
       '@types/node':
         specifier: ^22.7.3
-        version: 22.7.3
+        version: 22.7.4
       typescript:
         specifier: ^5.6.2
         version: 5.6.2
@@ -46,8 +46,8 @@ importers:
   packages/passkey-factory-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/@stellar/stellar-sdk
-        version: file:ext/@stellar/stellar-sdk
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -59,8 +59,8 @@ importers:
   packages/passkey-kit-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/@stellar/stellar-sdk
-        version: file:ext/@stellar/stellar-sdk
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -72,8 +72,8 @@ importers:
   packages/sac-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: file:../../ext/@stellar/stellar-sdk
-        version: file:ext/@stellar/stellar-sdk
+        specifier: 12.3.0
+        version: 12.3.0
       buffer:
         specifier: 6.0.3
         version: 6.0.3
@@ -110,11 +110,14 @@ packages:
   '@stellar/stellar-base@12.1.1':
     resolution: {integrity: sha512-gOBSOFDepihslcInlqnxKZdIW9dMUO1tpOm3AtJR33K2OvpXG6SaVHCzAmCFArcCqI9zXTEiSoh70T48TmiHJA==}
 
+  '@stellar/stellar-sdk@12.3.0':
+    resolution: {integrity: sha512-F2DYFop/M5ffXF0lvV5Ezjk+VWNKg0QDX8gNhwehVU3y5LYA3WAY6VcCarMGPaG9Wdgoeh1IXXzOautpqpsltw==}
+
   '@stellar/stellar-sdk@file:ext/@stellar/stellar-sdk':
     resolution: {directory: ext/@stellar/stellar-sdk, type: directory}
 
-  '@types/node@22.7.3':
-    resolution: {integrity: sha512-qXKfhXXqGTyBskvWEzJZPUxSslAiLaB6JGP1ic/XTH9ctGgzdgYguuLP1C601aRTSDNlLb0jbKqXjZ48GNraSA==}
+  '@types/node@22.7.4':
+    resolution: {integrity: sha512-y+NPi1rFzDs1NdQHHToqeiX2TIS79SWEAw9GYhkkx8bD0ChpfqC+n2j5OXOCpzfojBEBt6DnEnnG9MY0zk1XLg==}
 
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
@@ -261,6 +264,18 @@ snapshots:
     optionalDependencies:
       sodium-native: 4.2.0
 
+  '@stellar/stellar-sdk@12.3.0':
+    dependencies:
+      '@stellar/stellar-base': 12.1.1
+      axios: 1.7.7
+      bignumber.js: 9.1.2
+      eventsource: 2.0.2
+      randombytes: 2.1.0
+      toml: 3.0.0
+      urijs: 1.19.11
+    transitivePeerDependencies:
+      - debug
+
   '@stellar/stellar-sdk@file:ext/@stellar/stellar-sdk':
     dependencies:
       '@stellar/stellar-base': 12.1.1
@@ -274,7 +289,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@types/node@22.7.3':
+  '@types/node@22.7.4':
     dependencies:
       undici-types: 6.19.8
 
