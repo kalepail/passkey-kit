@@ -1,5 +1,8 @@
 # Passkey Kit
 
+> [!WARNING]  
+> Code in this repo is demo material only. It has not been audited. Do not use to hold, protect, or secure anything.
+
 Passkey kit is a basic TypeScript SDK for creating and managing Stellar smart wallets. It's intended to be used in tandem with [Launchtube](https://github.com/kalepail/launchtube) for submitting passkey signed transactions onchain however this is not a requirement. This is both a client and a server side library. `PasskeyKit` on the client and `PasskeyServer` on the server.
 
 Demo site: [passkey-kit-demo.pages.dev](https://passkey-kit-demo.pages.dev/)

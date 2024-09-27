@@ -1,28 +1,23 @@
 [workspace]
 resolver = "2"
 
-members = [
-    "webauthn-factory",
-    "webauthn-wallet",
-]
+members = ["webauthn-wallet", "webauthn-wallet-interface", "webauthn-factory", "example-contract", "sample-policy"]
 
-[workspace.dependencies.soroban-sdk]
-version = "21.2.0"
-
-[workspace.dependencies.serde]
-version = "1"
-default-features = false
-
-[workspace.dependencies.serde-json-core]
-version = "0.5.1"
-default-features = false
-
-[workspace.dependencies.stellar-xdr]
-version = "21.2.0" 
-default-features = false
-
-[workspace.dependencies.sha256]
-version = "1.5.0"
+[workspace.dependencies]
+soroban-sdk = { version = "21.7.2" }
+serde = { version = "1", default-features = false }
+serde-json-core = { version = "0.6.0", default-features = false }
+stellar-xdr = { version = "21.2.0", default-features = false }
+sha256 = { version = "1.5.0" }
+ed25519-dalek = { version = "1.0.1" }
+rand = { version = "0.8.5" }
+base64 = "0.22.1"
+stellar-strkey = { version = "0.0.11" }
+webauthn-wallet = { path = "webauthn-wallet" }
+webauthn-wallet-interface = { path = "webauthn-wallet-interface" }
+webauthn-factory = { path = "webauthn-factory" }
+example-contract = { path = "example-contract" }
+sample-policy = { path = "sample-policy" }
 
 [profile.release]
 opt-level = "z"

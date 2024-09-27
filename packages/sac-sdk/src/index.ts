@@ -1,26 +1,30 @@
 import { Buffer } from "buffer";
+import { Address } from '@stellar/stellar-sdk';
 import {
   AssembledTransaction,
   Client as ContractClient,
   ClientOptions as ContractClientOptions,
+  Result,
   Spec as ContractSpec,
 } from '@stellar/stellar-sdk/contract';
 import type {
   u32,
+  i32,
+  u64,
+  i64,
+  u128,
   i128,
+  u256,
+  i256,
+  Option,
+  Typepoint,
+  Duration,
 } from '@stellar/stellar-sdk/contract';
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
-
-export const networks = {
-  testnet: {
-    networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-  }
-} as const
 
 export const Errors = {
 
@@ -529,6 +533,7 @@ export interface Client {
      */
     simulate?: boolean;
   }) => Promise<AssembledTransaction<null>>
+
 }
 export class Client extends ContractClient {
   constructor(public readonly options: ContractClientOptions) {

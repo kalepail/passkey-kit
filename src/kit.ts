@@ -1,12 +1,35 @@
-import { Client as PasskeyClient } from 'passkey-kit-sdk'
+import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, Transaction, SorobanRpc, Operation, TransactionBuilder } from '@stellar/stellar-sdk'
+import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+
+export class SignerKey {
+    private constructor(public key: "Policy" | "Ed25519" | "Secp256r1", public value: string) { }
+
+    static Policy(policy: string): SignerKey {
+        return new SignerKey("Policy", policy);
+    }
+
+    static Ed25519(publicKey: string): SignerKey {
+        return new SignerKey("Ed25519", publicKey);
+    }
+
+    static Secp256r1(id: string): SignerKey {
+        return new SignerKey("Secp256r1", id);
+    }
+}
+
+export type SignerLimits = Map<string, SignerKey[] | undefined>
+
+export enum SignerStore {
+    Persistent = 'Persistent',
+    Temporary = 'Temporary',
+}
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -47,9 +70,22 @@ export class PasskeyKit extends PasskeyBase {
 
         const { result, built } = await this.factory.deploy({
             salt: hash(keyId),
-            id: keyId,
-            pk: publicKey
+            signer: {
+                tag: 'Secp256r1',
+                values: [
+                    keyId,
+                    publicKey,
+                    [new Map()],
+                    { tag: 'Persistent', values: undefined },
+                ]
+            },
         })
+
+        if (result.isErr())
+            throw new Error(result.unwrapErr().message)
+
+        if (!built)
+            throw new Error('Failed to create wallet')
 
         const contractId = result.unwrap()
 
@@ -62,7 +98,7 @@ export class PasskeyKit extends PasskeyBase {
         return {
             keyId,
             contractId,
-            xdr: built?.toXDR()
+            built
         }
     }
 
@@ -85,11 +121,6 @@ export class PasskeyKit extends PasskeyBase {
                 displayName
             },
             authenticatorSelection,
-            // authenticatorSelection: {
-            //     requireResidentKey: false,
-            //     residentKey: "preferred",
-            //     userVerification: "discouraged",
-            // },
             pubKeyCredParams: [{ alg: -7, type: "public-key" }],
             // attestation: "none",
             // timeout: 120_000,
@@ -157,7 +188,7 @@ export class PasskeyKit extends PasskeyBase {
         }
 
         if (!contractId)
-            throw new Error('No `contractId` was found')
+            throw new Error('Failed to connect wallet')
 
         this.wallet = new PasskeyClient({
             contractId,
@@ -174,151 +205,309 @@ export class PasskeyKit extends PasskeyBase {
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
-            keyId?: 'any' | string | Uint8Array
             rpId?: string,
-            ledgersToLive?: number
+            keyId?: 'any' | string | Uint8Array
+            keypair?: Keypair,
+            policy?: string,
+            expiration?: number
         }
     ) {
-        let { keyId, rpId, ledgersToLive = DEFAULT_TIMEOUT } = options || {}
+        let { rpId, keyId, keypair, policy, expiration } = options || {}
 
-        const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+        if ([keyId, keypair, policy].filter((arg) => !!arg).length > 1)
+            throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
+
         const credentials = entry.credentials().address();
+
+        if (!expiration) {
+            expiration = credentials.signatureExpirationLedger()
+
+            if (!expiration) {
+                const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
+                expiration = lastLedger + DEFAULT_TIMEOUT / 5;
+            }
+        }
+
+        credentials.signatureExpirationLedger(expiration)
+
         const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
             new xdr.HashIdPreimageSorobanAuthorization({
                 networkId: hash(Buffer.from(this.networkPassphrase)),
                 nonce: credentials.nonce(),
-                signatureExpirationLedger: lastLedger + ledgersToLive,
+                signatureExpirationLedger: credentials.signatureExpirationLedger(),
                 invocation: entry.rootInvocation()
             })
         )
+
         const payload = hash(preimage.toXDR())
 
-        const authenticationResponse = await this.WebAuthn.startAuthentication(
-            keyId === 'any'
-                || (!keyId && !this.keyId)
-                ? {
-                    challenge: base64url(payload),
-                    rpId,
-                    // userVerification: "discouraged",
-                    // timeout: 120_000
-                }
-                : {
-                    challenge: base64url(payload),
-                    rpId,
-                    allowCredentials: [
-                        {
-                            id: keyId instanceof Uint8Array
-                                ? base64url(Buffer.from(keyId))
-                                : keyId || this.keyId!,
-                            type: "public-key",
-                        },
-                    ],
-                    // userVerification: "discouraged",
-                    // timeout: 120_000
-                }
-        );
+        // let signatures: Signatures
+        let key: SDKSignerKey
+        let val: Signature | undefined
 
-        const signature = this.compactSignature(
-            base64url.toBuffer(authenticationResponse.response.signature)
-        );
+        // const scSpecTypeDefSignatures = xdr.ScSpecTypeDef.scSpecTypeUdt(
+        //     new xdr.ScSpecTypeUdt({ name: "Signatures" }),
+        // );
 
-        credentials.signatureExpirationLedger(lastLedger + ledgersToLive)
-        credentials.signature(xdr.ScVal.scvMap([
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('authenticator_data'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.authenticatorData)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('client_data_json'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.response.clientDataJSON)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('id'),
-                val: xdr.ScVal.scvBytes(base64url.toBuffer(authenticationResponse.id)),
-            }),
-            new xdr.ScMapEntry({
-                key: xdr.ScVal.scvSymbol('signature'),
-                val: xdr.ScVal.scvBytes(signature),
-            }),
-        ]))
+        // switch (credentials.signature().switch()) {
+        //     case xdr.ScValType.scvVoid():
+        //         signatures = [new Map()]
+        //         break;
+        //     default: {
+        //         signatures = this.wallet!.spec.scValToNative(credentials.signature(), scSpecTypeDefSignatures)
+        //     }
+        // }
+
+        // Sign with a policy
+        if (policy) {
+            key = {
+                tag: "Policy",
+                values: [policy]
+            }
+        }
+
+        // Sign with the keypair as an ed25519 signer
+        else if (keypair) {
+            const signature = keypair.sign(payload);
+
+            key = {
+                tag: "Ed25519",
+                values: [keypair.rawPublicKey()]
+            }
+            val = {
+                tag: "Ed25519",
+                values: [signature],
+            }
+        }
+
+        // Default, use passkey
+        else {
+            const authenticationResponse = await this.WebAuthn.startAuthentication(
+                keyId === 'any'
+                    || (!keyId && !this.keyId)
+                    ? {
+                        challenge: base64url(payload),
+                        rpId,
+                        // userVerification: "discouraged",
+                        // timeout: 120_000
+                    }
+                    : {
+                        challenge: base64url(payload),
+                        rpId,
+                        allowCredentials: [
+                            {
+                                id: keyId instanceof Uint8Array
+                                    ? base64url(Buffer.from(keyId))
+                                    : keyId || this.keyId!,
+                                type: "public-key",
+                            },
+                        ],
+                        // userVerification: "discouraged",
+                        // timeout: 120_000
+                    }
+            );
+
+            key = {
+                tag: "Secp256r1",
+                values: [base64url.toBuffer(authenticationResponse.id)]
+            }
+            val = {
+                tag: "Secp256r1",
+                values: [
+                    {
+                        authenticator_data: base64url.toBuffer(
+                            authenticationResponse.response.authenticatorData,
+                        ),
+                        client_data_json: base64url.toBuffer(
+                            authenticationResponse.response.clientDataJSON,
+                        ),
+                        signature: this.compactSignature(
+                            base64url.toBuffer(authenticationResponse.response.signature)
+                        ),
+                    },
+                ],
+            }
+        }
+
+        const scKeyType = xdr.ScSpecTypeDef.scSpecTypeUdt(
+            new xdr.ScSpecTypeUdt({ name: "SignerKey" }),
+        );
+        const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
+            new xdr.ScSpecTypeUdt({ name: "Signature" }),
+        );
+        const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
+        const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
+        const scEntry = new xdr.ScMapEntry({
+            key: scKey,
+            val: scVal,
+        })
+
+        switch (credentials.signature().switch().name) {
+            case 'scvVoid':
+                credentials.signature(xdr.ScVal.scvVec([
+                    xdr.ScVal.scvMap([scEntry])
+                ]))
+                break;
+            case 'scvVec':
+                // Add the new signature to the existing map
+                credentials.signature().vec()?.[0].map()?.push(scEntry)
+
+                // Order the map by key
+                // Not using Buffer.compare because Symbols are 9 bytes and unused bytes _append_ 0s vs prepending them, which is too bad
+                credentials.signature().vec()?.[0].map()?.sort((a, b) => {
+                    return (
+                        a.key().vec()![0].sym() +
+                        a.key().vec()![1].toXDR().join('')
+                    ).localeCompare(
+                        b.key().vec()![0].sym() +
+                        b.key().vec()![1].toXDR().join('')
+                    )
+                })
+                break;
+            default:
+                throw new Error('Unsupported signature')
+        }
+
+        // Insert the new signature into the signatures Map
+        // signatures[0].set(key, val)
+
+        // Insert the new signatures Map into the credentials
+        // credentials.signature(
+        //     this.wallet!.spec.nativeToScVal(signatures, scSpecTypeDefSignatures)
+        // )
+
+        // Order the signatures map
+        // credentials.signature().vec()?.[0].map()?.sort((a, b) => {
+        //     return (
+        //         a.key().vec()![0].sym() +
+        //         a.key().vec()![1].toXDR().join('')
+        //     ).localeCompare(
+        //         b.key().vec()![0].sym() +
+        //         b.key().vec()![1].toXDR().join('')
+        //     )
+        // })
 
         return entry
     }
 
-    public async signAuthEntries(
-        entries: xdr.SorobanAuthorizationEntry[],
+    public sign<T>(
+        txn: AssembledTransaction<T>,
         options?: {
+            rpId?: string,
             keyId?: 'any' | string | Uint8Array
-            ledgersToLive?: number
+            keypair?: Keypair,
+            policy?: string,
+            expiration?: number
         }
     ) {
-        for (const auth of entries) {
-            if (
-                auth.credentials().switch().name === 'sorobanCredentialsAddress'
-                && auth.credentials().address().address().switch().name === 'scAddressTypeContract'
-            ) {
-                // If auth entry matches our Smart Wallet move forward with the signature request
-                if (Address.contract(auth.credentials().address().address().contractId()).toString() === this.wallet?.options.contractId)
-                    await this.signAuthEntry(auth, options)
-            }
-        }
-
-        return entries
+        // TODO ensure we're outputting a built transaction that's actually useful in the case you don't intend to use launchtube
+        // Pretty sure we'll always be woefully under budget
+        return txn.signAuthEntries({
+            address: this.wallet!.options.contractId,
+            authorizeEntry: (entry) => {
+                const clone = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR())
+                return this.signAuthEntry(clone, options)
+            },
+        })
     }
 
-    public async sign(
-        txn: Transaction | string,
-        options?: {
-            keyId?: 'any' | string | Uint8Array
-            ledgersToLive?: number
-        }
-    ) {
-        /*
-            - Hack to ensure we don't stack fees when simulating and assembling multiple times
-                AssembleTransaction always adds the resource fee onto the transaction fee. 
-                This is bad in cases where you need to simulate multiple times
-        */
-        txn = TransactionBuilder.cloneFrom(new Transaction(
-            typeof txn === 'string'
-                ? txn
-                : txn.toXDR(),
-            this.networkPassphrase
-        ), { fee: '0' }).build()
-
-        if (txn.operations.length !== 1)
-            throw new Error('Must include only one Soroban operation')
-
-        for (const op of txn.operations) {
-            if (
-                op.type !== 'invokeHostFunction'
-                && op.type !== 'extendFootprintTtl'
-                && op.type !== 'restoreFootprint'
-            ) throw new Error('Must include only one operation of type `invokeHostFunction` or `extendFootprintTtl` or `restoreFootprint`')
-        }
-
-        // Only need to sign auth for `invokeHostFunction` operations
-        if (txn.operations[0].type === 'invokeHostFunction') {
-            const entries = (txn.operations[0] as Operation.InvokeHostFunction).auth
-
-            if (entries)
-                await this.signAuthEntries(entries, options)
-        }
-
-        const sim = await this.rpc.simulateTransaction(txn)
-
-        if (
-            SorobanRpc.Api.isSimulationError(sim)
-            || SorobanRpc.Api.isSimulationRestore(sim) // TODO handle state archival
-        ) throw sim
-
-        return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
+    public addSecp256r1(keyId: Uint8Array, publicKey: Uint8Array, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Secp256r1",
+                values: [
+                    Buffer.from(keyId),
+                    Buffer.from(publicKey),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addEd25519(publicKey: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Ed25519",
+                values: [
+                    Keypair.fromPublicKey(publicKey).rawPublicKey(),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addPolicy(policy: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Policy",
+                values: [
+                    policy,
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
     }
 
-    /* TODO 
+    public remove(signer: SignerKey) {
+        return this.wallet!.remove({
+            signer_key: this.getSignerKey(signer)
+        });
+    }
+
+    /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
-            @Later
     */
+
+    private getSignerLimits(limits: SignerLimits) {
+        const sdk_limits: SDKSignerLimits = [new Map()]
+
+        for (const [contract, signer_keys] of limits.entries()) {
+            let sdk_signer_keys: SDKSignerKey[] | undefined
+
+            if (signer_keys?.length) {
+                sdk_signer_keys = []
+
+                for (const signer_key of signer_keys) {
+                    sdk_signer_keys.push(
+                        this.getSignerKey(signer_key)
+                    )
+                }
+            }
+
+            sdk_limits[0].set(contract, sdk_signer_keys)
+        }
+
+        return sdk_limits
+    }
+
+    private getSignerKey({ key: tag, value }: SignerKey) {
+        let signer_key: SDKSignerKey
+
+        switch (tag) {
+            case 'Policy':
+                signer_key = {
+                    tag,
+                    values: [value]
+                }
+                break;
+            case 'Ed25519':
+                signer_key = {
+                    tag,
+                    values: [Keypair.fromPublicKey(value).rawPublicKey()]
+                }
+                break;
+            case 'Secp256r1':
+                signer_key = {
+                    tag,
+                    values: [base64url.toBuffer(value)]
+                }
+                break;
+        }
+
+        return signer_key
+    }
 
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
         let publicKey: Buffer | undefined
@@ -360,10 +549,10 @@ export class PasskeyKit extends PasskeyBase {
             ])
         }
 
-        /* TODO 
+        /* TODO
             - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
-                Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
-                @Later
+                Hmm...Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
+            - This probably needs to be an onchain check, even if just a simulation, just to ensure everything looks good before we get too far adding value etc.
         */
 
         return publicKey

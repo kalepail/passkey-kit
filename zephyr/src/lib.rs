@@ -1,236 +1,92 @@
+use base64::{
+    engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
+};
 use serde::{Deserialize, Serialize};
+use stellar_strkey::{ed25519, Strkey};
+use types::{
+    Signers, SignersActive, SignersAddress, SignersKeyValStorage, SignersValStorageActive,
+};
+use webauthn_wallet_interface::types::{SignerKey, SignerStorage, SignerVal};
 use zephyr_sdk::{
-    prelude::*,
     soroban_sdk::{
-        xdr::{Hash, PublicKey, ScAddress, ScVal, ScVec, VecM},
-        Bytes, BytesN, Symbol,
+        self, symbol_short,
+        xdr::{Hash, ScAddress, ScVal, ToXdr},
+        Address, Bytes, BytesN, Symbol,
     },
-    DatabaseDerive, EnvClient,
+    utils::{address_from_str, address_to_alloc_string},
+    EnvClient,
 };
 
-#[derive(DatabaseDerive, Clone, Serialize)]
-#[with_name("adjacent")]
-pub struct AdjacentEvents {
-    contract: String,
-    address: String,
-    topics: ScVal,
-    data: ScVal,
-    date: u64,
-}
+mod types;
 
-#[derive(DatabaseDerive, Clone, Serialize)]
-#[with_name("signers")]
-pub struct Signers {
-    address: String,
-    id: Vec<u8>,
-    pk: Vec<u8>,
-    date: u64,
-    admin: i32,
-    active: i32,
-}
-
-fn to_store(existing_addresses: &Vec<String>, topics: &VecM<ScVal>, data: &ScVal) -> Vec<String> {
-    let mut addresses: Vec<String> = Vec::new();
-
-    for topic in topics.to_vec() {
-        for address in existing_addresses {
-            if find_address_in_scval(
-                &topic,
-                stellar_strkey::Contract::from_string(&address).unwrap().0,
-            ) {
-                addresses.push(address.clone())
-            }
-        }
-    }
-
-    for address in existing_addresses {
-        if find_address_in_scval(
-            data,
-            stellar_strkey::Contract::from_string(&address).unwrap().0,
-        ) {
-            addresses.push(address.clone())
-        }
-    }
-
-    addresses
-}
-
-fn find_address_in_scval(val: &ScVal, address: [u8; 32]) -> bool {
-    match val {
-        ScVal::Address(object) => match object {
-            ScAddress::Account(pubkey) => {
-                if let PublicKey::PublicKeyTypeEd25519(pubkey) = &pubkey.0 {
-                    return pubkey.0 == address;
-                }
-            }
-            ScAddress::Contract(hash) => {
-                return hash.0 == address;
-            }
-        },
-        ScVal::Vec(Some(scvec)) => {
-            for val in scvec.0.to_vec() {
-                if find_address_in_scval(&val, address) {
-                    return true;
-                }
-            }
-        }
-        ScVal::Map(Some(scmap)) => {
-            for kv in scmap.0.to_vec() {
-                if find_address_in_scval(&kv.key, address)
-                    || find_address_in_scval(&kv.val, address)
-                {
-                    return true;
-                }
-            }
-        }
-        _ => {}
-    }
-
-    false
-}
-
-#[test]
-fn find_val() {
-    let scval = ScVal::Address(ScAddress::Contract(Hash([3; 32])));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
-
-    let scval = ScVal::Vec(Some(ScVec(
-        [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
-            .try_into()
-            .unwrap(),
-    )));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
-
-    let scval = ScVal::Vec(Some(ScVec(
-        [ScVal::Vec(Some(ScVec(
-            [ScVal::Address(ScAddress::Contract(Hash([3; 32])))]
-                .try_into()
-                .unwrap(),
-        )))]
-        .try_into()
-        .unwrap(),
-    )));
-    assert!(find_address_in_scval(&scval, [3; 32]));
-    assert!(!find_address_in_scval(&scval, [2; 32]));
-}
-
-fn bytes_to_vec(bytes: Bytes) -> Vec<u8> {
-    let mut result = Vec::new();
-
-    for byte in bytes.iter() {
-        result.push(byte);
-    }
-
-    result
-}
-
-fn bytesn_to_vec(bytes: BytesN<65>) -> Vec<u8> {
-    let mut result = Vec::new();
-
-    for byte in bytes.iter() {
-        result.push(byte);
-    }
-
-    result
-}
+const SW_V1: Symbol = symbol_short!("sw_v1");
+const ADD: Symbol = symbol_short!("add");
+const REMOVE: Symbol = symbol_short!("remove");
 
 #[no_mangle]
 pub extern "C" fn on_close() {
     let env = EnvClient::new();
-    let existing_addresses: Vec<String> = Signers::read_to_rows(&env, None)
-        .iter()
-        .map(|signer| signer.address.clone())
-        .collect();
-    let event_tag = Symbol::new(env.soroban(), "sw_v1");
 
     for event in env.reader().pretty().soroban_events() {
-        // if there are events where the address of the wallet is involved in, we track them.
-        // This allows us to track all kinds of operations performed by the smart wallets (transfers,
-        // swaps, deposits, etc).
-        {
-            let addresses = to_store(&existing_addresses, &event.topics, &event.data);
-
-            for address in addresses {
-                let event = AdjacentEvents {
-                    contract: stellar_strkey::Contract(event.contract).to_string(),
-                    topics: ScVal::Vec(Some(ScVec(event.topics.clone().try_into().unwrap()))),
-                    data: event.data.clone(),
-                    address,
-                    date: env.reader().ledger_timestamp(),
-                };
-
-                env.put(&event)
-            }
-        };
-
         if let Some(topic0) = event.topics.get(0) {
-            let t0 = env.try_from_scval::<Symbol>(topic0);
+            if let Ok(t0) = env.try_from_scval::<Symbol>(topic0) {
+                if t0 == SW_V1 {
+                    if let Some(topic1) = event.topics.get(1) {
+                        if let Ok(t1) = env.try_from_scval::<Symbol>(topic1) {
+                            if let Some(key) = event.topics.get(2) {
+                                let address =
+                                    ScVal::Address(ScAddress::Contract(Hash::from(event.contract)));
 
-            if let Ok(t0) = t0 {
-                if let Some(topic1) = event.topics.get(1) {
-                    let event_type = env.try_from_scval::<Symbol>(topic1);
-
-                    if let Ok(etype) = event_type {
-                        if t0 == event_tag {
-                            if etype == Symbol::new(env.soroban(), "add") {
-                                let id: Bytes = env.from_scval(&event.topics[2]);
-                                let id = bytes_to_vec(id);
-                                let pk: BytesN<65> = env.from_scval(&event.topics[3]);
-                                let pk = bytesn_to_vec(pk);
-                                let date = env.reader().ledger_timestamp();
-                                let admin = env.from_scval::<bool>(&event.data) as i32;
-
-                                // let (pk, admin): (BytesN<65>, bool) = env.from_scval(&event.data);
-
-                                let older: Vec<Signers> = env
-                                    .read_filter()
-                                    .column_equal_to("id", id.clone())
-                                    .read()
-                                    .unwrap();
-
-                                if older.len() == 0 {
-                                    let signer = Signers {
-                                        address: stellar_strkey::Contract(event.contract)
-                                            .to_string(),
-                                        id,
-                                        pk,
-                                        date,
-                                        admin,
-                                        active: 1,
-                                    };
-
-                                    env.put(&signer);
-                                } else {
-                                    let mut older = older[0].clone();
-
-                                    older.active = 1;
-                                    older.pk = pk;
-                                    older.date = date;
-                                    older.admin = admin;
-
-                                    env.update()
-                                        .column_equal_to("id", id)
-                                        .execute(&older)
+                                if t1 == ADD {
+                                    let mut older: Vec<SignersValStorageActive> = env
+                                        .read_filter()
+                                        .column_equal_to_xdr("address", &address)
+                                        .column_equal_to_xdr("key", key)
+                                        .read()
                                         .unwrap();
+
+                                    let (signer_val, signer_storage): (SignerVal, SignerStorage) =
+                                        env.from_scval(&event.data);
+
+                                    if let Some(older) = older.get_mut(0) {
+                                        older.val = env.to_scval(signer_val);
+                                        older.storage = env.to_scval(signer_storage);
+                                        older.active = ScVal::Bool(true);
+
+                                        env.update()
+                                            .column_equal_to_xdr("address", &address)
+                                            .column_equal_to_xdr("key", key)
+                                            .execute(older)
+                                            .unwrap();
+                                    } else {
+                                        let signer = Signers {
+                                            address,
+                                            key: key.clone(),
+                                            val: env.to_scval(signer_val),
+                                            storage: env.to_scval(signer_storage),
+                                            active: ScVal::Bool(true),
+                                        };
+
+                                        env.put(&signer);
+                                    }
+                                } else if t1 == REMOVE {
+                                    let mut older: Vec<SignersActive> = env
+                                        .read_filter()
+                                        .column_equal_to_xdr("address", &address)
+                                        .column_equal_to_xdr("key", key)
+                                        .read()
+                                        .unwrap();
+
+                                    if let Some(older) = older.get_mut(0) {
+                                        older.active = ScVal::Bool(false);
+
+                                        env.update()
+                                            .column_equal_to_xdr("address", &address)
+                                            .column_equal_to_xdr("key", key)
+                                            .execute(older)
+                                            .unwrap();
+                                    }
                                 }
-                            } else if etype == Symbol::new(env.soroban(), "remove") {
-                                let id: Bytes = env.from_scval(&event.topics[2]);
-                                let id = bytes_to_vec(id);
-                                let older: Vec<Signers> = env
-                                    .read_filter()
-                                    .column_equal_to("id", id.clone())
-                                    .read()
-                                    .unwrap();
-                                let mut older = older[0].clone();
-
-                                older.active = 0;
-
-                                env.update()
-                                    .column_equal_to("id", id)
-                                    .execute(&older)
-                                    .unwrap();
                             }
                         }
                     }
@@ -241,139 +97,135 @@ pub extern "C" fn on_close() {
 }
 
 #[derive(Deserialize)]
-pub struct QueryByAddressRequest {
+pub struct SignersByAddressRequest {
     address: String,
 }
 
-#[derive(Deserialize)]
-pub struct AddressBySignerRequest {
-    id: Vec<u8>,
+#[derive(Serialize)]
+pub struct SignersByAddressResponse {
+    kind: String,
+    key: String,
+    val: Option<String>,
+    storage: String,
+    limits: String,
 }
 
 #[no_mangle]
 pub extern "C" fn get_signers_by_address() {
     let env = EnvClient::empty();
-    let request: QueryByAddressRequest = env.read_request_body();
-    let signers: Vec<Signers> = env
+    let SignersByAddressRequest { address } = env.read_request_body();
+
+    let address = address_from_str(&env, address.as_str());
+    let address = env.to_scval(address);
+
+    let signers: Vec<SignersKeyValStorage> = env
         .read_filter()
-        .column_equal_to("address", request.address)
-        .column_equal_to("active", 1)
+        .column_equal_to_xdr("address", &address)
+        .column_equal_to_xdr("active", &ScVal::Bool(true))
         .read()
         .unwrap();
 
-    env.conclude(&signers)
+    let mut response: Vec<SignersByAddressResponse> = vec![];
+
+    for SignersKeyValStorage { key, val, storage } in signers {
+        let signer_key = env.from_scval::<SignerKey>(&key);
+        let signer_val = env.from_scval::<SignerVal>(&val);
+        let signer_storage = env.from_scval::<SignerStorage>(&storage);
+
+        let (kind_parsed, key_parsed) = match signer_key {
+            SignerKey::Policy(policy) => (
+                String::from("Policy"),
+                address_to_alloc_string(&env, policy),
+            ),
+            SignerKey::Ed25519(ed25519) => (
+                String::from("Ed25519"),
+                Strkey::PublicKeyEd25519(ed25519::PublicKey(ed25519.to_array())).to_string(),
+            ),
+            SignerKey::Secp256r1(secp256r1) => (
+                String::from("Secp256r1"),
+                URL_SAFE_NO_PAD.encode(secp256r1.to_alloc_vec()),
+            ),
+        };
+
+        let mut val_parsed: Option<String> = None;
+        let signer_limits = match signer_val {
+            SignerVal::Policy(signer_limits) => signer_limits,
+            SignerVal::Ed25519(signer_limits) => signer_limits,
+            SignerVal::Secp256r1(public_key, signer_limits) => {
+                val_parsed = Some(URL_SAFE_NO_PAD.encode(public_key.to_array()));
+                signer_limits
+            }
+        };
+
+        let storage_parsed = match signer_storage {
+            SignerStorage::Persistent => String::from("Persistent"),
+            SignerStorage::Temporary => String::from("Temporary"),
+        };
+
+        response.push(SignersByAddressResponse {
+            kind: kind_parsed,
+            key: key_parsed,
+            val: val_parsed,
+            storage: storage_parsed,
+            limits: URL_SAFE.encode(signer_limits.to_xdr(&env.soroban()).to_alloc_vec()),
+        })
+    }
+
+    env.conclude(response)
+}
+
+#[derive(Deserialize)]
+pub struct AddressBySignerRequest {
+    key: String,
+    kind: String,
 }
 
 #[no_mangle]
 pub extern "C" fn get_address_by_signer() {
     let env = EnvClient::empty();
-    let request: AddressBySignerRequest = env.read_request_body();
-    let signers: Vec<Signers> = env
+    let AddressBySignerRequest { key, kind } = env.read_request_body();
+
+    let key_scval: ScVal;
+
+    if kind == "Policy" {
+        let key = address_from_str(&env, &key.as_str());
+        key_scval = env.to_scval(SignerKey::Policy(key));
+    } else if kind == "Ed25519" {
+        // This is pretty verbose and manual but there's no easy way to go from a G-address to it's 32 bytes of public key
+        let key = address_from_str(&env, &key.as_str()).to_xdr(&env.soroban());
+        let key = key.slice(key.len() - 32..);
+        let mut slice = [0u8; 32];
+        key.copy_into_slice(&mut slice);
+        let key = BytesN::from_array(&env.soroban(), &slice);
+        key_scval = env.to_scval(SignerKey::Ed25519(key));
+    } else if kind == "Secp256r1" {
+        let key = URL_SAFE_NO_PAD.decode(key).unwrap();
+        let key = Bytes::from_slice(&env.soroban(), key.as_slice());
+        key_scval = env.to_scval(SignerKey::Secp256r1(key));
+    } else {
+        panic!("Invalid signer type");
+    }
+
+    let signers: Vec<SignersAddress> = env
         .read_filter()
-        .column_equal_to("id", request.id)
-        .column_equal_to("active", 1)
+        .column_equal_to_xdr("key", &key_scval)
+        .column_equal_to_xdr("active", &ScVal::Bool(true))
         .read()
         .unwrap();
 
-    // TODO we only need to return unique contract addresses not everything
-
-    env.conclude(&signers)
+    if let Some(SignersAddress { address }) = signers.get(0) {
+        let address = address_to_alloc_string(&env, env.from_scval::<Address>(address));
+        env.conclude(address);
+    } else {
+        env.conclude(None::<String>);
+    }
 }
 
 #[no_mangle]
-pub extern "C" fn get_events_by_address() {
+pub extern "C" fn debug_signers() {
     let env = EnvClient::empty();
-    let request: QueryByAddressRequest = env.read_request_body();
-    let events: Vec<AdjacentEvents> = env
-        .read_filter()
-        .column_equal_to("address", request.address)
-        .read()
-        .unwrap();
 
-    env.conclude(&events)
-}
+    let signers = env.read::<Signers>();
 
-// TODO make a serverless function to deactivate signers by id
-
-////
-
-#[cfg(test)]
-mod test {
-    use ledger_meta_factory::TransitionPretty;
-    use stellar_xdr::next::{ScBytes, ScSymbol, ScVal};
-    use zephyr_sdk::testutils::TestHost;
-
-    fn add_signature(transition: &mut TransitionPretty) {
-        transition.inner.set_sequence(8891);
-        transition
-            .contract_event(
-                "CAYFD5TO3QDPUSIM2RDFPWL3B2USBUPHJS3X5OBBTVLKDSNMS6NDDSXU",
-                vec![
-                    ScVal::Symbol(ScSymbol("sw_v1".try_into().unwrap())),
-                    ScVal::Symbol(ScSymbol("add".try_into().unwrap())),
-                    ScVal::Bytes(ScBytes([0; 20].try_into().unwrap())),
-                    ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
-                    // ScVal::Symbol(ScSymbol("init".try_into().unwrap())),
-                ],
-                ScVal::Bool(true), // (
-                                   //     ScVal::Bytes(ScBytes([0; 65].try_into().unwrap())),
-                                   //     ScVal::Bool(true)
-                                   // ).try_into().unwrap(),
-            )
-            .unwrap();
-    }
-
-    // fn remove_signature() {}
-
-    #[tokio::test]
-    async fn test() {
-        let env = TestHost::default();
-        let mut program =
-            env.new_program("./target/wasm32-unknown-unknown/release/smart_wallets_data.wasm");
-
-        let mut db = env.database("postgres://postgres:postgres@localhost:5432");
-        let _ = db
-            .load_table(
-                0,
-                "signers",
-                vec!["address", "id", "pk", "date", "admin", "active"],
-                None,
-            )
-            .await;
-        let _ = db
-            .load_table(
-                0,
-                "adjacent",
-                vec!["contract", "address", "topics", "data", "date"],
-                None,
-            )
-            .await;
-
-        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
-        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
-
-        let mut empty = TransitionPretty::new();
-        program.set_transition(empty.inner.clone());
-
-        let invocation = program.invoke_vm("on_close").await;
-        assert!(invocation.is_ok());
-        let inner_invocation = invocation.unwrap();
-        assert!(inner_invocation.is_ok());
-
-        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 0);
-        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 0);
-
-        add_signature(&mut empty);
-        program.set_transition(empty.inner.clone());
-
-        let invocation = program.invoke_vm("on_close").await;
-        assert!(invocation.is_ok());
-        let inner_invocation = invocation.unwrap();
-        assert!(inner_invocation.is_ok());
-
-        // assert_eq!(db.get_rows_number(0, "id").await.unwrap(), 1);
-        // assert_eq!(db.get_rows_number(0, "deposited").await.unwrap(), 1);
-
-        db.close().await
-    }
+    env.conclude(signers);
 }

@@ -1,6 +1,6 @@
 {
   "name": "passkey-kit",
-  "version": "0.6.1",
+  "version": "0.7.13",
   "description": "A helper library for creating and using passkey accounts on the Stellar blockchain.",
   "author": "Tyler van der Hoeven",
   "license": "MIT",
@@ -13,12 +13,13 @@
     "build:sac": "pnpm --filter ./packages/sac-sdk run build",
     "build:pfs": "pnpm --filter ./packages/passkey-factory-sdk run build",
     "build:pks": "pnpm --filter ./packages/passkey-kit-sdk run build",
-    "build": "pnpm run build:sac && pnpm run build:pfs && pnpm run build:pks && tsc"
+    "build": "pnpm run build:sac && pnpm run build:pfs && pnpm run build:pks && tsc",
+    "ext:cp": "./clone-js-sdk.sh"
   },
   "dependencies": {
     "@darkedges/capacitor-native-webauthn": "^0.0.4",
     "@simplewebauthn/browser": "^10.0.0",
-    "@stellar/stellar-sdk": "12.1.0",
+    "@stellar/stellar-sdk": "file:./ext/@stellar/stellar-sdk",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-factory-sdk": "workspace:*",
@@ -27,10 +28,13 @@
   },
   "devDependencies": {
     "@simplewebauthn/types": "^10.0.0",
-    "typescript": "^5.5.3"
+    "@types/node": "^22.7.3",
+    "typescript": "^5.6.2"
   },
   "workspaces": [
-    "packages/*"
+    "packages/passkey-factory-sdk",
+    "packages/passkey-kit-sdk",
+    "packages/sac-sdk"
   ],
   "engine": {
     "node": ">=20"

@@ -3,117 +3,312 @@
 use std::println;
 extern crate std;
 
+use crate::{Contract, ContractClient};
+use ed25519_dalek::{Keypair, Signer as _};
+use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
+use sample_policy::Contract as PolicyContract;
 use soroban_sdk::{
-    // testutils::{Address as _, BytesN as _},
-    // token, Address,
-    vec,
-    Bytes,
-    BytesN,
-    Env,
-    IntoVal,
+    auth::{Context, ContractContext},
+    map, symbol_short, token, vec,
+    xdr::{
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
+        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
+    },
+    Address, Bytes, BytesN, Env, IntoVal, String,
 };
-
-use crate::{Contract, ContractClient, Error, Signature};
-
-mod factory {
-    soroban_sdk::contractimport!(file = "../out/webauthn_factory.optimized.wasm");
-}
-
-// mod passkey {
-//     use soroban_sdk::auth::Context;
-//     soroban_sdk::contractimport!(file = "../out/webauthn_wallet.optimized.wasm");
-// }
+use stellar_strkey::{ed25519, Strkey};
+use webauthn_wallet_interface::types::{
+    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
+};
 
 #[test]
 fn test() {
-    let env = Env::default();
-    // let contract_id = env.register_contract(None, Contract);
-    // let client = ContractClient::new(&env, &contract_id);
+    let env: Env = Env::default();
+    let signature_expiration_ledger = env.ledger().sequence();
+    let amount = 10_000_000i128;
+    let evil_amount = 10_000_00i128;
 
-    // let factory_address = env.register_contract_wasm(None, factory::WASM);
-    // let factory_client = factory::Client::new(&env, &factory_address);
+    let wallet_address = env.register_contract(None, Contract);
+    let wallet_client = ContractClient::new(&env, &wallet_address);
 
-    // let passkkey_hash = env.deployer().upload_contract_wasm(passkey::WASM);
+    let example_contract_address = env.register_contract(None, ExampleContract);
+    let example_contract_client = ExampleContractClient::new(&env, &example_contract_address);
 
-    // let deployee_address = factory_client.deploy(&id, &pk);
-    let deployee_address = env.register_contract(None, Contract);
-    let deployee_client = ContractClient::new(&env, &deployee_address);
-
-    let id = Bytes::from_array(
+    // SAC
+    let sac_admin = Address::from_string(&String::from_str(
         &env,
-        &[
-            243, 248, 216, 74, 226, 218, 85, 102, 196, 167, 14, 151, 124, 42, 73, 136, 138, 102,
-            187, 140,
-        ],
-    );
-    let pk = BytesN::from_array(
-        &env,
-        &[
-            4, 163, 142, 245, 242, 113, 55, 104, 189, 52, 128, 238, 206, 174, 194, 177, 4, 100,
-            161, 243, 177, 255, 10, 53, 57, 194, 205, 45, 208, 10, 131, 167, 93, 44, 123, 126, 95,
-            219, 207, 230, 175, 90, 96, 41, 121, 197, 127, 180, 74, 236, 160, 0, 60, 185, 211, 174,
-            133, 215, 200, 208, 230, 51, 210, 94, 214,
-        ],
-    );
-    // let salt = env.crypto().sha256(&id);
+        "GD7777777777777777777777777777777777777777777777777773DB",
+    ));
+    let sac = env.register_stellar_asset_contract_v2(sac_admin);
+    let sac_address = sac.address();
+    let sac_admin_client = token::StellarAssetClient::new(&env, &sac_address);
+    // let sac_client = token::Client::new(&env, &sac_address);
+    //
 
-    // factory_client.init(&passkkey_hash);
-    deployee_client.add(&id, &pk, &true);
+    sac_admin_client
+        .mock_all_auths()
+        .mint(&wallet_address, &100_000_000);
 
-    let signature_payload = BytesN::from_array(
-        &env,
-        &[
-            150, 22, 248, 96, 91, 4, 111, 72, 170, 101, 57, 225, 210, 199, 91, 29, 159, 227, 209,
-            6, 231, 63, 222, 209, 232, 57, 112, 98, 140, 118, 206, 245,
-        ],
-    );
+    // Super Ed25519
+    // let super_ed25519_keypair = Keypair::from_bytes(&[
+    //     88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
+    //     200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
+    //     247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
+    //     208, 144, 53, 12, 91, 78,
+    // ])
+    // .unwrap();
 
-    let signature = Signature {
-        authenticator_data: Bytes::from_array(
+    // let super_ed25519_strkey =
+    //     Strkey::PublicKeyEd25519(ed25519::PublicKey(super_ed25519_keypair.public.to_bytes()));
+    // let super_ed25519 = Bytes::from_slice(&env, super_ed25519_strkey.to_string().as_bytes());
+    // let super_ed25519 = Address::from_string_bytes(&super_ed25519);
+
+    // let super_ed25519_bytes = super_ed25519.to_xdr(&env);
+    // let super_ed25519_bytes = super_ed25519_bytes.slice(super_ed25519_bytes.len() - 32..);
+    // let mut super_ed25519_array = [0u8; 32];
+    // super_ed25519_bytes.copy_into_slice(&mut super_ed25519_array);
+    // let super_ed25519_bytes = BytesN::from_array(&env, &super_ed25519_array);
+
+    // let super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
+    //
+
+    // Secp256r1
+    // let secp256r1_id = Bytes::from_array(
+    //     &env,
+    //     &[
+    //         243, 248, 216, 74, 226, 218, 85, 102, 196, 167, 14, 151, 124, 42, 73, 136, 138, 102,
+    //         187, 140,
+    //     ],
+    // );
+    // let secp256r1_public_key = BytesN::from_array(
+    //     &env,
+    //     &[
+    //         4, 163, 142, 245, 242, 113, 55, 104, 189, 52, 128, 238, 206, 174, 194, 177, 4, 100,
+    //         161, 243, 177, 255, 10, 53, 57, 194, 205, 45, 208, 10, 131, 167, 93, 44, 123, 126, 95,
+    //         219, 207, 230, 175, 90, 96, 41, 121, 197, 127, 180, 74, 236, 160, 0, 60, 185, 211, 174,
+    //         133, 215, 200, 208, 230, 51, 210, 94, 214,
+    //     ],
+    // );
+    // let secp256r1_signer_key = SignerKey::Secp256r1(secp256r1_id.clone());
+    // let secp246r1_signer = Signer::Secp256r1(
+    //     secp256r1_id,
+    //     secp256r1_public_key,
+    //     SignerLimits(map![&env]),
+    //     SignerStorage::Temporary,
+    // );
+    ////
+
+    // Simple Ed25519
+    let simple_ed25519_keypair = Keypair::from_bytes(&[
+        149, 154, 40, 132, 13, 234, 167, 87, 182, 44, 152, 45, 242, 179, 187, 17, 139, 106, 49, 85,
+        249, 235, 17, 248, 24, 170, 19, 164, 23, 117, 145, 252, 172, 35, 170, 26, 69, 15, 75, 127,
+        192, 170, 166, 54, 68, 127, 218, 29, 130, 173, 159, 1, 253, 192, 48, 242, 80, 12, 55, 152,
+        223, 122, 198, 96,
+    ])
+    .unwrap();
+
+    let simple_ed25519_strkey =
+        Strkey::PublicKeyEd25519(ed25519::PublicKey(simple_ed25519_keypair.public.to_bytes()));
+    let simple_ed25519_address =
+        Bytes::from_slice(&env, simple_ed25519_strkey.to_string().as_bytes());
+    let simple_ed25519_address = Address::from_string_bytes(&simple_ed25519_address);
+
+    let simple_ed25519_bytes = simple_ed25519_address.to_xdr(&env);
+    let simple_ed25519_bytes = simple_ed25519_bytes.slice(simple_ed25519_bytes.len() - 32..);
+    let mut simple_ed25519_array = [0u8; 32];
+    simple_ed25519_bytes.copy_into_slice(&mut simple_ed25519_array);
+    let simple_ed25519_bytes = BytesN::from_array(&env, &simple_ed25519_array);
+    let simple_ed25519_signer_key = SignerKey::Ed25519(simple_ed25519_bytes.clone());
+    //
+
+    // Policy
+    let sample_policy_address = env.register_contract(None, PolicyContract);
+    let sample_policy_signer_key = SignerKey::Policy(sample_policy_address.clone());
+    //
+
+    // Add signers to smart wallet
+    // wallet_client.mock_all_auths().add(&Signer::Ed25519(
+    //     super_ed25519_bytes,
+    //     SignerLimits(map![&env]),
+    //     SignerStorage::Persistent,
+    // ));
+
+    // wallet_client
+    //     .mock_all_auths()
+    //     .add(&secp246r1_signer.clone());
+
+    wallet_client.mock_all_auths().add(&Signer::Ed25519(
+        simple_ed25519_bytes,
+        SignerLimits(map![
             &env,
-            &[
-                75, 74, 206, 229, 181, 139, 119, 89, 254, 159, 95, 149, 227, 164, 109, 143, 188,
-                228, 143, 219, 181, 216, 77, 123, 142, 172, 60, 20, 162, 154, 181, 187, 29, 0, 0,
-                0, 0,
-            ],
-        ),
-        client_data_json: Bytes::from_array(
+            (
+                sac_address.clone(),
+                Some(vec![&env, sample_policy_signer_key.clone()])
+            ),
+            (example_contract_address.clone(), None,)
+        ]),
+        SignerStorage::Temporary,
+    ));
+
+    wallet_client.mock_all_auths().add(&Signer::Policy(
+        sample_policy_address.clone(),
+        SignerLimits(map![
             &env,
-            &[
-                123, 34, 116, 121, 112, 101, 34, 58, 34, 119, 101, 98, 97, 117, 116, 104, 110, 46,
-                103, 101, 116, 34, 44, 34, 99, 104, 97, 108, 108, 101, 110, 103, 101, 34, 58, 34,
-                108, 104, 98, 52, 89, 70, 115, 69, 98, 48, 105, 113, 90, 84, 110, 104, 48, 115,
-                100, 98, 72, 90, 95, 106, 48, 81, 98, 110, 80, 57, 55, 82, 54, 68, 108, 119, 89,
-                111, 120, 50, 122, 118, 85, 34, 44, 34, 111, 114, 105, 103, 105, 110, 34, 58, 34,
-                104, 116, 116, 112, 115, 58, 47, 47, 112, 97, 115, 115, 107, 101, 121, 45, 107,
-                105, 116, 45, 100, 101, 109, 111, 46, 112, 97, 103, 101, 115, 46, 100, 101, 118,
-                34, 125,
-            ],
-        ),
-        id: Bytes::from_array(
-            &env,
-            &[
-                243, 248, 216, 74, 226, 218, 85, 102, 196, 167, 14, 151, 124, 42, 73, 136, 138,
-                102, 187, 140,
-            ],
-        ),
-        signature: BytesN::from_array(
-            &env,
-            &[
-                74, 48, 29, 120, 181, 135, 255, 178, 105, 76, 82, 118, 29, 135, 193, 72, 123, 144,
-                138, 214, 125, 27, 33, 159, 169, 200, 151, 55, 7, 250, 111, 172, 86, 89, 162, 167,
-                148, 105, 144, 68, 21, 249, 61, 253, 80, 61, 54, 29, 14, 162, 12, 173, 206, 194,
-                144, 227, 11, 225, 74, 254, 191, 221, 103, 86,
-            ],
-        ),
+            (
+                sac_address.clone(),
+                Some(vec![&env, simple_ed25519_signer_key.clone()])
+            ),
+        ]),
+        SignerStorage::Temporary,
+    ));
+    //
+
+    let transfer_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: sac_address.clone().try_into().unwrap(),
+            function_name: "transfer".try_into().unwrap(),
+            args: std::vec![
+                wallet_address.clone().try_into().unwrap(),
+                sac_address.clone().try_into().unwrap(),
+                amount.try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
     };
 
-    let result: Result<(), Result<Error, _>> = env.try_invoke_contract_check_auth(
-        &deployee_address,
-        &signature_payload,
-        signature.into_val(&env),
-        &vec![&env],
+    let evil_transfer_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: sac_address.clone().try_into().unwrap(),
+            function_name: "transfer".try_into().unwrap(),
+            args: std::vec![
+                wallet_address.clone().try_into().unwrap(),
+                sac_address.clone().try_into().unwrap(),
+                evil_amount.try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    };
+
+    // let remove_invocation = SorobanAuthorizedInvocation {
+    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+    //         contract_address: wallet_address.clone().try_into().unwrap(),
+    //         function_name: "remove".try_into().unwrap(),
+    //         args: std::vec![secp256r1_signer_key.clone().try_into().unwrap(),]
+    //             .try_into()
+    //             .unwrap(),
+    //     }),
+    //     sub_invocations: VecM::default(),
+    // };
+
+    // let add_invocation = SorobanAuthorizedInvocation {
+    //     function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+    //         contract_address: wallet_address.clone().try_into().unwrap(),
+    //         function_name: "add".try_into().unwrap(),
+    //         args: std::vec![secp246r1_signer.clone().try_into().unwrap(),]
+    //             .try_into()
+    //             .unwrap(),
+    //     }),
+    //     sub_invocations: VecM::default(),
+    // };
+
+    let root_invocation = SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: example_contract_address.clone().try_into().unwrap(),
+            function_name: "call".try_into().unwrap(),
+            args: std::vec![
+                sac_address.clone().try_into().unwrap(),
+                wallet_address.clone().try_into().unwrap(),
+                sac_address.clone().try_into().unwrap(),
+                amount.try_into().unwrap(),
+                // remove_key.clone().try_into().unwrap(),
+                // add_signer.clone().try_into().unwrap(),
+            ]
+            .try_into()
+            .unwrap(),
+        }),
+        sub_invocations: std::vec![
+            transfer_invocation.clone(),
+            evil_transfer_invocation.clone(),
+            // remove_invocation.clone(),
+            // add_invocation.clone(),
+        ]
+        .try_into()
+        .unwrap(),
+    };
+
+    let payload = HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
+        network_id: env.ledger().network_id().to_array().into(),
+        nonce: 3,
+        signature_expiration_ledger,
+        invocation: root_invocation.clone(),
+    });
+    let payload = payload.to_xdr(Limits::none()).unwrap();
+    let payload = Bytes::from_slice(&env, payload.as_slice());
+    let payload = env.crypto().sha256(&payload);
+
+    // let super_ed25519_signature = Signature::Ed25519(BytesN::from_array(
+    //     &env,
+    //     &super_ed25519_keypair
+    //         .sign(payload.to_array().as_slice())
+    //         .to_bytes(),
+    // ));
+
+    let simple_ed25519_signature = Signature::Ed25519(BytesN::from_array(
+        &env,
+        &simple_ed25519_keypair
+            .sign(payload.to_array().as_slice())
+            .to_bytes(),
+    ));
+
+    let root_auth = SorobanAuthorizationEntry {
+        credentials: SorobanCredentials::Address(SorobanAddressCredentials {
+            address: wallet_address.clone().try_into().unwrap(),
+            nonce: 3,
+            signature_expiration_ledger,
+            signature: Signatures(map![
+                &env,
+                (
+                    simple_ed25519_signer_key.clone(),
+                    Some(simple_ed25519_signature)
+                ),
+                // (
+                //     sample_policy_signer_key.clone(),
+                //     None
+                // ),
+                // (
+                //     super_ed25519_signer_key.clone(),
+                //     Some(super_ed25519_signature)
+                // ),
+            ])
+            .try_into()
+            .unwrap(),
+        }),
+        root_invocation: root_invocation.clone(),
+    };
+
+    env.budget().reset_default();
+
+    example_contract_client.set_auths(&[root_auth]).call(
+        &sac_address,
+        &wallet_address,
+        &sac_address,
+        &amount,
+        // &remove_key,
+        // &add_signer,
     );
 
-    println!("{:?}", result);
+    // Loose
+    // Cpu limit: 100000000; used: 1011983
+    // Mem limit: 41943040; used: 106096
+
+    // Careful
+    // Cpu limit: 100000000; used: 999991
+    // Mem limit: 41943040; used: 86036
+
+    println!("{:?}", env.budget().print());
 }

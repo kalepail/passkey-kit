@@ -4,8 +4,8 @@ export SOROBAN_ACCOUNT=default
 
 export NATIVE_CONTRACT=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 
-export WEBAUTHN_FACTORY=CCPLERXCJZB7LX2VOSOCBNRN754FRLHI6Y2AVOQBA5L7C2ZJX5RFVVET
-export WEBAUTHN_WASM=f5a06865c6ac90cd11c2f416fdad568da8350e0a7119fdb315595da5e8f9f230
+export WEBAUTHN_FACTORY=CCD7M4VVKELWL2RO4XJOZOGBDF3ESFIKG2EAU4ETVNAKMRRKE6YIQU5E
+export WEBAUTHN_WASM=e0753bf6aa81563c29ccad9f2cb088fc45ad3f7a99b1643ee0d97d9783b34da7
 
 build:
 	rm -rf out/
@@ -28,9 +28,9 @@ init:
 	soroban contract invoke --id $(WEBAUTHN_FACTORY) -- init --wasm_hash $(WEBAUTHN_WASM)
 
 bindings:
-	soroban contract bindings typescript --id $(NATIVE_CONTRACT) --network testnet --output-dir ./out/sac-sdk --overwrite
-	soroban contract bindings typescript --id $(WEBAUTHN_FACTORY) --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
-	soroban contract bindings typescript --id $(WEBAUTHN_FACTORY) --wasm ./out/webauthn_wallet.optimized.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
+	soroban contract bindings typescript --id KALE --network testnet --output-dir ./out/sac-sdk --overwrite
+	soroban contract bindings typescript --id KALE --wasm ./target/wasm32-unknown-unknown/release/webauthn_factory.wasm --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
+	soroban contract bindings typescript --id KALE --wasm ./target/wasm32-unknown-unknown/release/webauthn_wallet.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
 
 fmt:
 	@cd webauthn-factory && cargo fmt --all

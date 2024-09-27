@@ -1,18 +1,17 @@
 #![no_std]
-use soroban_sdk::{
-    contract, contracterror, contractimpl, symbol_short, Address, Bytes, BytesN, Env, Symbol,
-};
 
-mod wallet {
-    use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(file = "../target/wasm32-unknown-unknown/release/webauthn_wallet.wasm");
-}
+use soroban_sdk::{
+    contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
+};
+use webauthn_wallet_interface::{types::Signer, WebAuthnClient};
+
+mod types;
 
 #[contract]
 pub struct Contract;
 
 #[contracterror]
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Error {
     NotInitialized = 1,
     AlreadyInitialized = 2,
@@ -27,11 +26,11 @@ const STORAGE_KEY_WASM_HASH: Symbol = symbol_short!("hash");
         One downside is if a factory turns out to be printing bugged wallets there's no way to shut the printer down
 */
 
-/* TODO
-    - For the first NOTE reason above we should consider a self destruct method where a contract can break itself such that it cannot deploy any more wallets
+/* LATER
+    - Given the first note above we should consider a self destruct method where a contract can break itself such that it cannot deploy any more wallets
         This is important in the case a bug is found in the underlying smart wallet contract code
         Could be a simple instance variable or maybe an upgrade to a wasm that's entirely empty and thus always fails
-        @Later
+        On the other hand I'm not sure who would own running such a function
 */
 
 #[contractimpl]
@@ -54,7 +53,7 @@ impl Contract {
         Ok(())
     }
 
-    pub fn deploy(env: Env, salt: BytesN<32>, id: Bytes, pk: BytesN<65>) -> Result<Address, Error> {
+    pub fn deploy(env: Env, salt: BytesN<32>, signer: Signer) -> Result<Address, Error> {
         let wasm_hash = env
             .storage()
             .instance()
@@ -63,7 +62,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        wallet::Client::new(&env, &address).add(&id, &pk, &true);
+        WebAuthnClient::new(&env, &address).add(&signer);
 
         let max_ttl = env.storage().max_ttl();
 

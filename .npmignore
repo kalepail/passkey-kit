@@ -178,7 +178,8 @@ meta.json
 
 package
 
-contracts/
-zephyr/
-demo/
 bun_tests/
+contracts/
+demo/
+ext/
+zephyr/

@@ -1,6 +1,7 @@
 import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
-import base64url from "base64url"
 import { PasskeyBase } from "./base"
+import base64url from "base64url"
+import type { Tx } from "@stellar/stellar-sdk/contract"
 
 export class PasskeyServer extends PasskeyBase {
     public launchtubeUrl: string | undefined
@@ -49,7 +50,7 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: `Bearer ${this.mercuryJwt}`
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data',
+                project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
                         fname: "get_signers_by_address",
@@ -70,17 +71,20 @@ export class PasskeyServer extends PasskeyBase {
         for (const signer of signers) {
             if (!signer.admin) {
                 try {
-                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(signer.id), SorobanRpc.Durability.Temporary)
+                    await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(base64url.toBuffer(signer.key)), SorobanRpc.Durability.Temporary)
                 } catch {
                     signer.expired = true
                 }
             }
-
-            signer.id = base64url(signer.id)
-            signer.pk = base64url(signer.pk)
         }
 
-        return signers as { id: string, pk: string, admin: boolean, expired?: boolean }[]
+        return signers as { 
+            kind: string,
+            key: string, 
+            val: string, 
+            limits: string,
+            expired?: boolean 
+        }[]
     }
 
     public async getContractId(keyId: string) {
@@ -94,12 +98,13 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: `Bearer ${this.mercuryJwt}`
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data',
+                project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
                         fname: "get_address_by_signer",
                         arguments: JSON.stringify({
-                            id: [...base64url.toBuffer(keyId)]
+                            key: keyId,
+                            kind: 'Secp256r1'
                         })
                     }
                 }
@@ -112,23 +117,23 @@ export class PasskeyServer extends PasskeyBase {
                 throw await res.json()
             })
 
-        return res[0]?.address as string | undefined
+        return res || undefined as string | undefined
     }
 
-    /* TODO 
+    /* LATER
         - Add a method for getting a paginated or filtered list of all a wallet's events
-            @Later
     */
 
-    // TODO maybe fee should default to something more dynamic since we have endpoints for getting fee information now
-    public async send(xdr: string, fee: number = 10_000) {
+    public async send(txn: Tx, fee?: number) {
         if (!this.launchtubeUrl || !this.launchtubeJwt)
             throw new Error('Launchtube service not configured')
 
         const data = new FormData();
 
-        data.set('xdr', xdr);
-        data.set('fee', fee.toString());
+        data.set('xdr', txn.toXDR());
+
+        if (fee)
+            data.set('fee', fee.toString());
 
         return fetch(this.launchtubeUrl, {
             method: 'POST',

@@ -1,5 +1,5 @@
 [package]
-name = "smart-wallets-data"
+name = "smart-wallets-data-multi-signer-multi-sig"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,19 +7,13 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-zephyr-sdk = { version = "0.2.2-rc2" }
-stellar-strkey = "0.0.8"
+zephyr-sdk = "0.2.3"
+stellar-strkey = "0.0.11"
 serde = { version = "1.0", features = ["derive"] }
-
-[dev-dependencies]
-zephyr-sdk = { version = "0.2.2-rc2", features = ["testutils"] }
-tokio = { version = "1.0", features = ["full"] }
-ledger-meta-factory = { version = "0.1.2", features = [] }
-stellar-xdr = { version = "21.2.0", features = [
-    "curr",
-    "serde",
-    "base64",
-] }
+serde_json = "1.0"
+webauthn-wallet-interface = { path = "../contracts/webauthn-wallet-interface" }
+hex = "0.4.3"
+base64 = "0.22.1"
 
 [profile.release]
 opt-level = "z"

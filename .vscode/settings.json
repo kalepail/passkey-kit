@@ -2,6 +2,8 @@
     "rust-analyzer.linkedProjects": [
         "./zephyr/Cargo.toml",
         "./contracts/Cargo.toml",
+        "./contracts/example-contract/Cargo.toml",
+        "./contracts/sample-policy/Cargo.toml",
         "./contracts/webauthn-factory/Cargo.toml",
         "./contracts/webauthn-wallet/Cargo.toml",
     ]
