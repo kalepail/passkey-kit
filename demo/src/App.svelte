@@ -9,7 +9,7 @@
 		server,
 	} from "./lib/common";
 	import { Keypair } from "@stellar/stellar-sdk";
-	import type { SignerKey, SignerLimits } from "passkey-kit-sdk";
+    import { SignerStore, SignerKey, type SignerLimits } from "passkey-kit";
 
 	// TODO need to support two toggles:
 	// - between temp and persistent
@@ -119,17 +119,7 @@
 				pk = publicKey;
 			}
 
-			const at = await account.wallet!.add({
-				signer: {
-					tag: "Secp256r1",
-					values: [
-						id,
-						pk,
-						[new Map()],
-						{ tag: "Temporary", values: undefined },
-					],
-				},
-			});
+			const at = await account.addSecp256r1(id, pk, new Map(), SignerStore.Temporary);
 
 			await account.sign(at, { keyId: adminSigner });
 			const res = await server.send(at.built!);
@@ -148,8 +138,7 @@
 		const pubkey = PUBLIC; // prompt('Enter public key');
 
 		if (pubkey) {
-			const keypair = Keypair.fromPublicKey(pubkey);
-			const signer_limits: SignerLimits = [new Map()];
+			const signer_limits: SignerLimits = new Map();
 			// const signer_keys: SignerKey[] = [];
 
 			// signer_keys.push({
@@ -159,16 +148,7 @@
 
 			// signer_limits[0].set(NATIVE_SAC, signer_keys);
 
-			const at = await account.wallet!.add({
-				signer: {
-					tag: "Ed25519",
-					values: [
-						keypair.rawPublicKey(),
-						signer_limits,
-						{ tag: "Temporary", values: undefined },
-					],
-				},
-			});
+			const at = await account.addEd25519(pubkey, signer_limits, SignerStore.Temporary);
 
 			await account.sign(at, { keyId: adminSigner });
 			const res = await server.send(at.built!);
@@ -180,26 +160,14 @@
 	}
 	async function addPolicySigner() {
 		const keypair = Keypair.fromPublicKey(PUBLIC);
-		const signer_limits: SignerLimits = [new Map()];
+		const signer_limits: SignerLimits = new Map();
 		const signer_keys: SignerKey[] = [];
 
-		signer_keys.push({
-			tag: "Ed25519",
-			values: [keypair.rawPublicKey()],
-		});
+		signer_keys.push(SignerKey.Ed25519(keypair.rawPublicKey()));
 
-		signer_limits[0].set(NATIVE_SAC, signer_keys);
+		signer_limits.set(NATIVE_SAC, signer_keys);
 
-		const at = await account.wallet!.add({
-			signer: {
-				tag: "Policy",
-				values: [
-					SAMPLE_POLICY,
-					signer_limits,
-					{ tag: "Temporary", values: undefined },
-				],
-			},
-		});
+		const at = await account.addPolicy(SAMPLE_POLICY, signer_limits, SignerStore.Temporary);
 
 		await account.sign(at, { keyId: adminSigner });
 		const res = await server.send(at.built!);
@@ -210,34 +178,23 @@
 	}
 	async function removeSigner(signer: string, type: string) {
 		try {
-			let signer_key: SignerKey;
+			let key: SignerKey;
 
 			switch (type) {
 				case "Policy":
-					signer_key = {
-						tag: "Policy",
-						values: [signer],
-					};
+					key = SignerKey.Policy(signer);
 					break;
 				case "Ed25519":
-					signer_key = {
-						tag: "Ed25519",
-						values: [Keypair.fromPublicKey(signer).rawPublicKey()],
-					};
+					key = SignerKey.Ed25519(Keypair.fromPublicKey(signer).rawPublicKey());
 					break;
 				case "Secp256r1":
-					signer_key = {
-						tag: "Secp256r1",
-						values: [base64url.toBuffer(signer)],
-					};
+					key = SignerKey.Secp256r1(base64url.toBuffer(signer));
 					break;
 				default:
 					throw new Error("Invalid signer type");
 			}
 
-			const at = await account.wallet!.remove({
-				signer_key,
-			});
+			const at = await account.remove(key);
 
 			await account.sign(at, { keyId: adminSigner });
 			const res = await server.send(at.built!);
@@ -325,8 +282,6 @@
 			from: contractId,
 			amount: BigInt(10_000_000),
 		});
-
-		// const txn = account.prepareTransaction(built!);
 
 		await account.sign(at, { keypair });
 		await account.sign(at, { policy: SAMPLE_POLICY });

@@ -1,12 +1,37 @@
-import { Client as PasskeyClient, type Signature, type Signatures, type SignerKey } from 'passkey-kit-sdk'
+import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction, Operation, nativeToScVal } from '@stellar/stellar-sdk'
+import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk'
 import base64url from 'base64url'
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
+import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+
+// TODO ensure we're outputting a built transaction that's actually useful in the case you don't intend to use Launchtube
+
+export class SignerKey {
+    private constructor(public type: "Policy" | "Ed25519" | "Secp256r1", public value: string | Buffer) { }
+
+    static Policy(value: string): SignerKey {
+        return new SignerKey("Policy", value);
+    }
+
+    static Ed25519(value: Buffer): SignerKey {
+        return new SignerKey("Ed25519", value);
+    }
+
+    static Secp256r1(value: Buffer): SignerKey {
+        return new SignerKey("Secp256r1", value);
+    }
+}
+
+export type SignerLimits = Map<string, SignerKey[] | undefined>
+
+export enum SignerStore {
+    Persistent = 'Persistent',
+    Temporary = 'Temporary',
+}
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -194,7 +219,7 @@ export class PasskeyKit extends PasskeyBase {
         if ([keyId, keypair, policy].filter((arg) => !!arg).length > 1)
             throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
-        const credentials = entry.credentials().address();
+        const credentials = entry.credentials().address(); // TODO review this for using the Signatures type again. Might be just `credentials`
 
         if (!expiration) {
             expiration = credentials.signatureExpirationLedger()
@@ -219,7 +244,7 @@ export class PasskeyKit extends PasskeyBase {
         const payload = hash(preimage.toXDR())
 
         // let signatures: Signatures
-        let key: SignerKey
+        let key: SDKSignerKey
         let val: Signature | undefined
 
         // const scSpecTypeDefSignatures = xdr.ScSpecTypeDef.scSpecTypeUdt(
@@ -367,7 +392,7 @@ export class PasskeyKit extends PasskeyBase {
         return entry
     }
 
-    public async sign<T>(
+    public sign<T>(
         txn: AssembledTransaction<T>,
         options?: {
             rpId?: string,
@@ -377,21 +402,125 @@ export class PasskeyKit extends PasskeyBase {
             expiration?: number
         }
     ) {
-        await txn.signAuthEntries({
+        return txn.signAuthEntries({
             address: this.wallet!.options.contractId,
             authorizeEntry: (entry) => {
                 const clone = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR())
-                return this.signAuthEntry(clone, options)    
+                return this.signAuthEntry(clone, options)
             },
         })
     }
 
-    // Add little utility helpers for adding and removing signers
+    public addSecp256r1(keyId: Uint8Array, publicKey: Uint8Array, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Secp256r1",
+                values: [
+                    Buffer.from(keyId),
+                    Buffer.from(publicKey),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addEd25519(publicKey: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Ed25519",
+                values: [
+                    Keypair.fromPublicKey(publicKey).rawPublicKey(),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addPolicy(policy: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Policy",
+                values: [
+                    policy,
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+
+    public remove(key: SignerKey) {
+        let signer_key: SDKSignerKey
+
+        switch (key.type) {
+            case 'Policy':
+                signer_key = {
+                    tag: key.type,
+                    values: [key.value as string]
+                }
+                break;
+            case 'Ed25519':
+                signer_key = {
+                    tag: key.type,
+                    values: [key.value as Buffer]
+                }
+                break;
+            case 'Secp256r1':
+                signer_key = {
+                    tag: key.type,
+                    values: [key.value as Buffer]
+                }
+                break;
+        }
+
+        return this.wallet!.remove({
+            signer_key,
+        });
+    }
 
     /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
     */
+
+    private getSignerLimits(limits: SignerLimits) {
+        const sdk_limits: SDKSignerLimits = [new Map()]
+
+        for (const [contract, signer_keys] of limits.entries()) {
+            let sdk_signer_keys: SDKSignerKey[] | undefined
+
+            if (signer_keys?.length) {
+                sdk_signer_keys = []
+
+                for (const signer_key of signer_keys) {
+                    switch (signer_key.type) {
+                        case 'Policy':
+                            sdk_signer_keys.push({
+                                tag: signer_key.type,
+                                values: [signer_key.value as string]
+                            })
+                            break;
+                        case 'Ed25519':
+                            sdk_signer_keys.push({
+                                tag: signer_key.type,
+                                values: [signer_key.value as Buffer]
+                            })
+                            break;
+                        case 'Secp256r1':
+                            sdk_signer_keys.push({
+                                tag: signer_key.type,
+                                values: [signer_key.value as Buffer]
+                            })
+                            break;
+                    }
+                }
+            }
+
+            sdk_limits[0].set(contract, sdk_signer_keys)
+        }
+
+        return sdk_limits
+    }
 
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
         let publicKey: Buffer | undefined
