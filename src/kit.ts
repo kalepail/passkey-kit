@@ -8,18 +8,54 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 import { DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
+/**
+ * The client-centrict passkey kit class. Used to create, register, and sign
+ * with client-generated passkeys.
+ */
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
     declare public rpcUrl: string
     public keyId: string | undefined
+    /**
+     * The network passphrase used by the configured RPC instance.
+     */
     public networkPassphrase: string
+    /**
+     * A client for the deployer factory which will create the client's smart
+     * wallets.
+     */
     public factory: FactoryClient
+    /**
+     * A client which can be used with smart wallets deployed by this
+     * PasskeyKit.
+     */
     public wallet: PasskeyClient | undefined
+    /**
+     * A WebAuthn implementation that can be used to create and register
+     * passkeys.
+     */
     public WebAuthn: {
+        /**
+         * Begin authenticator "registration" via WebAuthn attestation.
+         */
         startRegistration: typeof startRegistration,
+        /**
+         * Begin authenticator "login" via WebAuthn assertion.
+         */
         startAuthentication: typeof startAuthentication
     }
 
+    /**
+     * Create a new PasskeyKit object.
+     *
+     * @param options - The configuration options for this passkey kit.
+     * @param options.rpcUrl - The URL of the RPC server.
+     * @param options.networkPassphrase - The network passphrase used by the configured RPC instance.
+     * @param options.factoryContractId - The `C...` address of a factory contract used to deploy smart wallets.
+     * @param options.WebAuthn - A WebAuthn implementation that can be used to create and register passkeys.
+     * @param options.WebAuthn.startRegistration - Function to begin authenticator "registration" via WebAuthn attestation.
+     * @param options.WebAuthn.startAuthentication - Function to begin authenticator "login" via WebAuthn assertion.
+     */
     constructor(options: {
         rpcUrl: string,
         networkPassphrase: string,
@@ -42,6 +78,16 @@ export class PasskeyKit extends PasskeyBase {
         this.WebAuthn = WebAuthn || { startRegistration, startAuthentication }
     }
 
+    /**
+     * Create a passkey and deploy a smart wallet using it as a signer.
+     *
+     * @param app - The application this passkey is used on. Similar to a
+     * website title.
+     * @param user - The username associated (client-side) with this passkey.
+     * @returns The passkey's ID, public key, and a transaction that can be
+     * sent to the network, which will result in the creation of a smart wallet
+     * contract.
+     */
     public async createWallet(app: string, user: string) {
         const { keyId, publicKey } = await this.createKey(app, user)
 
@@ -66,6 +112,20 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
+    /**
+     * Generate and return a passkey the user will use to register and then
+     * login to the service.
+     *
+     * @param app - The application this passkey is used on. Similar to a
+     * website title.
+     * @param user - The username associated (client-side) with this passkey.
+     * @param settings - Settings used to create the passkey.
+     * @param settings.rpId - The `id` (or domain) of the "relying party" that
+     * is responsible for registering and authenticating the user.
+     * @param settings.authenticatorSelection - The desired restrictions that
+     * should be placed concerning the _types_ of authenticators allowed.
+     * @returns A passkey's ID and public key.
+     */
     public async createKey(app: string, user: string, settings?: {
         rpId?: string
         authenticatorSelection?: AuthenticatorSelectionCriteria
@@ -104,6 +164,18 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
+    /**
+     * Login to an existing smart wallet, using a passkey.
+     *
+     * @param opts - The configuration options for this wallet connection.
+     * @param opts.keyId - The ID of the passkey.
+     * @param opts.rpId - The `id` (or domain) of the relying party with which
+     * we will authenticate.
+     * @param opts.getContractId - A function which will return a deployed smart
+     * wallet `C...` address, given a passkey's public key.
+     * @returns The passkey's ID and its associated smart wallet contract
+     * address.
+     */
     public async connectWallet(opts?: {
         keyId?: string | Uint8Array,
         rpId?: string,
@@ -171,6 +243,17 @@ export class PasskeyKit extends PasskeyBase {
         }
     }
 
+    /**
+     * Sign a Soroban transaction authorization entry with a passkey.
+     *
+     * @param entry - An authorization entry which is to be signed using the passkey
+     * @param options - Configuration options for this signature.
+     * @param options.keyId - The ID of the passkey.
+     * @param options.rpId - The `id` (or domain) of the "relying party."
+     * @param options.ledgersToLive - How many ledgers into the future this
+     * signature should be valid for.
+     * @returns A signed authorization entry.
+     */
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
         options?: {
@@ -245,6 +328,17 @@ export class PasskeyKit extends PasskeyBase {
         return entry
     }
 
+    /**
+     * For each entry in an array, sign the authorization entry using the
+     * passkey.
+     *
+     * @param entries - An array of entries to sign.
+     * @param options - Configuration options for this signature.
+     * @param options.keyId - The ID of the passkey.
+     * @param options.ledgersToLive - How many ledgers into the future this
+     * signature should be valid for.
+     * @returns An array of signed authorization entries.
+     */
     public async signAuthEntries(
         entries: xdr.SorobanAuthorizationEntry[],
         options?: {
@@ -266,6 +360,18 @@ export class PasskeyKit extends PasskeyBase {
         return entries
     }
 
+    /**
+     * Sign a transaction using a passkey, and prepare it for submission to the
+     * network.
+     *
+     * @param txn - The transaction that should be signed using the passkey.
+     * @param options - Configuration options for this transaction signature.
+     * @param options.keyId - The ID of the passkey.
+     * @param options.ledgersToLive - How many ledgers into the future this
+     * signature should be valid for.
+     * @returns A base64-encoded transaction that has been simulated, assembled,
+     * and signed by the passkey.
+     */
     public async sign(
         txn: Transaction | string,
         options?: {
@@ -275,7 +381,7 @@ export class PasskeyKit extends PasskeyBase {
     ) {
         /*
             - Hack to ensure we don't stack fees when simulating and assembling multiple times
-                AssembleTransaction always adds the resource fee onto the transaction fee. 
+                AssembleTransaction always adds the resource fee onto the transaction fee.
                 This is bad in cases where you need to simulate multiple times
         */
         txn = TransactionBuilder.cloneFrom(new Transaction(
@@ -314,12 +420,27 @@ export class PasskeyKit extends PasskeyBase {
         return SorobanRpc.assembleTransaction(txn, sim).build().toXDR()
     }
 
-    /* TODO 
-        - Add a getKeyInfo action to get info about a specific passkey
-            Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
-            @Later
-    */
+    /**
+     * @todo Add a getKeyInfo action to get info about a specific passkey.
+     * Specifically looking for name, type, etc. data so a user could grok what
+     * signer mapped to what passkey.
+     */
 
+    /**
+     * Extract the passkey's public key from the registration response JSON
+     * object.
+     *
+     * @param response - The response JSON from the WebAuthn registration process.
+     * @returns The public key of the passkey, as a buffer.
+     *
+     * @see {@link https://w3c.github.io/webauthn/#dictdef-authenticatorattestationresponsejson}
+     *
+     * @todo We're doing some pretty "smart" public key decoding stuff so we
+     * should verify the signature against this final public key before
+     * assuming it's safe to use and save on-chain. Given that
+     * `startRegistration` doesn't produce a signature, verifying we've got
+     * the correct public key isn't really possible
+     */
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
         let publicKey: Buffer | undefined
 
@@ -360,15 +481,16 @@ export class PasskeyKit extends PasskeyBase {
             ])
         }
 
-        /* TODO 
-            - We're doing some pretty "smart" public key decoding stuff so we should verify the signature against this final public key before assuming it's safe to use and save on-chain
-                Given that `startRegistration` doesn't produce a signature, verifying we've got the correct public key isn't really possible
-                @Later
-        */
-
         return publicKey
     }
 
+    /**
+     * Compact an authorization entry signature.
+     *
+     * @param signature - The signature for the authorization entry.
+     * @returns A 32-byte signature buffer that is (somehow?) better than the
+     * one that was provided.
+     */
     private compactSignature(signature: Buffer) {
         // Decode the DER signature
         let offset = 2;

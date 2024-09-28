@@ -12,13 +12,13 @@ The primary interest of this proposal is to detail the contract interface itself
 
 This proposal consists of two contracts, a factory “deployer” contract and the actual smart wallet interface.
 
-# Contract 1: The Factory
+## Contract 1: The Factory
 
 Stellar doesn’t allow us to both deploy and initialize a contract atomically and so the ecosystem has adopted the workaround of having a factory contract which handles the deploying and then calling of the newly deployed contract’s initialize function. This deploy and init can happen atomically within Soroban.
 
 The side benefit is we can ensure consistency of all contracts deployed from the same factory address. As long as the contract was deployed from a known factory address users and services have a guarantee of the initial inner form of the smart wallet. As we’ll see smart wallets have an `upgrade` method which will effectively break this guarantee but at the end of the day it’s a contract’s WASM hash we actually care about vs it’s factory address.
 
-## Interface
+### Factory Interface
 
 ```rust
 // FUNCTIONS
@@ -36,11 +36,9 @@ enum Error {
 }
 ```
 
-## Code
+### Factory Code
 
 [https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-factory/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-factory/src/lib.rs)
-
- 
 
 ```rust
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
@@ -51,7 +49,8 @@ Only thing to note in this block is I’m opting to max extend this contract’s
 
 We could decide to make these values instance variables which could be updated or even make them configurable on a key by key basis however that would increase complexity and cost in many cases and without further real world data to support that choice I’m suggesting simplicity.
 
-### `init`
+#### `init`
+
 ```rust
 pub fn init(env: Env, wasm_hash: BytesN<32>) -> Result<(), Error> {
     if env.storage().instance().has(&STORAGE_KEY_WASM_HASH) {
@@ -72,9 +71,10 @@ pub fn init(env: Env, wasm_hash: BytesN<32>) -> Result<(), Error> {
 }
 ```
 
-Nothing controversial here I don’t think. We’re storing the smart wallet’s wasm hash in order to load up the factory with the proper template to deploy in the `deploy` function. This is stored on the instance as it should be and then the instance is extended 
+Nothing controversial here I don’t think. We’re storing the smart wallet’s wasm hash in order to load up the factory with the proper template to deploy in the `deploy` function. This is stored on the instance as it should be and then the instance is extended
 
-### `deploy`
+#### `deploy`
+
 ```rust
 pub fn deploy(env: Env, salt: BytesN<32>, id: Bytes, pk: BytesN<65>) -> Result<Address, Error> {
     let wasm_hash = env
@@ -109,13 +109,13 @@ Few things to note here:
 - Also note we’re calling the `env.invoke_contract` vs pulling in the smart wallet interface. This is a cost savings as we’re only making use of the `add` method. This requires knowing intuitively how to properly construct the invocation but let’s be honest, that’s not hard.
 - Last thing is extending the interface again. If you’re gonna use the factory at least pay it forward a little to help keep the factory’s lights on.
 
-# Contract 2: The Smart Wallet
+## Contract 2: The Smart Wallet
 
 The smart wallet interface while obviously more complex than the factory is still aiming to be as simple as possible and only do what’s absolutely necessary to provide a useful smart wallet interface for general purpose usage.
 
 I’ve intentionally left off as many bells and whistles as possible with the hope of being able to agree and progress with this interface into an audited and approved mainnet interface for general usage. Certainly there will be additional features and functions users and services will want and I hope to see a rich and diverse ecosystem of wallet interfaces arise over time but initially we just need to get something sufficiently useful live providing the basic majority needs of non crypto-native users.
 
-## Interface
+### Smart Wallet Interface
 
 ```rust
 // FUNCTIONS
@@ -153,15 +153,16 @@ enum Error {
 
 ```
 
-## Code
+### Smart Wallet Code
 
 [https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-secp256r1/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-secp256r1/src/lib.rs)
 
-### `add`
+#### `add`
+
 ```rust
 pub fn add(env: Env, id: Bytes, pk: BytesN<65>, mut admin: bool) -> Result<(), Error> {
     if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
-        env.current_contract_address().require_auth();   
+        env.current_contract_address().require_auth();
     } else {
         admin = true;
     }
@@ -208,49 +209,50 @@ pub fn add(env: Env, id: Bytes, pk: BytesN<65>, mut admin: bool) -> Result<(), E
 Some notable elements:
 
 - We use the `env.storage().instance().has(&ADMIN_SIGNER_COUNT)` to toggle between a sort of initialization call and the standard `require_auth` flow.
-    
+
     ```rust
     if env.storage().instance().has(&ADMIN_SIGNER_COUNT) {
-        env.current_contract_address().require_auth();   
+        env.current_contract_address().require_auth();
     } else {
         admin = true;
     }
     ```
-    
+
     The only potential downside is `add` includes logic for storing temporary session signers which an initial call doesn't support making that logic verbose. Initially I had a separate `init` function but I think this is a better tradeoff for simplicity and efficiency even if there are some unusable if statements in the case of the initial `add` call made by the factory contract.
-    
+
 - `Self::update_admin_signer_count(&env, true);` My proposal includes the concept of session and admin signers. Certain functions, well really all of the smart wallet self functions (`add`, `remove`, `upgrade`) are only callable by admin signers. Given this we need to ensure we never remove all the admin signers which necessarily requires we track the number of admin signers. This function provides that service and will be called anytime we add or remove an admin signer.
 - Admin signers are persistent entries, non-admin signers are temporary. It’s also possible for signers to be toggled between admin and non however we must only ever be tracking a single `id` to a single `pk` and so we must add logic for removing any existing signers for a given `id` in the counter storage to the type we’re currently adding to. Make special note of the need to decrement the `ADMIN_SIGNER_COUNT` in case of removing an admin signer to temporary if a persistent entry for that `id` exists.
-    
+
     ```rust
     if admin {
         if env.storage().temporary().has(&id) {
             env.storage().temporary().remove(&id);
         }
-    
+
         Self::update_admin_signer_count(&env, true);
-    
+
         env.storage().persistent().set(&id, &pk);
-    
+
         env.storage()
             .persistent()
             .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
     } else {
         if env.storage().persistent().has(&id) {
             Self::update_admin_signer_count(&env, false);
-    
+
             env.storage().persistent().remove(&id);
         }
-    
+
         env.storage().temporary().set(&id, &pk);
-    
+
         env.storage()
             .temporary()
             .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
     }
     ```
-    
-### `remove`
+
+#### `remove`
+
 ```rust
 pub fn remove(env: Env, id: Bytes) -> Result<(), Error> {
     env.current_contract_address().require_auth();
@@ -281,7 +283,8 @@ Remove is similar to `add` just in inverse with some slight simplifications.
 - Given the key could be either temporary or persistent we must include logic for checking both and removing if they exist. Again note the need to decrement the `ADMIN_SIGNER_COUNT` in case of a persistent admin `id`.
 - Given each `id` can only be either a temporary or persistent entry it's safe to use `else if env.storage().persistent().has(&id)` vs a separate `if ...`. Doing so saves on some read costs if we were to try and just remove both storage type for the same `id` key. Note we do need to use the has check vs just doing an `else` check as a `storage.remove` won't error if the entry doesn't exist which would open us up to the issue of decrementing the admin key count when we didn't actually delete anything.
 
-### `update`
+#### `update`
+
 ```rust
 pub fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
     env.current_contract_address().require_auth();
@@ -303,7 +306,8 @@ An essential function for all smart wallets imo. The ability to change the inter
 - Protected such that only admin signers can perform this method.
 - Allows for a wallet user to switch or update their interface should newer or different interfaces be released.
 
-### `__check_auth`
+#### `__check_auth`
+
 ```rust
 fn __check_auth(
     env: Env,
@@ -316,36 +320,36 @@ fn __check_auth(
 This is the beefy boy and most of it is only interesting to auditors ensuring the actual decoding and cryptography bits work as intended. I’ll detail the parts here which are more specific to the interface itself:
 
 - We need to select which `pk` to use for the provided `id` purporting to have signed for the incoming payload.
-    
+
     ```rust
     let pk = match env.storage().temporary().get(&id) {
       Some(pk) => {
           ...
-    
+
           env.storage()
               .temporary()
               .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-    
+
           pk
       }
       None => {
           env.storage()
               .persistent()
               .extend_ttl(&id, max_ttl - WEEK_OF_LEDGERS, max_ttl);
-    
+
           env.storage().persistent().get(&id).ok_or(Error::NotFound)?
       }
     };
     ```
-    
+
     We do that first by looking up the temporary entry which will be the far more common case. If we cannot find it there we look for a persistent entry. This will introduce a double look up for a temporary entry but those are cheap so this is fine. Note we also set the `admin` binary toggle for use later in blocking protected self methods.
-    
+
 - If the pk is a temporary session signer we need to do an additional check to ensure the authentication request isn’t for a protected action
-    
+
     ```rust
-    
+
     ...
-    
+
     for context in auth_contexts.iter() {
         match context {
             Context::Contract(c) => {
@@ -353,7 +357,7 @@ This is the beefy boy and most of it is only interesting to auditors ensuring th
                     && (
                         c.fn_name != symbol_short!("remove")
                         || (
-                            c.fn_name == symbol_short!("remove") 
+                            c.fn_name == symbol_short!("remove")
                             && Bytes::from_val(&env, &c.args.get(0).unwrap()) != id
                         )
                     )
@@ -364,20 +368,19 @@ This is the beefy boy and most of it is only interesting to auditors ensuring th
             _ => {}
         };
     }
-    
+
     ...
     ```
-    
+
     This is a relatively straight forward check. If the request is for the smart wallet contract ensure the only function it *might* be able to call is a `remove` of it’s own `id`. Anything else should result in an error.
-    
 
 The rest of `__check_auth` is boilerplate authentication checks of the webauthn data itself and not technically part of this interface. It needs to be audited but that won’t affect the final interface of the wallet.
 
-# Events
+## Events
 
 The only other item worth mentioning are the events emitted during the `add` and `remove` methods. Events are emitted in order to allow an indexer to keep track of a wallet’s available signers and their current state as `admin` or not.
 
-## Add
+### Add
 
 ```rust
 env.events().publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
@@ -385,12 +388,11 @@ env.events().publish((EVENT_TAG, symbol_short!("add"), id), (pk, admin));
 
 - The `EVENT_TAG` is a trigger to help indexers only listen for relevant smart wallet events and while not fool proof should improve filtering out only those events which are relevant.
 - The `pk` is emitted in order to allow downstream clients to queue up expired session signers to be re-added without needing to create new passkeys, you can continue to use the existing ones if you can find the `pk` for a matching `id` from a previously emitted event.
-    
+
 > [!CAUTION]
 > Passkey public keys are only retrievable during a passkey creation flow. They cannot be later retrieved from an authentication flow. Thus passkey public keys are special data which we should be storing inside the blockchain itself. This is normally done during an `add` event but given we’re using temporary storage these keys could be lost and unrecoverable were we not to store them inside events for indexers to keep track of and then for clients to then be able to essentially “rehydrate” at a later date without requiring the user to keep creating new passkeys every time they wanted to sign into a service after their temporary session key had expired.
-    
 
-## Remove
+### Remove
 
 ```rust
 env.events().publish((EVENT_TAG, symbol_short!("remove"), id), ());
