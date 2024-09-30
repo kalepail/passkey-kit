@@ -19,5 +19,10 @@
     "vite": "^5.4.8",
     "@stellar/stellar-sdk": "file:../ext/@stellar/stellar-sdk",
     "base64url": "^3.0.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
+    }
   }
 }
