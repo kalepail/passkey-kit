@@ -8,6 +8,9 @@ import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
 import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
 
+export { Client as PasskeyClient } from 'passkey-kit-sdk'
+export { Client as FactoryClient } from 'passkey-factory-sdk'
+
 export class SignerKey {
     private constructor(public key: "Policy" | "Ed25519" | "Secp256r1", public value: string) { }
 
@@ -192,8 +195,8 @@ export class PasskeyKit extends PasskeyBase {
 
         this.wallet = new PasskeyClient({
             contractId,
+            rpcUrl: this.rpcUrl,
             networkPassphrase: this.networkPassphrase,
-            rpcUrl: this.rpcUrl
         })
 
         return {
