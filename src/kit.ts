@@ -1,38 +1,16 @@
-import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
+import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk'
-import base64url from 'base64url'
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
-import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
-import { Buffer } from 'buffer'
-import { PasskeyBase } from './base'
 import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
+import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
+import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
+import { Buffer } from 'buffer'
+import base64url from 'base64url'
+import type { SignerKey, SignerLimits, SignerStore } from './types'
+import { PasskeyBase } from './base'
 
 export { Client as PasskeyClient } from 'passkey-kit-sdk'
 export { Client as FactoryClient } from 'passkey-factory-sdk'
-
-export class SignerKey {
-    private constructor(public key: "Policy" | "Ed25519" | "Secp256r1", public value: string) { }
-
-    static Policy(policy: string): SignerKey {
-        return new SignerKey("Policy", policy);
-    }
-
-    static Ed25519(publicKey: string): SignerKey {
-        return new SignerKey("Ed25519", publicKey);
-    }
-
-    static Secp256r1(id: string): SignerKey {
-        return new SignerKey("Secp256r1", id);
-    }
-}
-
-export type SignerLimits = Map<string, SignerKey[] | undefined>
-
-export enum SignerStore {
-    Persistent = 'Persistent',
-    Temporary = 'Temporary',
-}
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -139,8 +117,8 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     public async connectWallet(opts?: {
-        keyId?: string | Uint8Array,
         rpId?: string,
+        keyId?: string | Uint8Array,
         getContractId?: (keyId: string) => Promise<string | undefined>
     }) {
         let { keyId, rpId, getContractId } = opts || {}

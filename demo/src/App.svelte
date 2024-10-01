@@ -77,7 +77,7 @@
 			const { keyId: kid, contractId: cid } = await account.connectWallet(
 				{
 					keyId: keyId_,
-					getContractId: (keyId) => server.getContractId(keyId),
+					getContractId: (keyId) => server.getContractId({ keyId }),
 				},
 			);
 
