@@ -9,9 +9,6 @@ import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
 
-export { Client as PasskeyClient } from 'passkey-kit-sdk'
-export { Client as FactoryClient } from 'passkey-factory-sdk'
-
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
     declare public rpcUrl: string
