@@ -6,7 +6,7 @@ import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { Buffer } from 'buffer'
 import { PasskeyBase } from './base'
-import { AssembledTransaction, DEFAULT_TIMEOUT } from '@stellar/stellar-sdk/contract'
+import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 
 export { Client as PasskeyClient } from 'passkey-kit-sdk'
 export { Client as FactoryClient } from 'passkey-factory-sdk'
@@ -187,7 +187,7 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the `getContractId` function
         catch {
-            contractId = getContractId ? await getContractId(keyId) : undefined
+            contractId = getContractId && await getContractId(keyId)
         }
 
         if (!contractId)
@@ -393,8 +393,8 @@ export class PasskeyKit extends PasskeyBase {
         return entry
     }
 
-    public sign<T>(
-        txn: AssembledTransaction<T>,
+    public async sign<T>(
+        txn: AssembledTransaction<T> | Tx | string,
         options?: {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
@@ -403,15 +403,21 @@ export class PasskeyKit extends PasskeyBase {
             expiration?: number
         }
     ) {
-        // TODO ensure we're outputting a built transaction that's actually useful in the case you don't intend to use launchtube
-        // Pretty sure we'll always be woefully under budget
-        return txn.signAuthEntries({
+        if (typeof txn === 'string') {
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec)
+        } else if (!(txn instanceof AssembledTransaction)) {
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec)
+        }
+
+        await txn.signAuthEntries({
             address: this.wallet!.options.contractId,
             authorizeEntry: (entry) => {
                 const clone = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR())
                 return this.signAuthEntry(clone, options)
             },
         })
+
+        return txn
     }
 
     public addSecp256r1(keyId: Uint8Array, publicKey: Uint8Array, limits: SignerLimits, store: SignerStore) {

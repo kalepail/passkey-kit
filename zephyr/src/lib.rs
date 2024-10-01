@@ -181,7 +181,7 @@ pub struct AddressBySignerRequest {
 }
 
 #[no_mangle]
-pub extern "C" fn get_address_by_signer() {
+pub extern "C" fn get_addresses_by_signer() {
     let env = EnvClient::empty();
     let AddressBySignerRequest { key, kind } = env.read_request_body();
 
@@ -213,11 +213,14 @@ pub extern "C" fn get_address_by_signer() {
         .read()
         .unwrap();
 
-    if let Some(SignersAddress { address }) = signers.get(0) {
-        let address = address_to_alloc_string(&env, env.from_scval::<Address>(address));
-        env.conclude(address);
+    if signers.is_empty() {
+        env.conclude::<Vec<String>>(Vec::default());
     } else {
-        env.conclude(None::<String>);
+        let contracts = signers.iter().map(|SignersAddress { address }| {
+            address_to_alloc_string(&env, env.from_scval::<Address>(address))
+        }).collect::<Vec<String>>();
+
+        env.conclude(contracts);
     }
 }
 

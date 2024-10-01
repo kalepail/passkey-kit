@@ -87,9 +87,29 @@ export class PasskeyServer extends PasskeyBase {
         }[]
     }
 
-    public async getContractId(keyId: string) {
+    public async getContractId(options: {
+        keyId?: string,
+        publicKey?: string,
+        policy?: string,
+    }, index = 0) {
         if (!this.mercuryUrl || !this.mercuryJwt)
-            return
+            throw new Error('Mercury service not configured')
+
+        let { keyId, publicKey, policy } = options || {}
+
+        if ([keyId, publicKey, policy].filter((arg) => !!arg).length > 1)
+            throw new Error('Exactly one of `options.keyId`, `options.publicKey`, or `options.policy` must be provided.');
+
+        let args: { key: string, kind: 'Secp256r1' | 'Ed25519' | 'Policy' }
+
+        if (keyId)
+            args = { key: keyId, kind: 'Secp256r1' }
+        else if (publicKey)
+            args = { key: publicKey, kind: 'Ed25519' }
+        else if (policy)
+            args = { key: policy, kind: 'Policy' }
+        else
+            throw new Error('Exactly one of `options.keyId`, `options.publicKey`, or `options.policy` must be provided.');
 
         const res = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
             method: 'POST',
@@ -101,23 +121,20 @@ export class PasskeyServer extends PasskeyBase {
                 project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
-                        fname: "get_address_by_signer",
-                        arguments: JSON.stringify({
-                            key: keyId,
-                            kind: 'Secp256r1'
-                        })
+                        fname: "get_addresses_by_signer",
+                        arguments: JSON.stringify(args)
                     }
                 }
             })
         })
             .then(async (res) => {
                 if (res.ok)
-                    return res.json()
+                    return await res.json() as string[]
 
                 throw await res.json()
             })
 
-        return res || undefined as string | undefined
+        return res[index]
     }
 
     /* LATER
