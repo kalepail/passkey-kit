@@ -26,7 +26,6 @@
 
 	let keyId: string;
 	let contractId: string;
-	let admins: number;
 	let adminSigner: string | undefined;
 	let balance: string;
 	let signers: {
@@ -330,8 +329,6 @@
 		adminSigner = (
 			adminKeys.find(({ key }) => keyId === key) || adminKeys[0]
 		).key;
-
-		admins = adminKeys.length;
 	}
 </script>
 

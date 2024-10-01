@@ -1014,7 +1014,7 @@ checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
 name = "smart-wallets-data-multi-signer-multi-sig"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "hex",
@@ -1599,9 +1599,9 @@ dependencies = [
 
 [[package]]
 name = "zephyr-sdk"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd06506e3ed0fc18c3949958939c6bfe4deef6fb55e8858c48775c9605ac1665"
+checksum = "62e4f57f536270b75cde16e50201b3e763f4a078ef0c6a1cab36822f50a8dad7"
 dependencies = [
  "bincode",
  "charming-fork-zephyr",
