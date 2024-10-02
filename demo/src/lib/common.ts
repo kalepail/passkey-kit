@@ -17,9 +17,10 @@ export const fundKeypair = new Promise<Keypair>(async (resolve) => {
     const nowData = new TextEncoder().encode(now.getTime().toString());
     const hashBuffer = await crypto.subtle.digest('SHA-256', nowData);
     const keypair = Keypair.fromRawEd25519Seed(Buffer.from(hashBuffer))
+    const publicKey = keypair.publicKey()
 
-    rpc
-        .requestAirdrop(keypair.publicKey())
+    rpc.getAccount(publicKey)
+        .catch(() => rpc.requestAirdrop(publicKey))
         .catch(() => { })
 
     resolve(keypair)
