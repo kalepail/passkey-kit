@@ -4,7 +4,6 @@ pages_build_output_dir = "demo/dist"
 compatibility_date = "2024-10-03"
 
 [vars]
-NODE_VERSION = "20"
 VITE_factoryContractId = "CCD7M4VVKELWL2RO4XJOZOGBDF3ESFIKG2EAU4ETVNAKMRRKE6YIQU5E"
 VITE_launchtubeUrl = "https://launchtube.sdf-ecosystem.workers.dev"
 VITE_mercuryUrl = "https://api.mercurydata.app"
@@ -13,7 +12,6 @@ VITE_networkPassphrase = "Test SDF Network ; September 2015"
 VITE_rpcUrl = "https://soroban-testnet.stellar.org"
 
 [env.production.vars]
-NODE_VERSION = "20"
 VITE_factoryContractId = "CCPLERXCJZB7LX2VOSOCBNRN754FRLHI6Y2AVOQBA5L7C2ZJX5RFVVET"
 VITE_launchtubeUrl = "https://launchtube.sdf-ecosystem.workers.dev"
 VITE_mercuryUrl = "https://api.mercurydata.app"
