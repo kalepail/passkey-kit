@@ -1,25 +1,25 @@
 {
   "name": "passkey-kit",
-  "version": "0.7.16",
-  "description": "A helper library for creating and using passkey accounts on the Stellar blockchain.",
+  "version": "0.7.17",
+  "description": "A helper library for creating and using smart wallet accounts on the Stellar blockchain.",
   "author": "Tyler van der Hoeven",
   "license": "MIT",
   "type": "module",
   "main": "src/index.ts",
   "types": "types/index.d.ts",
   "scripts": {
-    "build:demo": "cd demo && pnpm --ignore-workspace install && pnpm run build",
-    "prepublishOnly": "pnpm run build",
-    "build:sac": "pnpm --filter ./packages/sac-sdk run build",
-    "build:pfs": "pnpm --filter ./packages/passkey-factory-sdk run build",
-    "build:pks": "pnpm --filter ./packages/passkey-kit-sdk run build",
-    "build": "pnpm run build:sac && pnpm run build:pfs && pnpm run build:pks && tsc",
+    "build:demo": "cd demo && npm --workspaces=false install && npm run build",
+    "prepublishOnly": "npm run build",
+    "build:sac": "npm --workspace=sac-sdk run build",
+    "build:pfs": "npm --workspace=passkey-factory-sdk run build",
+    "build:pks": "npm --workspace=passkey-kit-sdk run build",
+    "build": "npm run build:sac && npm run build:pfs && npm run build:pks && tsc",
     "ext:cp": "./clone-js-sdk.sh"
   },
   "dependencies": {
     "@darkedges/capacitor-native-webauthn": "^0.0.4",
     "@simplewebauthn/browser": "^10.0.0",
-    "@stellar/stellar-sdk": "file:./ext/@stellar/stellar-sdk",
+    "@stellar/stellar-sdk": "github:stellar/js-stellar-sdk",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-factory-sdk": "workspace:*",
@@ -28,7 +28,7 @@
   },
   "devDependencies": {
     "@simplewebauthn/types": "^10.0.0",
-    "@types/node": "^22.7.3",
+    "@types/node": "^22.7.4",
     "typescript": "^5.6.2"
   },
   "workspaces": [
@@ -36,10 +36,8 @@
     "packages/passkey-kit-sdk",
     "packages/sac-sdk"
   ],
-  "pnpm": {
-    "overrides": {
-      "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
-    }
+  "overrides": {
+    "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
   },
   "engine": {
     "node": ">=20"

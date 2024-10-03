@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "types": "types/index.d.ts",
   "scripts": {
-    "prepublishOnly": "pnpm run build",
+    "prepublishOnly": "bun run build",
     "build": "tsc"
   },
   "dependencies": {
