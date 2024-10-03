@@ -1,2 +1,2 @@
-name = "passkey-kit"
+name = "passkey-kit-demo"
 pages_build_output_dir = "./dist"
