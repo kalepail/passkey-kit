@@ -59,5 +59,6 @@
   "bugs": {
     "url": "https://github.com/kalepail/passkey-kit/issues"
   },
-  "homepage": "https://github.com/kalepail/passkey-kit/blob/main/README.md"
+  "homepage": "https://github.com/kalepail/passkey-kit/blob/main/README.md",
+  "packageManager": "npm"
 }

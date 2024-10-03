@@ -22,5 +22,6 @@
   },
   "overrides": {
     "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
-  }
+  },
+  "packageManager": "npm"
 }
