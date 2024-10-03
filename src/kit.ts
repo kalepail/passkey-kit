@@ -307,45 +307,6 @@ export class PasskeyKit extends PasskeyBase {
             }
         }
 
-        // const scKeyType = xdr.ScSpecTypeDef.scSpecTypeUdt(
-        //     new xdr.ScSpecTypeUdt({ name: "SignerKey" }),
-        // );
-        // const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
-        //     new xdr.ScSpecTypeUdt({ name: "Signature" }),
-        // );
-        // const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
-        // const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
-        // const scEntry = new xdr.ScMapEntry({
-        //     key: scKey,
-        //     val: scVal,
-        // })
-
-        // switch (credentials.signature().switch().name) {
-        //     case 'scvVoid':
-        //         credentials.signature(xdr.ScVal.scvVec([
-        //             xdr.ScVal.scvMap([scEntry])
-        //         ]))
-        //         break;
-        //     case 'scvVec':
-        //         // Add the new signature to the existing map
-        //         credentials.signature().vec()?.[0].map()?.push(scEntry)
-
-        //         // Order the map by key
-        //         // Not using Buffer.compare because Symbols are 9 bytes and unused bytes _append_ 0s vs prepending them, which is too bad
-        //         credentials.signature().vec()?.[0].map()?.sort((a, b) => {
-        //             return (
-        //                 a.key().vec()![0].sym() +
-        //                 a.key().vec()![1].toXDR().join('')
-        //             ).localeCompare(
-        //                 b.key().vec()![0].sym() +
-        //                 b.key().vec()![1].toXDR().join('')
-        //             )
-        //         })
-        //         break;
-        //     default:
-        //         throw new Error('Unsupported signature')
-        // }
-
         // Insert the new signature into the signatures Map
         signatures[0].set(key, val)
 
