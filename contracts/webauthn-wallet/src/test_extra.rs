@@ -8,7 +8,7 @@ use soroban_sdk::{
     map,
     xdr::{
         ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress, CreateContractArgs,
-        Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits, ScAddress, ScMap, ScVal,
+        Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits, ScAddress, ScVal,
         SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
         SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, Uint256, VecM, WriteXdr,
     },

@@ -8,6 +8,7 @@ export class PasskeyServer extends PasskeyBase {
     public launchtubeJwt: string | undefined
     public mercuryUrl: string | undefined
     public mercuryJwt: string | undefined
+    public mercuryKey: string | undefined
 
     constructor(options: {
         rpcUrl?: string,
@@ -15,6 +16,7 @@ export class PasskeyServer extends PasskeyBase {
         launchtubeJwt?: string,
         mercuryUrl?: string,
         mercuryJwt?: string,
+        mercuryKey?: string,
     }) {
         const {
             rpcUrl,
@@ -22,6 +24,7 @@ export class PasskeyServer extends PasskeyBase {
             launchtubeJwt,
             mercuryUrl,
             mercuryJwt,
+            mercuryKey,
         } = options
 
         super(rpcUrl)
@@ -37,17 +40,20 @@ export class PasskeyServer extends PasskeyBase {
 
         if (mercuryJwt)
             this.mercuryJwt = mercuryJwt
+
+        if (mercuryKey)
+            this.mercuryKey = mercuryKey
     }
 
     public async getSigners(contractId: string) {
-        if (!this.rpc || !this.mercuryUrl || !this.mercuryJwt)
+        if (!this.rpc || !this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
             throw new Error('Mercury service not configured')
 
         const signers = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.mercuryJwt}`
+                Authorization: this.mercuryJwt ? `Bearer ${this.mercuryJwt}` : this.mercuryKey!
             },
             body: JSON.stringify({
                 project_name: 'smart-wallets-data-multi-signer-multi-sig',
@@ -87,37 +93,52 @@ export class PasskeyServer extends PasskeyBase {
         }[]
     }
 
-    public async getContractId(keyId: string) {
-        if (!this.mercuryUrl || !this.mercuryJwt)
-            return
+    public async getContractId(options: {
+        keyId?: string,
+        publicKey?: string,
+        policy?: string,
+    }, index = 0) {
+        if (!this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
+            throw new Error('Mercury service not configured')
+
+        let { keyId, publicKey, policy } = options || {}
+
+        if ([keyId, publicKey, policy].filter((arg) => !!arg).length > 1)
+            throw new Error('Exactly one of `options.keyId`, `options.publicKey`, or `options.policy` must be provided.');
+
+        let args: { key: string, kind: 'Secp256r1' | 'Ed25519' | 'Policy' }
+
+        if (keyId)
+            args = { key: keyId, kind: 'Secp256r1' }
+        else if (publicKey)
+            args = { key: publicKey, kind: 'Ed25519' }
+        else if (policy)
+            args = { key: policy, kind: 'Policy' }
 
         const res = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.mercuryJwt}`
+                Authorization: this.mercuryJwt ? `Bearer ${this.mercuryJwt}` : this.mercuryKey!
             },
             body: JSON.stringify({
                 project_name: 'smart-wallets-data-multi-signer-multi-sig',
                 mode: {
                     Function: {
-                        fname: "get_address_by_signer",
-                        arguments: JSON.stringify({
-                            key: keyId,
-                            kind: 'Secp256r1'
-                        })
+                        fname: "get_addresses_by_signer",
+                        arguments: JSON.stringify(args!)
                     }
                 }
             })
         })
             .then(async (res) => {
                 if (res.ok)
-                    return res.json()
+                    return await res.json() as string[]
 
                 throw await res.json()
             })
 
-        return res || undefined as string | undefined
+        return res[index]
     }
 
     /* LATER

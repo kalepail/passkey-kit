@@ -235,11 +235,6 @@ impl CustomAccountInterface for Contract {
                             if let SignerKey::Policy(policy) = &signer_key {
                                 PolicyClient::new(&env, policy)
                                     .policy__(&env.current_contract_address(), &auth_contexts);
-                                // env.invoke_contract::<()>(
-                                //     policy,
-                                //     &symbol_short!("policy__"),
-                                //     vec![&env, auth_contexts.clone().into()],
-                                // );
                                 continue;
                             }
 
@@ -366,11 +361,6 @@ fn verify_signer_limit_keys(
 
                 PolicyClient::new(&env, policy)
                     .policy__(&env.current_contract_address(), &vec![env, context.clone()]);
-                // env.invoke_contract::<()>(
-                //     policy,
-                //     &symbol_short!("policy__"),
-                //     vec![env, vec![env, context.clone()].to_val()],
-                // );
                 // For every other SignerLimits key, it must exist in the signatures map and thus exist as a signer on the smart wallet
             } else if !signatures.0.contains_key(signer_limits_key.clone()) {
                 // if any required key is missing this contract invocation is invalid

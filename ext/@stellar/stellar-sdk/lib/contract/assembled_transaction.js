@@ -644,6 +644,7 @@ class AssembledTransaction {
 
     // eslint-disable-next-line no-restricted-syntax
     for (const [i, entry] of authEntries.entries()) {
+      // workaround for https://github.com/stellar/js-stellar-sdk/issues/1070
       const credentials = _stellarBase.xdr.SorobanCredentials.fromXDR(entry.credentials().toXDR());
       if (credentials.switch() !== _stellarBase.xdr.SorobanCredentialsType.sorobanCredentialsAddress()) {
         // if the invoker/source account, then the entry doesn't need explicit

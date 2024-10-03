@@ -1,5 +1,5 @@
 {
-  "version": "0.3.1",
+  "version": "0.3.4",
   "name": "passkey-factory-sdk",
   "type": "module",
   "main": "src/index.ts",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "buffer": "6.0.3",
-    "@stellar/stellar-sdk": "file:../../ext/@stellar/stellar-sdk"
+    "@stellar/stellar-sdk": "12.3.0"
   },
   "devDependencies": {
     "typescript": "5.6.2"

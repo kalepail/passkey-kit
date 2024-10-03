@@ -37,7 +37,7 @@ pub struct SignersAddress {
     pub address: ScVal,
 }
 
-#[derive(DatabaseDerive, Serialize, Clone)]
+#[derive(DatabaseDerive, Serialize, Clone, Debug)]
 #[with_name("signers")]
 pub struct SignersActive {
     pub active: ScVal,

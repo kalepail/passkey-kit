@@ -1,12 +1,13 @@
-import { Client as PasskeyClient, type Signature, type Signatures, type SignerKey } from 'passkey-kit-sdk'
 import { Client as FactoryClient } from 'passkey-factory-sdk'
-import { Address, StrKey, hash, xdr, SorobanRpc, Keypair, Transaction, Operation, nativeToScVal } from '@stellar/stellar-sdk'
-import base64url from 'base64url'
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
-import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
-import { Buffer } from 'buffer'
-import { PasskeyBase } from './base'
+import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits, type Signatures } from 'passkey-kit-sdk'
+import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk'
 import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
+import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
+import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
+import { Buffer } from 'buffer'
+import base64url from 'base64url'
+import type { SignerKey, SignerLimits, SignerStore } from './types'
+import { PasskeyBase } from './base'
 
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
@@ -113,8 +114,8 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     public async connectWallet(opts?: {
-        keyId?: string | Uint8Array,
         rpId?: string,
+        keyId?: string | Uint8Array,
         getContractId?: (keyId: string) => Promise<string | undefined>
     }) {
         let { keyId, rpId, getContractId } = opts || {}
@@ -161,7 +162,7 @@ export class PasskeyKit extends PasskeyBase {
         }
         // if that fails look up from the `getContractId` function
         catch {
-            contractId = getContractId ? await getContractId(keyId) : undefined
+            contractId = getContractId && await getContractId(keyId)
         }
 
         if (!contractId)
@@ -169,8 +170,8 @@ export class PasskeyKit extends PasskeyBase {
 
         this.wallet = new PasskeyClient({
             contractId,
+            rpcUrl: this.rpcUrl,
             networkPassphrase: this.networkPassphrase,
-            rpcUrl: this.rpcUrl
         })
 
         return {
@@ -219,7 +220,7 @@ export class PasskeyKit extends PasskeyBase {
         const payload = hash(preimage.toXDR())
 
         let signatures: Signatures
-        let key: SignerKey
+        let key: SDKSignerKey
         let val: Signature | undefined
 
         const scSpecTypeDefSignatures = xdr.ScSpecTypeDef.scSpecTypeUdt(
@@ -367,8 +368,8 @@ export class PasskeyKit extends PasskeyBase {
         return entry
     }
 
-    public async sign(
-        txn: AssembledTransaction<unknown>,
+    public async sign<T>(
+        txn: AssembledTransaction<T> | Tx | string,
         options?: {
             rpId?: string,
             keyId?: 'any' | string | Uint8Array
@@ -377,21 +378,120 @@ export class PasskeyKit extends PasskeyBase {
             expiration?: number
         }
     ) {
+        if (typeof txn === 'string') {
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec)
+        } else if (!(txn instanceof AssembledTransaction)) {
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec)
+        }
+
         await txn.signAuthEntries({
             address: this.wallet!.options.contractId,
             authorizeEntry: (entry) => {
                 const clone = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR())
-                return this.signAuthEntry(clone, options)    
+                return this.signAuthEntry(clone, options)
             },
         })
+
+        return txn
     }
 
-    // Add little utility helpers for adding and removing signers
+    public addSecp256r1(keyId: Uint8Array, publicKey: Uint8Array, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Secp256r1",
+                values: [
+                    Buffer.from(keyId),
+                    Buffer.from(publicKey),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addEd25519(publicKey: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Ed25519",
+                values: [
+                    Keypair.fromPublicKey(publicKey).rawPublicKey(),
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+    public addPolicy(policy: string, limits: SignerLimits, store: SignerStore) {
+        return this.wallet!.add({
+            signer: {
+                tag: "Policy",
+                values: [
+                    policy,
+                    this.getSignerLimits(limits),
+                    { tag: store, values: undefined },
+                ],
+            },
+        });
+    }
+
+    public remove(signer: SignerKey) {
+        return this.wallet!.remove({
+            signer_key: this.getSignerKey(signer)
+        });
+    }
 
     /* LATER 
         - Add a getKeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
     */
+
+    private getSignerLimits(limits: SignerLimits) {
+        const sdk_limits: SDKSignerLimits = [new Map()]
+
+        for (const [contract, signer_keys] of limits.entries()) {
+            let sdk_signer_keys: SDKSignerKey[] | undefined
+
+            if (signer_keys?.length) {
+                sdk_signer_keys = []
+
+                for (const signer_key of signer_keys) {
+                    sdk_signer_keys.push(
+                        this.getSignerKey(signer_key)
+                    )
+                }
+            }
+
+            sdk_limits[0].set(contract, sdk_signer_keys)
+        }
+
+        return sdk_limits
+    }
+
+    private getSignerKey({ key: tag, value }: SignerKey) {
+        let signer_key: SDKSignerKey
+
+        switch (tag) {
+            case 'Policy':
+                signer_key = {
+                    tag,
+                    values: [value]
+                }
+                break;
+            case 'Ed25519':
+                signer_key = {
+                    tag,
+                    values: [Keypair.fromPublicKey(value).rawPublicKey()]
+                }
+                break;
+            case 'Secp256r1':
+                signer_key = {
+                    tag,
+                    values: [base64url.toBuffer(value)]
+                }
+                break;
+        }
+
+        return signer_key
+    }
 
     private async getPublicKey(response: AuthenticatorAttestationResponseJSON) {
         let publicKey: Buffer | undefined

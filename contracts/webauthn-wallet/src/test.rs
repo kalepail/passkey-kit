@@ -8,14 +8,13 @@ use ed25519_dalek::{Keypair, Signer as _};
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
 use sample_policy::Contract as PolicyContract;
 use soroban_sdk::{
-    auth::{Context, ContractContext},
-    map, symbol_short, token, vec,
+    map, token, vec,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
-        ScVec, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits,
+        SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
         SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, VecM, WriteXdr,
     },
-    Address, Bytes, BytesN, Env, IntoVal, String,
+    Address, Bytes, BytesN, Env, String,
 };
 use stellar_strkey::{ed25519, Strkey};
 use webauthn_wallet_interface::types::{
