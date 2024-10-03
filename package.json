@@ -9,6 +9,8 @@
   "types": "types/index.d.ts",
   "scripts": {
     "build:demo": "cd demo && npm --workspaces=false install && npm run build",
+    "deploy:demo": "npx wrangler pages deploy",
+    "deploy:demo:prod": "npx wrangler pages deploy --env production",
     "prepublishOnly": "npm run build",
     "build:sac": "npm --workspace=sac-sdk run build",
     "build:pfs": "npm --workspace=passkey-factory-sdk run build",
