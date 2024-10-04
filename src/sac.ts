@@ -1,6 +1,6 @@
 import { Client as SacClient } from 'sac-sdk'
 import { PasskeyBase } from "./base"
-import type { SorobanRpc } from '@stellar/stellar-sdk'
+import type { SorobanRpc } from '@stellar/stellar-sdk/minimal'
 
 export class SACClient extends PasskeyBase {
     declare public rpc: SorobanRpc.Server

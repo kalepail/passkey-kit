@@ -1,5 +1,5 @@
 import { PasskeyKit, PasskeyServer, SACClient } from "passkey-kit";
-import { Account, Keypair, SorobanRpc, StrKey } from "@stellar/stellar-sdk"
+import { Account, Keypair, SorobanRpc, StrKey } from "@stellar/stellar-sdk/minimal"
 import { Buffer } from "buffer";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
 import { WebAuthn } from "@darkedges/capacitor-native-webauthn";

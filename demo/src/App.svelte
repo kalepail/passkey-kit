@@ -8,7 +8,7 @@
 		native,
 		server,
 	} from "./lib/common";
-	import { Keypair } from "@stellar/stellar-sdk";
+	import { Keypair } from "@stellar/stellar-sdk/minimal";
     import { SignerStore, SignerKey, type SignerLimits } from "passkey-kit";
 
 	// TODO need to support two toggles:

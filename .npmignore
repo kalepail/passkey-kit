@@ -183,3 +183,7 @@ contracts/
 demo/
 ext/
 zephyr/
+
+# TODO can we toss packages as well?
+# Have more to toss here as well. Ideally this was allow list vs block list
+# I think there's things we can do in the package.json to help with this. "exports", maybe, etc.

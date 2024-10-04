@@ -1,5 +1,5 @@
 import { Buffer } from "buffer";
-import { Address } from '@stellar/stellar-sdk';
+import { Address } from '@stellar/stellar-sdk/minimal';
 import {
   AssembledTransaction,
   Client as ContractClient,

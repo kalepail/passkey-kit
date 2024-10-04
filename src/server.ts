@@ -1,4 +1,4 @@
-import { SorobanRpc, xdr } from "@stellar/stellar-sdk"
+import { SorobanRpc, xdr } from "@stellar/stellar-sdk/minimal"
 import { PasskeyBase } from "./base"
 import base64url from "base64url"
 import type { Tx } from "@stellar/stellar-sdk/contract"

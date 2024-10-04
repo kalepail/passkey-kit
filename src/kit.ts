@@ -1,6 +1,6 @@
 import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
-import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk'
+import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk/minimal'
 import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
