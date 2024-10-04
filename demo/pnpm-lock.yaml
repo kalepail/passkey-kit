@@ -526,8 +526,8 @@ packages:
     resolution: {integrity: sha512-QMEp5B7cftE7APOjk5Y6xgrbWu+WkLVQwk8JNjZ8nKRciZaByEW6MubieAiToS7+dwvrjGhH8jRXz3MVd0AYqQ==}
     hasBin: true
 
-  sodium-native@4.2.0:
-    resolution: {integrity: sha512-rdJRAf/RE/IRFUUoUsz10slNAQDTGz5ChpIeR1Ti0BtGYstl6Uok4hHALPBdnFcLml6qXJ2pDd0/De09mPa6mg==}
+  sodium-native@4.2.1:
+    resolution: {integrity: sha512-48X3PfRLW+f0fgb3J7f7mkZ9eBKcGR/bD5mdXXLAx4RWwKUe3095yPQgiUUQTfh8Q29JzwhSQATitQDBIozN/w==}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -774,7 +774,7 @@ snapshots:
       sha.js: 2.4.11
       tweetnacl: 1.0.3
     optionalDependencies:
-      sodium-native: 4.2.0
+      sodium-native: 4.2.1
 
   '@stellar/stellar-sdk@13.0.0-beta.1':
     dependencies:
@@ -1013,7 +1013,7 @@ snapshots:
       inherits: 2.0.4
       safe-buffer: 5.2.1
 
-  sodium-native@4.2.0:
+  sodium-native@4.2.1:
     dependencies:
       node-gyp-build: 4.8.2
     optional: true

@@ -9,6 +9,8 @@ import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
 
+// TODO Return base64url encoded strings as well as buffers
+
 export class PasskeyKit extends PasskeyBase {
     declare public rpc: SorobanRpc.Server
     declare public rpcUrl: string
@@ -44,7 +46,7 @@ export class PasskeyKit extends PasskeyBase {
     }
 
     public async createWallet(app: string, user: string) {
-        const { keyId, publicKey } = await this.createKey(app, user)
+        const { keyId, keyId_base64, publicKey } = await this.createKey(app, user)
 
         const { result, built } = await this.factory.deploy({
             salt: hash(keyId),
@@ -75,6 +77,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return {
             keyId,
+            keyId_base64,
             contractId,
             built
         }
@@ -109,7 +112,8 @@ export class PasskeyKit extends PasskeyBase {
 
         return {
             keyId: base64url.toBuffer(id),
-            publicKey: await this.getPublicKey(response)
+            keyId_base64: id,
+            publicKey: await this.getPublicKey(response),
         }
     }
 
@@ -176,6 +180,7 @@ export class PasskeyKit extends PasskeyBase {
 
         return {
             keyId: keyIdBuffer,
+            keyId_base64: keyId,
             contractId
         }
     }
