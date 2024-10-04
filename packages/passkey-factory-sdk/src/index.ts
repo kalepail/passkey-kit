@@ -19,12 +19,20 @@ import type {
   Option,
   Typepoint,
   Duration,
-} from '@stellar/stellar-sdk/contract';
+} from '@stellar/stellar-sdk/contract'; 
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
+
+
+export const networks = {
+  testnet: {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    contractId: "NIL",
+  }
+} as const
 
 export type SignerKey = { tag: "Policy", values: readonly [string] } | { tag: "Ed25519", values: readonly [Buffer] } | { tag: "Secp256r1", values: readonly [Buffer] };
 

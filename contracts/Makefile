@@ -28,9 +28,9 @@ init:
 	soroban contract invoke --id $(WEBAUTHN_FACTORY) -- init --wasm_hash $(WEBAUTHN_WASM)
 
 bindings:
-	soroban contract bindings typescript --id KALE --network testnet --output-dir ./out/sac-sdk --overwrite
-	soroban contract bindings typescript --id KALE --wasm ./target/wasm32-unknown-unknown/release/webauthn_factory.wasm --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
-	soroban contract bindings typescript --id KALE --wasm ./target/wasm32-unknown-unknown/release/webauthn_wallet.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
+	soroban contract bindings typescript --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network testnet --output-dir ./out/sac-sdk --overwrite
+	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/webauthn_factory.wasm --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
+	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/webauthn_wallet.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
 
 fmt:
 	@cd webauthn-factory && cargo fmt --all

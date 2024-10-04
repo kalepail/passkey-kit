@@ -26,6 +26,14 @@ if (typeof window !== 'undefined') {
   window.Buffer = window.Buffer || Buffer;
 }
 
+
+export const networks = {
+  testnet: {
+    networkPassphrase: "Test SDF Network ; September 2015",
+    contractId: "NIL",
+  }
+} as const
+
 export const Errors = {
   1: { message: "NotFound" },
 
