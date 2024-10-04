@@ -8,6 +8,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
+    "@darkedges/capacitor-native-webauthn": "^0.0.4",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@tsconfig/svelte": "^5.0.4",
     "base64url": "^3.0.1",
@@ -18,7 +19,7 @@
     "tslib": "^2.7.0",
     "typescript": "^5.6.2",
     "vite": "^5.4.8",
-    "@stellar/stellar-sdk": "github:stellar/js-stellar-sdk"
+    "@stellar/stellar-sdk": "13.0.0-beta.1"
   },
   "overrides": {
     "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
