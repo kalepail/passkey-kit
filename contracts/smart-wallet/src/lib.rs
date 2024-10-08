@@ -6,12 +6,12 @@ use soroban_sdk::{
     crypto::Hash,
     panic_with_error, symbol_short, vec, BytesN, Env, FromVal, Symbol, Vec,
 };
-use webauthn_wallet_interface::{
+use smart_wallet_interface::{
     types::{
         Error, Secp256r1Signature, Signature, Signatures, Signer, SignerKey, SignerLimits,
         SignerStorage, SignerVal,
     },
-    PolicyClient, WebAuthnInterface,
+    PolicyClient, SmartWalletInterface,
 };
 
 mod base64_url;
@@ -28,7 +28,7 @@ const EVENT_TAG: Symbol = symbol_short!("sw_v1");
 const INITIALIZED: Symbol = symbol_short!("init");
 
 #[contractimpl]
-impl WebAuthnInterface for Contract {
+impl SmartWalletInterface for Contract {
     fn add_signer(env: Env, signer: Signer) {
         if env
             .storage()

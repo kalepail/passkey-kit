@@ -5,8 +5,8 @@ use types::{Signer, SignerKey};
 
 pub mod types;
 
-#[contractclient(name = "WebAuthnClient")]
-pub trait WebAuthnInterface {
+#[contractclient(name = "SmartWalletClient")]
+pub trait SmartWalletInterface {
     fn add_signer(env: Env, signer: Signer);
     fn update_signer(env: Env, signer: Signer);
     fn remove_signer(env: Env, signer_key: SignerKey);

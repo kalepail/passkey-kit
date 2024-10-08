@@ -15,7 +15,7 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env,
 };
 use stellar_strkey::{ed25519, Strkey};
-use webauthn_wallet_interface::types::{
+use smart_wallet_interface::types::{
     Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
 };
 
@@ -26,7 +26,7 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 mod factory {
     soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/webauthn_factory.wasm"
+        file = "../target/wasm32-unknown-unknown/release/smart_wallet_factory.wasm"
     );
 }
 

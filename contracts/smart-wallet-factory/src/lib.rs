@@ -3,7 +3,7 @@
 use soroban_sdk::{
     contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
 };
-use webauthn_wallet_interface::{types::Signer, WebAuthnClient};
+use smart_wallet_interface::{types::Signer, SmartWalletClient};
 
 mod types;
 
@@ -62,7 +62,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        WebAuthnClient::new(&env, &address).add_signer(&signer);
+        SmartWalletClient::new(&env, &address).add_signer(&signer);
 
         let max_ttl = env.storage().max_ttl();
 

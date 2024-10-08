@@ -5,7 +5,7 @@ use soroban_sdk::{
     contract, contracterror, contractimpl, panic_with_error, symbol_short, Address, Env,
     TryFromVal, Vec,
 };
-use webauthn_wallet_interface::PolicyInterface;
+use smart_wallet_interface::PolicyInterface;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]

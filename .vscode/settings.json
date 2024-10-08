@@ -4,7 +4,7 @@
         "./contracts/Cargo.toml",
         "./contracts/example-contract/Cargo.toml",
         "./contracts/sample-policy/Cargo.toml",
-        "./contracts/webauthn-factory/Cargo.toml",
-        "./contracts/webauthn-wallet/Cargo.toml",
+        "./contracts/smart-wallet-factory/Cargo.toml",
+        "./contracts/smart-wallet/Cargo.toml",
     ]
 }

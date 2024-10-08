@@ -1013,6 +1013,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "smart-wallet-interface"
+version = "0.4.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "smart-wallets-data-multi-signer-multi-sig"
 version = "0.0.0"
 dependencies = [
@@ -1020,8 +1027,8 @@ dependencies = [
  "hex",
  "serde",
  "serde_json",
+ "smart-wallet-interface",
  "stellar-strkey 0.0.11",
- "webauthn-wallet-interface",
  "zephyr-sdk",
 ]
 
@@ -1471,13 +1478,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
 dependencies = [
  "indexmap-nostd",
-]
-
-[[package]]
-name = "webauthn-wallet-interface"
-version = "0.4.1"
-dependencies = [
- "soroban-sdk",
 ]
 
 [[package]]

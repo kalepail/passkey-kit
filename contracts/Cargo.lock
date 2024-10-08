@@ -487,8 +487,8 @@ checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
 name = "example-contract"
 version = "0.0.0"
 dependencies = [
+ "smart-wallet",
  "soroban-sdk",
- "webauthn-wallet",
 ]
 
 [[package]]
@@ -999,8 +999,8 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 name = "sample-policy"
 version = "0.0.0"
 dependencies = [
+ "smart-wallet-interface",
  "soroban-sdk",
- "webauthn-wallet-interface",
 ]
 
 [[package]]
@@ -1161,6 +1161,39 @@ name = "smallvec"
 version = "1.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
+
+[[package]]
+name = "smart-wallet"
+version = "0.4.1"
+dependencies = [
+ "base64 0.22.1",
+ "ed25519-dalek 1.0.1",
+ "example-contract",
+ "rand 0.8.5",
+ "sample-policy",
+ "serde",
+ "serde-json-core",
+ "sha256",
+ "smart-wallet-interface",
+ "soroban-sdk",
+ "stellar-strkey 0.0.11",
+ "stellar-xdr",
+]
+
+[[package]]
+name = "smart-wallet-factory"
+version = "0.4.0"
+dependencies = [
+ "smart-wallet-interface",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "smart-wallet-interface"
+version = "0.4.1"
+dependencies = [
+ "soroban-sdk",
+]
 
 [[package]]
 name = "soroban-builtin-sdk-macros"
@@ -1609,39 +1642,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
 dependencies = [
  "indexmap-nostd",
-]
-
-[[package]]
-name = "webauthn-factory"
-version = "0.4.0"
-dependencies = [
- "soroban-sdk",
- "webauthn-wallet-interface",
-]
-
-[[package]]
-name = "webauthn-wallet"
-version = "0.4.1"
-dependencies = [
- "base64 0.22.1",
- "ed25519-dalek 1.0.1",
- "example-contract",
- "rand 0.8.5",
- "sample-policy",
- "serde",
- "serde-json-core",
- "sha256",
- "soroban-sdk",
- "stellar-strkey 0.0.11",
- "stellar-xdr",
- "webauthn-wallet-interface",
-]
-
-[[package]]
-name = "webauthn-wallet-interface"
-version = "0.4.1"
-dependencies = [
- "soroban-sdk",
 ]
 
 [[package]]

@@ -17,7 +17,7 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, String,
 };
 use stellar_strkey::{ed25519, Strkey};
-use webauthn_wallet_interface::types::{
+use smart_wallet_interface::types::{
     Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
 };
 
