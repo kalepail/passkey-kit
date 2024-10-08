@@ -147,7 +147,7 @@ pub extern "C" fn get_signers_by_address() {
         .read_filter()
         .column_equal_to_xdr("address", &address)
         .column_equal_to_xdr("active", &ScVal::Bool(true))
-        .column_lt("exp", env.reader().ledger_sequence())
+        .column_gt("exp", env.soroban().ledger().sequence())
         .read()
         .unwrap();
 
