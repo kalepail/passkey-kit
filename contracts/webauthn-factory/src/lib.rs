@@ -62,7 +62,7 @@ impl Contract {
 
         let address = env.deployer().with_current_contract(salt).deploy(wasm_hash);
 
-        WebAuthnClient::new(&env, &address).add(&signer);
+        WebAuthnClient::new(&env, &address).add_signer(&signer);
 
         let max_ttl = env.storage().max_ttl();
 

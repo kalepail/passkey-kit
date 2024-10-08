@@ -25,36 +25,29 @@ pub struct Contract;
 
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 const EVENT_TAG: Symbol = symbol_short!("sw_v1");
-const SIGNER_COUNT: Symbol = symbol_short!("signers");
+const INITIALIZED: Symbol = symbol_short!("init");
 
 #[contractimpl]
 impl WebAuthnInterface for Contract {
-    fn add(env: Env, signer: Signer) -> Result<(), Error> {
-        if env.storage().instance().has(&SIGNER_COUNT) {
+    fn add_signer(env: Env, signer: Signer) {
+        if env
+            .storage()
+            .instance()
+            .get::<Symbol, bool>(&INITIALIZED)
+            .unwrap_or(false)
+        {
             env.current_contract_address().require_auth();
+        } else {
+            env.storage()
+                .instance()
+                .set::<Symbol, bool>(&INITIALIZED, &true);
         }
 
         let max_ttl = env.storage().max_ttl();
 
-        let (signer_key, signer_val, signer_storage) = match signer {
-            Signer::Policy(policy, signer_limits, signer_storage) => (
-                SignerKey::Policy(policy),
-                SignerVal::Policy(signer_limits),
-                signer_storage,
-            ),
-            Signer::Ed25519(public_key, signer_limits, signer_storage) => (
-                SignerKey::Ed25519(public_key),
-                SignerVal::Ed25519(signer_limits),
-                signer_storage,
-            ),
-            Signer::Secp256r1(id, public_key, signer_limits, signer_storage) => (
-                SignerKey::Secp256r1(id),
-                SignerVal::Secp256r1(public_key, signer_limits),
-                signer_storage,
-            ),
-        };
+        let (signer_key, signer_val, signer_storage) = process_signer(signer);
 
-        store_signer(&env, &signer_key, &signer_val, &signer_storage);
+        store_signer(&env, &signer_key, &signer_val, &signer_storage, false);
 
         env.storage()
             .instance()
@@ -64,23 +57,36 @@ impl WebAuthnInterface for Contract {
             (EVENT_TAG, symbol_short!("add"), signer_key),
             (signer_val, signer_storage),
         );
-
-        Ok(())
     }
-    fn remove(env: Env, signer_key: SignerKey) -> Result<(), Error> {
+    fn update_signer(env: Env, signer: Signer) {
+        let max_ttl = env.storage().max_ttl();
+
+        let (signer_key, signer_val, signer_storage) = process_signer(signer);
+
+        store_signer(&env, &signer_key, &signer_val, &signer_storage, true);
+
+        env.storage()
+            .instance()
+            .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+
+        env.events().publish(
+            (EVENT_TAG, symbol_short!("add"), signer_key),
+            (signer_val, signer_storage),
+        );
+    }
+    fn remove_signer(env: Env, signer_key: SignerKey) {
         env.current_contract_address().require_auth();
 
-        if let Some((_, signer_storage)) = get_signer_val_storage(&env, &signer_key, false) {
-            update_signer_count(&env, false);
-
-            match signer_storage {
+        match get_signer_val_storage(&env, &signer_key, false) {
+            Some((_, signer_storage)) => match signer_storage {
                 SignerStorage::Persistent => {
                     env.storage().persistent().remove::<SignerKey>(&signer_key);
                 }
                 SignerStorage::Temporary => {
                     env.storage().temporary().remove::<SignerKey>(&signer_key);
                 }
-            }
+            },
+            None => panic_with_error!(env, Error::NotFound),
         }
 
         let max_ttl = env.storage().max_ttl();
@@ -91,10 +97,8 @@ impl WebAuthnInterface for Contract {
 
         env.events()
             .publish((EVENT_TAG, symbol_short!("remove"), signer_key), ());
-
-        Ok(())
     }
-    fn update(env: Env, hash: BytesN<32>) -> Result<(), Error> {
+    fn update_contract_code(env: Env, hash: BytesN<32>) {
         env.current_contract_address().require_auth();
 
         env.deployer().update_current_contract_wasm(hash);
@@ -104,16 +108,34 @@ impl WebAuthnInterface for Contract {
         env.storage()
             .instance()
             .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
-
-        Ok(())
     }
 }
 
+fn process_signer(signer: Signer) -> (SignerKey, SignerVal, SignerStorage) {
+    match signer {
+        Signer::Policy(policy, signer_limits, signer_storage) => (
+            SignerKey::Policy(policy),
+            SignerVal::Policy(signer_limits),
+            signer_storage,
+        ),
+        Signer::Ed25519(public_key, signer_limits, signer_storage) => (
+            SignerKey::Ed25519(public_key),
+            SignerVal::Ed25519(signer_limits),
+            signer_storage,
+        ),
+        Signer::Secp256r1(id, public_key, signer_limits, signer_storage) => (
+            SignerKey::Secp256r1(id),
+            SignerVal::Secp256r1(public_key, signer_limits),
+            signer_storage,
+        ),
+    }
+}
 fn store_signer(
     env: &Env,
     signer_key: &SignerKey,
     signer_val: &SignerVal,
     signer_storage: &SignerStorage,
+    update: bool,
 ) {
     let max_ttl = env.storage().max_ttl();
 
@@ -127,6 +149,7 @@ fn store_signer(
             env.storage()
                 .persistent()
                 .set::<SignerKey, SignerVal>(signer_key, signer_val);
+
             env.storage().persistent().extend_ttl::<SignerKey>(
                 signer_key,
                 max_ttl - WEEK_OF_LEDGERS,
@@ -139,6 +162,7 @@ fn store_signer(
             env.storage()
                 .temporary()
                 .set::<SignerKey, SignerVal>(signer_key, signer_val);
+
             env.storage().temporary().extend_ttl::<SignerKey>(
                 signer_key,
                 max_ttl - WEEK_OF_LEDGERS,
@@ -149,37 +173,34 @@ fn store_signer(
         }
     };
 
-    if let Some((_, previous_signer_storage)) = previous_signer_val_and_storage {
-        // Remove signer key in the opposing storage if it exists
-        match previous_signer_storage {
-            SignerStorage::Persistent => {
-                if !is_persistent {
-                    env.storage().persistent().remove::<SignerKey>(signer_key);
-                }
+    match previous_signer_val_and_storage {
+        Some((_, previous_signer_storage)) => {
+            // Panic if the signer key already exists and we're not update it
+            if !update {
+                panic_with_error!(env, Error::AlreadyExists);
             }
-            SignerStorage::Temporary => {
-                if is_persistent {
-                    env.storage().temporary().remove::<SignerKey>(signer_key);
+
+            // Remove signer key in the opposing storage if it exists
+            match previous_signer_storage {
+                SignerStorage::Persistent => {
+                    if !is_persistent {
+                        env.storage().persistent().remove::<SignerKey>(signer_key);
+                    }
+                }
+                SignerStorage::Temporary => {
+                    if is_persistent {
+                        env.storage().temporary().remove::<SignerKey>(signer_key);
+                    }
                 }
             }
         }
-    } else {
-        // only need to update the signer count here if we're actually adding vs replacing a signer
-        update_signer_count(&env, true);
+        None => {
+            // Panic if we're update a signer key that doesn't exist
+            if update {
+                panic_with_error!(env, Error::NotFound);
+            }
+        }
     }
-}
-
-fn update_signer_count(env: &Env, add: bool) {
-    let count = env
-        .storage()
-        .instance()
-        .get::<Symbol, i32>(&SIGNER_COUNT)
-        .unwrap_or(0)
-        + if add { 1 } else { -1 };
-
-    env.storage()
-        .instance()
-        .set::<Symbol, i32>(&SIGNER_COUNT, &count);
 }
 
 #[derive(serde::Deserialize)]
@@ -305,8 +326,8 @@ fn verify_context(
                 Some(signer_limits_keys) => {
                     // If this signer has a smart wallet context limit, limit that context to only removing itself
                     if *contract == env.current_contract_address()
-                        && *fn_name != symbol_short!("remove")
-                        || (*fn_name == symbol_short!("remove")
+                        && *fn_name != Symbol::new(&env, "remove_signer")
+                        || (*fn_name == Symbol::new(&env, "remove_signer")
                             && SignerKey::from_val(env, &args.get_unchecked(0)) != *signer_key)
                     {
                         return false; // self trying to do something other than remove itself

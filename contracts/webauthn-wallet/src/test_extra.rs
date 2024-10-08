@@ -70,7 +70,7 @@ fn test_deploy_contract() {
 
     let super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
 
-    wallet_client.mock_all_auths().add(&Signer::Ed25519(
+    wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         super_ed25519_bytes,
         SignerLimits(map![&env]),
         SignerStorage::Persistent,

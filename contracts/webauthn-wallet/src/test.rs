@@ -137,7 +137,7 @@ fn test() {
     //     .mock_all_auths()
     //     .add(&secp246r1_signer.clone());
 
-    wallet_client.mock_all_auths().add(&Signer::Ed25519(
+    wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         simple_ed25519_bytes,
         SignerLimits(map![
             &env,
@@ -150,7 +150,7 @@ fn test() {
         SignerStorage::Temporary,
     ));
 
-    wallet_client.mock_all_auths().add(&Signer::Policy(
+    wallet_client.mock_all_auths().add_signer(&Signer::Policy(
         sample_policy_address.clone(),
         SignerLimits(map![
             &env,
