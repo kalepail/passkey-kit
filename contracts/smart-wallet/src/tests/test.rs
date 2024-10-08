@@ -139,6 +139,7 @@ fn test() {
 
     wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         simple_ed25519_bytes,
+        None,
         SignerLimits(map![
             &env,
             (
@@ -152,6 +153,7 @@ fn test() {
 
     wallet_client.mock_all_auths().add_signer(&Signer::Policy(
         sample_policy_address.clone(),
+        None,
         SignerLimits(map![
             &env,
             (

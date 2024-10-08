@@ -72,6 +72,7 @@ fn test_deploy_contract() {
 
     wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         super_ed25519_bytes,
+        None,
         SignerLimits(map![&env]),
         SignerStorage::Persistent,
     ));

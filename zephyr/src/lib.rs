@@ -21,6 +21,7 @@ mod types;
 
 const SW_V1: Symbol = symbol_short!("sw_v1");
 const ADD: Symbol = symbol_short!("add");
+const UPDATE: Symbol = symbol_short!("update");
 const REMOVE: Symbol = symbol_short!("remove");
 
 #[no_mangle]
@@ -37,7 +38,7 @@ pub extern "C" fn on_close() {
                                 let address =
                                     ScVal::Address(ScAddress::Contract(Hash::from(event.contract)));
 
-                                if t1 == ADD {
+                                if t1 == ADD || t1 == UPDATE {
                                     let mut older: Vec<SignersValStorageActive> = env
                                         .read_filter()
                                         .column_equal_to_xdr("address", &address)
@@ -106,6 +107,7 @@ pub struct SignersByAddressResponse {
     kind: String,
     key: String,
     val: Option<String>,
+    expiration: Option<u32>,
     storage: String,
     limits: String,
 }
@@ -148,12 +150,12 @@ pub extern "C" fn get_signers_by_address() {
         };
 
         let mut val_parsed: Option<String> = None;
-        let signer_limits = match signer_val {
-            SignerVal::Policy(signer_limits) => signer_limits,
-            SignerVal::Ed25519(signer_limits) => signer_limits,
-            SignerVal::Secp256r1(public_key, signer_limits) => {
+        let (signer_expiration, signer_limits) = match signer_val {
+            SignerVal::Policy(signer_expiration, signer_limits) => (signer_expiration, signer_limits),
+            SignerVal::Ed25519(signer_expiration, signer_limits) => (signer_expiration, signer_limits),
+            SignerVal::Secp256r1(public_key, signer_expiration, signer_limits) => {
                 val_parsed = Some(URL_SAFE_NO_PAD.encode(public_key.to_array()));
-                signer_limits
+                (signer_expiration, signer_limits)
             }
         };
 
@@ -166,6 +168,7 @@ pub extern "C" fn get_signers_by_address() {
             kind: kind_parsed,
             key: key_parsed,
             val: val_parsed,
+            expiration: signer_expiration,
             storage: storage_parsed,
             limits: URL_SAFE.encode(signer_limits.to_xdr(&env.soroban()).to_alloc_vec()),
         })

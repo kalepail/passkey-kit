@@ -5,12 +5,14 @@ use soroban_sdk::{contracterror, contracttype, Address, Bytes, BytesN, Map, Vec}
 #[repr(u32)]
 pub enum Error {
     NotFound = 1,
-    MissingContext = 2,
-    MissingSignerLimits = 3,
-    FailedPolicySignerLimits = 4,
-    SignatureKeyValueMismatch = 5,
-    ClientDataJsonChallengeIncorrect = 6,
-    JsonParseError = 7,
+    AlreadyExists = 2,
+    MissingContext = 3,
+    SignerExpired = 4,
+    FailedSignerLimits = 5,
+    FailedPolicySignerLimits = 6,
+    SignatureKeyValueMismatch = 7,
+    ClientDataJsonChallengeIncorrect = 8,
+    JsonParseError = 9,
 }
 
 #[contracttype]
@@ -32,9 +34,9 @@ pub enum SignerKey {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerVal {
-    Policy(SignerLimits),
-    Ed25519(SignerLimits),
-    Secp256r1(BytesN<65>, SignerLimits),
+    Policy(u32, SignerLimits),
+    Ed25519(u32, SignerLimits),
+    Secp256r1(BytesN<65>, u32, SignerLimits),
 }
 
 #[contracttype]
@@ -44,12 +46,13 @@ pub enum SignerStorage {
     Temporary,
 }
 
+
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signer {
-    Policy(Address, SignerLimits, SignerStorage),
-    Ed25519(BytesN<32>, SignerLimits, SignerStorage),
-    Secp256r1(Bytes, BytesN<65>, SignerLimits, SignerStorage),
+    Policy(Address, u32, SignerLimits, SignerStorage),
+    Ed25519(BytesN<32>, u32, SignerLimits, SignerStorage),
+    Secp256r1(Bytes, BytesN<65>, u32, SignerLimits, SignerStorage),
 }
 
 #[contracttype]
