@@ -1020,7 +1020,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "smart-wallets-data-multi-signer-multi-sig"
+name = "smart-wallets-next-dima"
 version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
@@ -1121,9 +1121,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.7.2"
+version = "21.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf596b2083946a95914a55d7d29cee6a8095b515fd06211851f45bf6af5a496"
+checksum = "84589856911dfd6731695c9b51c858aed6d4540118c0a1e5c4c858ea13bc744c"
 dependencies = [
  "serde",
  "serde_json",
@@ -1135,9 +1135,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.7.2"
+version = "21.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e39bf9e8ab05579c836e8e5be5f2f4c5ba75e7337ece20e975e82fc3a9d41e"
+checksum = "c3b888f866ce621257311dd779ea49280ce29faa5ee37f22270ba7c32a8fe25d"
 dependencies = [
  "bytes-lit",
  "rand",
@@ -1152,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.7.2"
+version = "21.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da03fa00b8ca6e392f013359c06d790d2d379f9c8d6f8a6dfe563ec64311e5d3"
+checksum = "63c2173f1aacd56b4405eed71cb2a9694dff99d51ba72d4f0cbc5e4961fdabf4"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -1172,9 +1172,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.7.2"
+version = "21.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64c723195463d8742bcb481520bd8b8325da66c39ea236ad46261e6af992e8a8"
+checksum = "7705bffbcc747c08e81698b87b4a787f8b268c25d88f777160091dc1ee8121cb"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr 21.2.0",
@@ -1184,9 +1184,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.7.2"
+version = "21.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f1b0ec2af54e38f138910f09e101b100130efe625f69ece51c76dd4f06f8b2"
+checksum = "48207ebc8616c2804a17203d1d86c53c3d3c804b682cbab011a135893db1cf78"
 dependencies = [
  "prettyplease",
  "proc-macro2",

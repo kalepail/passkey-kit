@@ -7,6 +7,9 @@ use crate::{Contract, ContractClient};
 use ed25519_dalek::{Keypair, Signer as _};
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
 use sample_policy::Contract as PolicyContract;
+use smart_wallet_interface::types::{
+    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
+};
 use soroban_sdk::{
     map, token, vec,
     xdr::{
@@ -17,9 +20,6 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, String,
 };
 use stellar_strkey::{ed25519, Strkey};
-use smart_wallet_interface::types::{
-    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
-};
 
 #[test]
 fn test() {

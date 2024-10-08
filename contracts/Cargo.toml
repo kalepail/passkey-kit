@@ -4,7 +4,7 @@ resolver = "2"
 members = ["smart-wallet", "smart-wallet-interface", "smart-wallet-factory", "example-contract", "sample-policy"]
 
 [workspace.dependencies]
-soroban-sdk = { version = "21.7.2" }
+soroban-sdk = { version = "21.7.3" }
 serde = { version = "1", default-features = false }
 serde-json-core = { version = "0.6.0", default-features = false }
 stellar-xdr = { version = "21.2.0", default-features = false }

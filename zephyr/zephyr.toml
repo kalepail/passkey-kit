@@ -1,4 +1,4 @@
-name = "smart-wallets-data-multi-signer-multi-sig"
+name = "smart-wallets-next-dima"
 
 # --- GENERIC EVENTS ---
 
@@ -44,6 +44,14 @@ index = true
 
 [[tables.columns]]
 name = "val"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "limits"
+col_type = "BYTEA"
+
+[[tables.columns]]
+name = "exp"
 col_type = "BYTEA"
 
 [[tables.columns]]

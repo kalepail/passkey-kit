@@ -9,7 +9,7 @@
 		server,
 	} from "./lib/common";
 	import { Keypair } from "@stellar/stellar-sdk/minimal";
-    import { SignerStore, SignerKey, type SignerLimits } from "passkey-kit";
+    import { SignerStore, SignerKey, type SignerLimits, type Signer } from "passkey-kit";
 
 	// TODO need to support two toggles:
 	// - between temp and persistent
@@ -28,13 +28,7 @@
 	let contractId: string;
 	let adminSigner: string | undefined;
 	let balance: string;
-	let signers: {
-		kind: string;
-		key: string;
-		val: string;
-		limits: string;
-		expired?: boolean;
-	}[] = [];
+	let signers: Signer[] = [];
 
 	let keyName: string = "";
 	// let keyAdmin: boolean = false;
@@ -118,7 +112,8 @@
 				pk = publicKey;
 			}
 
-			const at = await account.addSecp256r1(id, pk, new Map(), SignerStore.Temporary);
+			const { sequence } = await account.rpc.getLatestLedger()
+			const at = await account.addSecp256r1(id, pk, new Map(), SignerStore.Temporary, sequence + 518_400);
 
 			await account.sign(at, { keyId: adminSigner });
 			const res = await server.send(at.built!);
@@ -381,7 +376,7 @@
 	{/if}
 
 	<ul>
-		{#each signers as { kind, key, val, limits, expired }}
+		{#each signers as { kind, key, val, expiration, limits, evicted }}
 			<li>
 				<button disabled>
 					{#if adminSigner === key}

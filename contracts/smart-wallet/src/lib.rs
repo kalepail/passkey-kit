@@ -2,28 +2,25 @@
 
 use context::verify_context;
 use signer::{get_signer_val_storage, process_signer, store_signer, verify_signer_expiration};
+use smart_wallet_interface::{
+    types::{Error, Signature, Signatures, Signer, SignerKey, SignerStorage, SignerVal},
+    PolicyClient, SmartWalletInterface,
+};
 use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
     contract, contractimpl,
     crypto::Hash,
     panic_with_error, symbol_short, BytesN, Env, Symbol, Vec,
 };
-use smart_wallet_interface::{
-    types::{
-        Error, Signature, Signatures, Signer, SignerKey,
-        SignerStorage, SignerVal,
-    },
-    PolicyClient, SmartWalletInterface,
-};
 use storage::extend_instance;
 use verify::verify_secp256r1_signature;
 
-mod types;
-mod storage;
-mod signer;
-mod context;
-mod verify;
 mod base64_url;
+mod context;
+mod signer;
+mod storage;
+mod types;
+mod verify;
 
 #[path = "./tests/test.rs"]
 mod test;
@@ -123,9 +120,15 @@ impl CustomAccountInterface for Contract {
                     if let Some((signer_val, _)) = get_signer_val_storage(&env, &signer_key, false)
                     {
                         let (signer_expiration, signer_limits) = match signer_val {
-                            SignerVal::Policy(signer_expiration, signer_limits) => (signer_expiration, signer_limits),
-                            SignerVal::Ed25519(signer_expiration, signer_limits) => (signer_expiration, signer_limits),
-                            SignerVal::Secp256r1(_, signer_expiration, signer_limits) => (signer_expiration, signer_limits),
+                            SignerVal::Policy(signer_expiration, signer_limits) => {
+                                (signer_expiration, signer_limits)
+                            }
+                            SignerVal::Ed25519(signer_expiration, signer_limits) => {
+                                (signer_expiration, signer_limits)
+                            }
+                            SignerVal::Secp256r1(_, signer_expiration, signer_limits) => {
+                                (signer_expiration, signer_limits)
+                            }
                         };
 
                         verify_signer_expiration(&env, signer_expiration);
@@ -173,8 +176,7 @@ impl CustomAccountInterface for Contract {
                                 panic_with_error!(&env, Error::SignatureKeyValueMismatch)
                             }
                             Signature::Secp256r1(signature) => {
-                                if let SignerVal::Secp256r1(public_key, _, _) = signer_val
-                                {
+                                if let SignerVal::Secp256r1(public_key, _, _) = signer_val {
                                     verify_secp256r1_signature(
                                         &env,
                                         &signature_payload,

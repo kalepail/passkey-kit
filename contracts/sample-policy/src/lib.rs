@@ -1,11 +1,11 @@
 #![no_std]
 
+use smart_wallet_interface::PolicyInterface;
 use soroban_sdk::{
     auth::{Context, ContractContext},
     contract, contracterror, contractimpl, panic_with_error, symbol_short, Address, Env,
     TryFromVal, Vec,
 };
-use smart_wallet_interface::PolicyInterface;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, PartialEq)]

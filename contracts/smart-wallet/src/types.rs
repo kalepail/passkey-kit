@@ -34,9 +34,9 @@ pub enum SignerKey {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum SignerVal {
-    Policy(u32, SignerLimits),
-    Ed25519(u32, SignerLimits),
-    Secp256r1(BytesN<65>, u32, SignerLimits),
+    Policy(Option<u32>, SignerLimits),
+    Ed25519(Option<u32>, SignerLimits),
+    Secp256r1(BytesN<65>, Option<u32>, SignerLimits),
 }
 
 #[contracttype]
@@ -46,13 +46,12 @@ pub enum SignerStorage {
     Temporary,
 }
 
-
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signer {
-    Policy(Address, u32, SignerLimits, SignerStorage),
-    Ed25519(BytesN<32>, u32, SignerLimits, SignerStorage),
-    Secp256r1(Bytes, BytesN<65>, u32, SignerLimits, SignerStorage),
+    Policy(Address, Option<u32>, SignerLimits, SignerStorage),
+    Ed25519(BytesN<32>, Option<u32>, SignerLimits, SignerStorage),
+    Secp256r1(Bytes, BytesN<65>, Option<u32>, SignerLimits, SignerStorage),
 }
 
 #[contracttype]

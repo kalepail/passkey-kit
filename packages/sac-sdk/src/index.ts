@@ -1,5 +1,4 @@
 import { Buffer } from "buffer";
-import { Address } from '@stellar/stellar-sdk/minimal';
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -25,7 +24,6 @@ if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
-
 
 export const networks = {
   testnet: {

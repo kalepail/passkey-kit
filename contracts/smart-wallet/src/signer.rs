@@ -1,4 +1,7 @@
-use smart_wallet_interface::{types::{Error, Signatures, Signer, SignerKey, SignerStorage, SignerVal}, PolicyClient};
+use smart_wallet_interface::{
+    types::{Error, Signatures, Signer, SignerKey, SignerStorage, SignerVal},
+    PolicyClient,
+};
 use soroban_sdk::{auth::Context, panic_with_error, vec, Env, Vec};
 
 use crate::{context::verify_context, storage::extend_signer_key};
@@ -123,6 +126,9 @@ pub fn get_signer_val_storage(
 pub fn verify_signer_expiration(env: &Env, signer_expiration: Option<u32>) {
     if let Some(signer_expiration) = signer_expiration {
         if env.ledger().sequence() > signer_expiration {
+            // Note we're not removing this expired signer. Probably fine but storage will fill up with expired signers
+            // This is fine from the protocol perspective because persistent entries will be archived and temporary entries will be evicted
+            // However on the indexer side we'll want to filter out signers which are expired
             panic_with_error!(env, Error::SignerExpired);
         }
     }

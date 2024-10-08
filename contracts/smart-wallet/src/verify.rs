@@ -1,5 +1,5 @@
 use smart_wallet_interface::types::{Error, Secp256r1Signature};
-use soroban_sdk::{panic_with_error, crypto::Hash, Env, BytesN};
+use soroban_sdk::{crypto::Hash, panic_with_error, BytesN, Env};
 
 use crate::base64_url;
 

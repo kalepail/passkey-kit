@@ -4,6 +4,9 @@ use std::println;
 extern crate std;
 
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
+use smart_wallet_interface::types::{
+    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
+};
 use soroban_sdk::{
     map,
     xdr::{
@@ -15,9 +18,6 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env,
 };
 use stellar_strkey::{ed25519, Strkey};
-use smart_wallet_interface::types::{
-    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
-};
 
 use crate::{Contract, ContractClient};
 use ed25519_dalek::{Keypair, Signer as _};

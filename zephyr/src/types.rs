@@ -1,8 +1,8 @@
 use serde::Serialize;
 use zephyr_sdk::{
-    prelude::{Limits, WriteXdr},
-    soroban_sdk::xdr::{ReadXdr, ScVal},
-    Condition, DatabaseDerive, DatabaseInteract, EnvClient,
+    prelude::{Limits, ReadXdr, WriteXdr},
+    soroban_sdk::xdr::ScVal,
+    Condition, DatabaseDerive, DatabaseInteract, EnvClient, ZephyrVal, bincode
 };
 
 #[derive(DatabaseDerive, Serialize, Clone)]
@@ -11,22 +11,28 @@ pub struct Signers {
     pub address: ScVal,
     pub key: ScVal,
     pub val: ScVal,
+    pub limits: ScVal,
+    pub exp: u32,
     pub storage: ScVal,
     pub active: ScVal,
 }
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]
-pub struct SignersKeyValStorage {
+pub struct SignersKeyValLimitsExpStorage {
     pub key: ScVal,
     pub val: ScVal,
+    pub limits: ScVal,
+    pub exp: u32,
     pub storage: ScVal,
 }
 
 #[derive(DatabaseDerive, Serialize, Clone)]
 #[with_name("signers")]
-pub struct SignersValStorageActive {
+pub struct SignersValLimitsExpStorageActive {
     pub val: ScVal,
+    pub limits: ScVal,
+    pub exp: u32,
     pub storage: ScVal,
     pub active: ScVal,
 }

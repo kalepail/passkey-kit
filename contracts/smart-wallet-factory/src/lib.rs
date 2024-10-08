@@ -1,9 +1,9 @@
 #![no_std]
 
+use smart_wallet_interface::{types::Signer, SmartWalletClient};
 use soroban_sdk::{
     contract, contracterror, contractimpl, symbol_short, Address, BytesN, Env, Symbol,
 };
-use smart_wallet_interface::{types::Signer, SmartWalletClient};
 
 mod types;
 

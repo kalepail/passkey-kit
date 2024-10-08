@@ -1,5 +1,8 @@
 use smart_wallet_interface::types::{Signatures, SignerKey, SignerLimits};
-use soroban_sdk::{auth::{Context, ContractContext}, Env, FromVal, Symbol};
+use soroban_sdk::{
+    auth::{Context, ContractContext},
+    Env, FromVal, Symbol,
+};
 
 use crate::signer::verify_signer_limit_keys;
 
