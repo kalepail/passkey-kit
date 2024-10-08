@@ -1,4 +1,4 @@
-import { SorobanRpc, xdr } from "@stellar/stellar-sdk/minimal"
+import { SorobanRpc, Transaction, xdr } from "@stellar/stellar-sdk/minimal"
 import { PasskeyBase } from "./base"
 import base64url from "base64url"
 import type { Tx } from "@stellar/stellar-sdk/contract"
@@ -145,13 +145,13 @@ export class PasskeyServer extends PasskeyBase {
         - Add a method for getting a paginated or filtered list of all a wallet's events
     */
 
-    public async send(txn: Tx, fee?: number) {
+    public async send(txn: Tx | string, fee?: number) {
         if (!this.launchtubeUrl || !this.launchtubeJwt)
             throw new Error('Launchtube service not configured')
 
         const data = new FormData();
 
-        data.set('xdr', txn.toXDR());
+        data.set('xdr', typeof txn === 'string' ? txn : txn.toXDR());
 
         if (fee)
             data.set('fee', fee.toString());

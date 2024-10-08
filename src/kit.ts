@@ -400,7 +400,10 @@ export class PasskeyKit extends PasskeyBase {
         return txn
     }
 
-    public addSecp256r1(keyId: Uint8Array, publicKey: Uint8Array, limits: SignerLimits, store: SignerStore) {
+    public addSecp256r1(keyId: string | Uint8Array, publicKey: string | Uint8Array, limits: SignerLimits, store: SignerStore) {
+        keyId = typeof keyId === 'string' ? base64url.toBuffer(keyId) : keyId
+        publicKey = typeof publicKey === 'string' ? base64url.toBuffer(publicKey) : publicKey
+
         return this.wallet!.add({
             signer: {
                 tag: "Secp256r1",
