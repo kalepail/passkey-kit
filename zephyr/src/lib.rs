@@ -152,7 +152,7 @@ pub extern "C" fn get_signers_by_address() {
         .read_filter()
         .column_equal_to_xdr("address", &address)
         .column_equal_to_xdr("active", &ScVal::Bool(true))
-        .column_gt("exp", env.soroban().ledger().sequence()) // TODO
+        .column_gt("exp", env.soroban().ledger().sequence())
         .read()
         .unwrap();
 
@@ -166,10 +166,6 @@ pub extern "C" fn get_signers_by_address() {
         storage,
     } in signers
     {
-        // if exp < env.soroban().ledger().sequence() { // TEMP waiting on above TODO
-        //     continue;
-        // }
-
         let signer_key = env.from_scval::<SignerKey>(&key);
         let signer_limits = env.from_scval::<SignerLimits>(&limits);
         let signer_storage = env.from_scval::<SignerStorage>(&storage);

@@ -52,7 +52,7 @@ col_type = "BYTEA"
 
 [[tables.columns]]
 name = "exp"
-col_type = "BYTEA"
+col_type = "BIGINT"
 
 [[tables.columns]]
 name = "storage"
