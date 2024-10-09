@@ -1,8 +1,9 @@
 use serde::Serialize;
 use zephyr_sdk::{
+    bincode,
     prelude::{Limits, ReadXdr, WriteXdr},
     soroban_sdk::xdr::ScVal,
-    Condition, DatabaseDerive, DatabaseInteract, EnvClient, ZephyrVal, bincode
+    Condition, DatabaseDerive, DatabaseInteract, EnvClient, ZephyrVal,
 };
 
 #[derive(DatabaseDerive, Serialize, Clone)]

@@ -7,7 +7,8 @@ use serde::{Deserialize, Serialize};
 use smart_wallet_interface::types::{SignerKey, SignerLimits, SignerStorage, SignerVal};
 use stellar_strkey::{ed25519, Strkey};
 use types::{
-    Signers, SignersActive, SignersAddress, SignersKeyValLimitsExpStorage, SignersValLimitsExpStorageActive,
+    Signers, SignersActive, SignersAddress, SignersKeyValLimitsExpStorage,
+    SignersValLimitsExpStorageActive,
 };
 use zephyr_sdk::{
     soroban_sdk::{
@@ -52,7 +53,8 @@ pub extern "C" fn on_close() {
                                         env.from_scval(&event.data);
 
                                     if let Some(older) = older.get_mut(0) {
-                                        let (public_key, signer_expiration, signer_limits) = get_signer_expiration_limits(signer_val);
+                                        let (public_key, signer_expiration, signer_limits) =
+                                            get_signer_expiration_limits(signer_val);
 
                                         older.val = env.to_scval(public_key);
                                         older.exp = signer_expiration.unwrap_or(u32::MAX);
@@ -66,7 +68,8 @@ pub extern "C" fn on_close() {
                                             .execute(older)
                                             .unwrap();
                                     } else {
-                                        let (public_key, signer_expiration, signer_limits) = get_signer_expiration_limits(signer_val);
+                                        let (public_key, signer_expiration, signer_limits) =
+                                            get_signer_expiration_limits(signer_val);
                                         let signer = Signers {
                                             address,
                                             key: key.clone(),
@@ -106,7 +109,9 @@ pub extern "C" fn on_close() {
     }
 }
 
-fn get_signer_expiration_limits(signer_val: SignerVal) -> (Option<BytesN<65>>, Option<u32>, SignerLimits) {
+fn get_signer_expiration_limits(
+    signer_val: SignerVal,
+) -> (Option<BytesN<65>>, Option<u32>, SignerLimits) {
     match signer_val {
         SignerVal::Policy(signer_expiration, signer_limits) => {
             (None, signer_expiration, signer_limits)
@@ -147,13 +152,24 @@ pub extern "C" fn get_signers_by_address() {
         .read_filter()
         .column_equal_to_xdr("address", &address)
         .column_equal_to_xdr("active", &ScVal::Bool(true))
-        .column_gt("exp", env.soroban().ledger().sequence())
+        .column_gt("exp", env.soroban().ledger().sequence()) // TODO
         .read()
         .unwrap();
 
     let mut response: Vec<SignersByAddressResponse> = vec![];
 
-    for SignersKeyValLimitsExpStorage { key, val, limits, exp, storage } in signers {
+    for SignersKeyValLimitsExpStorage {
+        key,
+        val,
+        limits,
+        exp,
+        storage,
+    } in signers
+    {
+        // if exp < env.soroban().ledger().sequence() { // TEMP waiting on above TODO
+        //     continue;
+        // }
+
         let signer_key = env.from_scval::<SignerKey>(&key);
         let signer_limits = env.from_scval::<SignerLimits>(&limits);
         let signer_storage = env.from_scval::<SignerStorage>(&storage);
