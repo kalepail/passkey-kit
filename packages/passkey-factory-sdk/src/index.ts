@@ -1,5 +1,4 @@
 import { Buffer } from "buffer";
-import { Address } from '@stellar/stellar-sdk/minimal';
 import {
   AssembledTransaction,
   Client as ContractClient,
@@ -19,13 +18,12 @@ import type {
   Option,
   Typepoint,
   Duration,
-} from '@stellar/stellar-sdk/contract'; 
+} from '@stellar/stellar-sdk/contract';
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists
   window.Buffer = window.Buffer || Buffer;
 }
-
 
 export const networks = {
   testnet: {
@@ -39,7 +37,7 @@ export type SignerKey = { tag: "Policy", values: readonly [string] } | { tag: "E
 export type SignerLimits = readonly [Map<string, Option<Array<SignerKey>>>];
 export type SignerStorage = { tag: "Persistent", values: void } | { tag: "Temporary", values: void };
 
-export type Signer = { tag: "Policy", values: readonly [string, SignerLimits, SignerStorage] } | { tag: "Ed25519", values: readonly [Buffer, SignerLimits, SignerStorage] } | { tag: "Secp256r1", values: readonly [Buffer, Buffer, SignerLimits, SignerStorage] };
+export type Signer = { tag: "Policy", values: readonly [string, Option<u32>, SignerLimits, SignerStorage] } | { tag: "Ed25519", values: readonly [Buffer, Option<u32>, SignerLimits, SignerStorage] } | { tag: "Secp256r1", values: readonly [Buffer, Buffer, Option<u32>, SignerLimits, SignerStorage] };
 
 export const Errors = {
   1: { message: "NotInitialized" },
@@ -95,7 +93,7 @@ export class Client extends ContractClient {
       new ContractSpec(["AAAAAgAAAAAAAAAAAAAACVNpZ25lcktleQAAAAAAAAMAAAABAAAAAAAAAAZQb2xpY3kAAAAAAAEAAAATAAAAAQAAAAAAAAAHRWQyNTUxOQAAAAABAAAD7gAAACAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAABAAAADg==",
         "AAAAAQAAAAAAAAAAAAAADFNpZ25lckxpbWl0cwAAAAEAAAAAAAAAATAAAAAAAAPsAAAAEwAAA+gAAAPqAAAH0AAAAAlTaWduZXJLZXkAAAA=",
         "AAAAAgAAAAAAAAAAAAAADVNpZ25lclN0b3JhZ2UAAAAAAAACAAAAAAAAAAAAAAAKUGVyc2lzdGVudAAAAAAAAAAAAAAAAAAJVGVtcG9yYXJ5AAAA",
-        "AAAAAgAAAAAAAAAAAAAABlNpZ25lcgAAAAAAAwAAAAEAAAAAAAAABlBvbGljeQAAAAAAAwAAABMAAAfQAAAADFNpZ25lckxpbWl0cwAAB9AAAAANU2lnbmVyU3RvcmFnZQAAAAAAAAEAAAAAAAAAB0VkMjU1MTkAAAAAAwAAA+4AAAAgAAAH0AAAAAxTaWduZXJMaW1pdHMAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAAAAAABAAAAAAAAAAlTZWNwMjU2cjEAAAAAAAAEAAAADgAAA+4AAABBAAAH0AAAAAxTaWduZXJMaW1pdHMAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAA=",
+        "AAAAAgAAAAAAAAAAAAAABlNpZ25lcgAAAAAAAwAAAAEAAAAAAAAABlBvbGljeQAAAAAABAAAABMAAAPoAAAABAAAB9AAAAAMU2lnbmVyTGltaXRzAAAH0AAAAA1TaWduZXJTdG9yYWdlAAAAAAAAAQAAAAAAAAAHRWQyNTUxOQAAAAAEAAAD7gAAACAAAAPoAAAABAAAB9AAAAAMU2lnbmVyTGltaXRzAAAH0AAAAA1TaWduZXJTdG9yYWdlAAAAAAAAAQAAAAAAAAAJU2VjcDI1NnIxAAAAAAAABQAAAA4AAAPuAAAAQQAAA+gAAAAEAAAH0AAAAAxTaWduZXJMaW1pdHMAAAfQAAAADVNpZ25lclN0b3JhZ2UAAAA=",
         "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAAAgAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAg==",
         "AAAAAAAAAAAAAAAEaW5pdAAAAAEAAAAAAAAACXdhc21faGFzaAAAAAAAA+4AAAAgAAAAAQAAA+kAAAPtAAAAAAAAAAM=",
         "AAAAAAAAAAAAAAAGZGVwbG95AAAAAAACAAAAAAAAAARzYWx0AAAD7gAAACAAAAAAAAAABnNpZ25lcgAAAAAH0AAAAAZTaWduZXIAAAAAAAEAAAPpAAAAEwAAAAM="]),

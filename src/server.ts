@@ -1,11 +1,13 @@
-import { SorobanRpc, Transaction, xdr } from "@stellar/stellar-sdk/minimal"
+import { SorobanRpc, xdr } from "@stellar/stellar-sdk/minimal"
 import { PasskeyBase } from "./base"
 import base64url from "base64url"
 import type { Tx } from "@stellar/stellar-sdk/contract"
+import type { Signer } from "./types"
 
 export class PasskeyServer extends PasskeyBase {
     public launchtubeUrl: string | undefined
     public launchtubeJwt: string | undefined
+    public mercuryProjectName: string | undefined
     public mercuryUrl: string | undefined
     public mercuryJwt: string | undefined
     public mercuryKey: string | undefined
@@ -14,6 +16,7 @@ export class PasskeyServer extends PasskeyBase {
         rpcUrl?: string,
         launchtubeUrl?: string,
         launchtubeJwt?: string,
+        mercuryProjectName?: string,
         mercuryUrl?: string,
         mercuryJwt?: string,
         mercuryKey?: string,
@@ -22,6 +25,7 @@ export class PasskeyServer extends PasskeyBase {
             rpcUrl,
             launchtubeUrl,
             launchtubeJwt,
+            mercuryProjectName,
             mercuryUrl,
             mercuryJwt,
             mercuryKey,
@@ -35,6 +39,9 @@ export class PasskeyServer extends PasskeyBase {
         if (launchtubeJwt)
             this.launchtubeJwt = launchtubeJwt
 
+        if (mercuryProjectName)
+            this.mercuryProjectName = mercuryProjectName
+
         if (mercuryUrl)
             this.mercuryUrl = mercuryUrl
 
@@ -46,7 +53,7 @@ export class PasskeyServer extends PasskeyBase {
     }
 
     public async getSigners(contractId: string) {
-        if (!this.rpc || !this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
+        if (!this.rpc || !this.mercuryProjectName || !this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
             throw new Error('Mercury service not configured')
 
         const signers = await fetch(`${this.mercuryUrl}/zephyr/execute`, {
@@ -56,7 +63,7 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: this.mercuryJwt ? `Bearer ${this.mercuryJwt}` : this.mercuryKey!
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data-multi-signer-multi-sig',
+                project_name: this.mercuryProjectName,
                 mode: {
                     Function: {
                         fname: "get_signers_by_address",
@@ -75,22 +82,16 @@ export class PasskeyServer extends PasskeyBase {
             })
 
         for (const signer of signers) {
-            if (!signer.admin) {
+            if (signer.storage === 'Temporary') {
                 try {
                     await this.rpc.getContractData(contractId, xdr.ScVal.scvBytes(base64url.toBuffer(signer.key)), SorobanRpc.Durability.Temporary)
                 } catch {
-                    signer.expired = true
+                    signer.evicted = true
                 }
             }
         }
 
-        return signers as { 
-            kind: string,
-            key: string, 
-            val: string, 
-            limits: string,
-            expired?: boolean 
-        }[]
+        return signers as Signer[]
     }
 
     public async getContractId(options: {
@@ -98,7 +99,7 @@ export class PasskeyServer extends PasskeyBase {
         publicKey?: string,
         policy?: string,
     }, index = 0) {
-        if (!this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
+        if (!this.mercuryProjectName || !this.mercuryUrl || (!this.mercuryJwt && !this.mercuryKey))
             throw new Error('Mercury service not configured')
 
         let { keyId, publicKey, policy } = options || {}
@@ -122,7 +123,7 @@ export class PasskeyServer extends PasskeyBase {
                 Authorization: this.mercuryJwt ? `Bearer ${this.mercuryJwt}` : this.mercuryKey!
             },
             body: JSON.stringify({
-                project_name: 'smart-wallets-data-multi-signer-multi-sig',
+                project_name: this.mercuryProjectName,
                 mode: {
                     Function: {
                         fname: "get_addresses_by_signer",

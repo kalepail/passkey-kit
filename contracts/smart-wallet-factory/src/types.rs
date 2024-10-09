@@ -26,7 +26,7 @@ pub enum SignerStorage {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum Signer {
-    Policy(Address, SignerLimits, SignerStorage),
-    Ed25519(BytesN<32>, SignerLimits, SignerStorage),
-    Secp256r1(Bytes, BytesN<65>, SignerLimits, SignerStorage),
+    Policy(Address, Option<u32>, SignerLimits, SignerStorage),
+    Ed25519(BytesN<32>, Option<u32>, SignerLimits, SignerStorage),
+    Secp256r1(Bytes, BytesN<65>, Option<u32>, SignerLimits, SignerStorage),
 }

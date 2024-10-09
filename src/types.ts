@@ -1,3 +1,13 @@
+export type Signer = {
+    kind: string
+    key: string 
+    val: string 
+    expiration: number | null
+    storage: "Persistent" | "Temporary"
+    limits: string
+    evicted?: boolean 
+}
+
 export class SignerKey {
     private constructor(public key: "Policy" | "Ed25519" | "Secp256r1", public value: string) { }
 

@@ -4,6 +4,9 @@ use std::println;
 extern crate std;
 
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
+use smart_wallet_interface::types::{
+    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
+};
 use soroban_sdk::{
     map,
     xdr::{
@@ -15,9 +18,6 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env,
 };
 use stellar_strkey::{ed25519, Strkey};
-use webauthn_wallet_interface::types::{
-    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
-};
 
 use crate::{Contract, ContractClient};
 use ed25519_dalek::{Keypair, Signer as _};
@@ -26,7 +26,7 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 mod factory {
     soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/webauthn_factory.wasm"
+        file = "../target/wasm32-unknown-unknown/release/smart_wallet_factory.wasm"
     );
 }
 
@@ -70,8 +70,9 @@ fn test_deploy_contract() {
 
     let super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
 
-    wallet_client.mock_all_auths().add(&Signer::Ed25519(
+    wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         super_ed25519_bytes,
+        None,
         SignerLimits(map![&env]),
         SignerStorage::Persistent,
     ));

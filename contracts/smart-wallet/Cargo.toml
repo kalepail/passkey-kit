@@ -1,5 +1,5 @@
 [package]
-name = "webauthn-wallet"
+name = "smart-wallet"
 version = "0.4.1"
 authors = ["Stellar Development Foundation <info@stellar.org>"]
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ testutils = []
 
 [dependencies]
 soroban-sdk = { workspace = true }
-webauthn-wallet-interface = { workspace = true }
+smart-wallet-interface = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde-json-core = { workspace = true }
 
