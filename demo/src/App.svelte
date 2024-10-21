@@ -234,7 +234,7 @@
 
 		console.log(at.built!.toXDR());
 
-		const res = await server.send(at.built!);
+		const res = await server.send(at);
 
 		console.log(res);
 

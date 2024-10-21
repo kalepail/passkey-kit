@@ -1,13 +1,13 @@
 import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk/minimal'
-import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
+import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx, type Spec } from '@stellar/stellar-sdk/minimal/contract'
 
 // TODO Return base64url encoded strings as well as buffers
 
@@ -92,20 +92,22 @@ export class PasskeyKit extends PasskeyBase {
         const displayName = `${user} — ${now.toLocaleString()}`
         const { rpId, authenticatorSelection } = settings || {}
         const { id, response } = await this.WebAuthn.startRegistration({
-            challenge: base64url("stellaristhebetterblockchain"),
-            rp: {
-                id: rpId,
-                name: app,
-            },
-            user: {
-                id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
-                name: displayName,
-                displayName
-            },
-            authenticatorSelection,
-            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-            // attestation: "none",
-            // timeout: 120_000,
+            optionsJSON: {
+                challenge: base64url("stellaristhebetterblockchain"),
+                rp: {
+                    id: rpId,
+                    name: app,
+                },
+                user: {
+                    id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
+                    name: displayName,
+                    displayName
+                },
+                authenticatorSelection,
+                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                // attestation: "none",
+                // timeout: 120_000,
+            }
         });
 
         if (!this.keyId)
@@ -128,10 +130,12 @@ export class PasskeyKit extends PasskeyBase {
 
         if (!keyId) {
             const response = await this.WebAuthn.startAuthentication({
-                challenge: base64url("stellaristhebetterblockchain"),
-                rpId,
-                // userVerification: "discouraged",
-                // timeout: 120_000
+                optionsJSON: {
+                    challenge: base64url("stellaristhebetterblockchain"),
+                    rpId,
+                    // userVerification: "discouraged",
+                    // timeout: 120_000
+                }
             });
 
             keyId = response.id
@@ -266,8 +270,8 @@ export class PasskeyKit extends PasskeyBase {
 
         // Default, use passkey
         else {
-            const authenticationResponse = await this.WebAuthn.startAuthentication(
-                keyId === 'any'
+            const authenticationResponse = await this.WebAuthn.startAuthentication({
+                optionsJSON: keyId === 'any'
                     || (!keyId && !this.keyId)
                     ? {
                         challenge: base64url(payload),
@@ -289,7 +293,7 @@ export class PasskeyKit extends PasskeyBase {
                         // userVerification: "discouraged",
                         // timeout: 120_000
                     }
-            );
+            });
 
             key = {
                 tag: "Secp256r1",
@@ -385,9 +389,9 @@ export class PasskeyKit extends PasskeyBase {
         }
     ) {
         if (typeof txn === 'string') {
-            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec)
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec as unknown as Spec)
         } else if (!(txn instanceof AssembledTransaction)) {
-            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec)
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec as unknown as Spec)
         }
 
         await txn.signAuthEntries({

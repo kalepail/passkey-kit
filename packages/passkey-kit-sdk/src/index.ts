@@ -5,7 +5,7 @@ import {
   ClientOptions as ContractClientOptions,
   Result,
   Spec as ContractSpec,
-} from '@stellar/stellar-sdk/contract';
+} from '@stellar/stellar-sdk/minimal/contract';
 import type {
   u32,
   i32,
@@ -18,7 +18,7 @@ import type {
   Option,
   Typepoint,
   Duration,
-} from '@stellar/stellar-sdk/contract';
+} from '@stellar/stellar-sdk/minimal/contract';
 
 if (typeof window !== 'undefined') {
   //@ts-ignore Buffer exists

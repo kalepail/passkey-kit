@@ -1,5 +1,3 @@
-use core::u32;
-
 use base64::{
     engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine as _,
 };
