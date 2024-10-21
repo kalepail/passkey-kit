@@ -11,14 +11,14 @@ export SMART_WALLET_WASM=19868df3653d427cafa1c30bdb6cec1ca5c8c815eeabab8a8bae6d8
 
 build:
 	rm -rf out/
+	rm -rf smart-wallet/target/wasm32-unknown-unknown/
+	rm -rf smart-wallet-factory/target/wasm32-unknown-unknown/
 
 	stellar contract build
-	
-	rm -rf smart-wallet/target/wasm32-unknown-unknown/
+		
 	@cd smart-wallet && soroban contract build --package smart-wallet --out-dir ../out
 	soroban contract optimize --wasm ./out/smart_wallet.wasm
 
-	rm -rf smart-wallet-factory/target/wasm32-unknown-unknown/
 	@cd smart-wallet-factory && soroban contract build --package smart-wallet-factory --out-dir ../out
 	soroban contract optimize --wasm ./out/smart_wallet_factory.wasm
 
