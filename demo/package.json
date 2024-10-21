@@ -2,6 +2,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:prod": "vite --mode production",
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",

@@ -1,10 +1,12 @@
-export SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
-export SOROBAN_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
-export SOROBAN_ACCOUNT=default
+export STELLAR_NETWORK=testnet
+export STELLAR_ACCOUNT=default
+# export STELLAR_NETWORK=vc
+# export STELLAR_ACCOUNT=live
 
 export NATIVE_CONTRACT=CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
+# export NATIVE_CONTRACT=CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA
 
-export SMART_WALLET_FACTORY=CDHZEXY4GOJLSHPFEISQAPMBFZGPCKDAIEY3EO6XXN6A47V54F6DK5HP
+export SMART_WALLET_FACTORY=CD7KQJJZMIFQQ4DV3HS7VQACOAH6WN4IVBLRXTDHNMJSHXQYHXNLPHL2
 export SMART_WALLET_WASM=19868df3653d427cafa1c30bdb6cec1ca5c8c815eeabab8a8bae6d83efb1fedd
 
 build:
@@ -21,18 +23,16 @@ build:
 	soroban contract optimize --wasm ./out/smart_wallet_factory.wasm
 
 deploy:
-	soroban keys fund $(SOROBAN_ACCOUNT) || true
-	soroban contract asset deploy --asset native || true
-	soroban contract deploy --wasm ./out/smart_wallet_factory.optimized.wasm
-	soroban contract install --wasm ./out/smart_wallet.optimized.wasm
+	soroban contract deploy --wasm ./out/smart_wallet_factory.optimized.wasm --source $(STELLAR_ACCOUNT)
+	soroban contract install --wasm ./out/smart_wallet.optimized.wasm --source $(STELLAR_ACCOUNT)
 
 init:
-	soroban contract invoke --id $(SMART_WALLET_FACTORY) -- init --wasm_hash $(SMART_WALLET_WASM)
+	soroban contract invoke --id $(SMART_WALLET_FACTORY) --network $(STELLAR_NETWORK) --source $(STELLAR_ACCOUNT) -- init --wasm_hash $(SMART_WALLET_WASM)
 
 bindings:
-	soroban contract bindings typescript --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network testnet --output-dir ./out/sac-sdk --overwrite
-	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/smart_wallet_factory.wasm --network testnet --output-dir ./out/passkey-factory-sdk --overwrite
-	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/smart_wallet.wasm --network testnet --output-dir ./out/passkey-kit-sdk --overwrite
+	soroban contract bindings typescript --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network $(STELLAR_NETWORK) --output-dir ./out/sac-sdk --overwrite
+	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/smart_wallet_factory.wasm --network $(STELLAR_NETWORK) --output-dir ./out/passkey-factory-sdk --overwrite
+	soroban contract bindings typescript --id NIL --wasm ./target/wasm32-unknown-unknown/release/smart_wallet.wasm --network $(STELLAR_NETWORK) --output-dir ./out/passkey-kit-sdk --overwrite
 
 fmt:
 	@cd smart-wallet-factory && cargo fmt --all
