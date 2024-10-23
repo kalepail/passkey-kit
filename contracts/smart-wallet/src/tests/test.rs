@@ -7,6 +7,9 @@ use crate::{Contract, ContractClient};
 use ed25519_dalek::{Keypair, Signer as _};
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
 use sample_policy::Contract as PolicyContract;
+use smart_wallet_interface::types::{
+    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
+};
 use soroban_sdk::{
     map, token, vec,
     xdr::{
@@ -17,9 +20,6 @@ use soroban_sdk::{
     Address, Bytes, BytesN, Env, String,
 };
 use stellar_strkey::{ed25519, Strkey};
-use webauthn_wallet_interface::types::{
-    Signature, Signatures, Signer, SignerKey, SignerLimits, SignerStorage,
-};
 
 #[test]
 fn test() {
@@ -137,8 +137,9 @@ fn test() {
     //     .mock_all_auths()
     //     .add(&secp246r1_signer.clone());
 
-    wallet_client.mock_all_auths().add(&Signer::Ed25519(
+    wallet_client.mock_all_auths().add_signer(&Signer::Ed25519(
         simple_ed25519_bytes,
+        None,
         SignerLimits(map![
             &env,
             (
@@ -150,8 +151,9 @@ fn test() {
         SignerStorage::Temporary,
     ));
 
-    wallet_client.mock_all_auths().add(&Signer::Policy(
+    wallet_client.mock_all_auths().add_signer(&Signer::Policy(
         sample_policy_address.clone(),
+        None,
         SignerLimits(map![
             &env,
             (

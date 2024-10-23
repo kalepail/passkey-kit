@@ -1,5 +1,5 @@
 {
-  "version": "0.2.1",
+  "version": "0.3.0",
   "name": "sac-sdk",
   "type": "module",
   "main": "src/index.ts",
@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "buffer": "6.0.3",
-    "@stellar/stellar-sdk": "12.3.0"
+    "@stellar/stellar-sdk": "13.0.0-beta.1"
   },
   "devDependencies": {
     "typescript": "5.6.2"

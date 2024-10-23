@@ -5,7 +5,7 @@ npm publish --workspaces
 pnpm publish --no-git-checks
 
 # Stellar commands
-stellar contract bindings rust --wasm target/wasm32-unknown-unknown/release/webauthn_wallet.wasm
+stellar contract bindings rust --wasm target/wasm32-unknown-unknown/release/smart_wallet.wasm
 stellar contract deploy --wasm target/wasm32-unknown-unknown/release/sample_policy.wasm --network testnet --source default
 
 # Mercury commands
@@ -13,6 +13,6 @@ stellar contract deploy --wasm target/wasm32-unknown-unknown/release/sample_poli
 
 export JWT=???
 mercury-cli --jwt $JWT --local false --mainnet false deploy
-mercury-cli --jwt $JWT --local false --mainnet false catchup --project-name "smart-wallets-data-multi-signer-multi-sig" --contracts CC3TMW7O43G3WJBZ2RVWMBBKL3B5KIO275D2LHQ43KJQF4TUOHFEYVOR
+mercury-cli --jwt $JWT --local false --mainnet false catchup --project-name "smart-wallets-next-dima" --contracts CAO555SGDJ4TA3CYZ6TRVACQG5O6ROY24PSQZULVGRSJ2A772CFDVGV7
 curl -X GET https://api.mercurydata.app/catchups/4
 curl -X POST https://api.mercurydata.app/v2/key -H "Authorization: Bearer $JWT"

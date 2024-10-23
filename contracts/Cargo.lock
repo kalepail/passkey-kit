@@ -487,8 +487,8 @@ checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
 name = "example-contract"
 version = "0.0.0"
 dependencies = [
+ "smart-wallet",
  "soroban-sdk",
- "webauthn-wallet",
 ]
 
 [[package]]
@@ -999,8 +999,8 @@ checksum = "f3cb5ba0dc43242ce17de99c180e96db90b235b8a9fdc9543c96d2209116bd9f"
 name = "sample-policy"
 version = "0.0.0"
 dependencies = [
+ "smart-wallet-interface",
  "soroban-sdk",
- "webauthn-wallet-interface",
 ]
 
 [[package]]
@@ -1163,6 +1163,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
+name = "smart-wallet"
+version = "0.4.1"
+dependencies = [
+ "base64 0.22.1",
+ "ed25519-dalek 1.0.1",
+ "example-contract",
+ "rand 0.8.5",
+ "sample-policy",
+ "serde",
+ "serde-json-core",
+ "sha256",
+ "smart-wallet-interface",
+ "soroban-sdk",
+ "stellar-strkey 0.0.11",
+ "stellar-xdr",
+]
+
+[[package]]
+name = "smart-wallet-factory"
+version = "0.4.0"
+dependencies = [
+ "smart-wallet-interface",
+ "soroban-sdk",
+]
+
+[[package]]
+name = "smart-wallet-interface"
+version = "0.4.1"
+dependencies = [
+ "soroban-sdk",
+]
+
+[[package]]
 name = "soroban-builtin-sdk-macros"
 version = "21.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1253,9 +1286,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-ledger-snapshot"
-version = "21.7.2"
+version = "21.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf596b2083946a95914a55d7d29cee6a8095b515fd06211851f45bf6af5a496"
+checksum = "956476365ff3f9bf429ff23fa11ac75798347a2bfc3c9e5e12638dbe3a6b17a8"
 dependencies = [
  "serde",
  "serde_json",
@@ -1267,9 +1300,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk"
-version = "21.7.2"
+version = "21.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e39bf9e8ab05579c836e8e5be5f2f4c5ba75e7337ece20e975e82fc3a9d41e"
+checksum = "c7767472f00a4053e86d5c37b3c814a6bc01c9230004713328d73d2a3444e72e"
 dependencies = [
  "arbitrary",
  "bytes-lit",
@@ -1287,9 +1320,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-sdk-macros"
-version = "21.7.2"
+version = "21.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da03fa00b8ca6e392f013359c06d790d2d379f9c8d6f8a6dfe563ec64311e5d3"
+checksum = "be8cf8fa10f3ad62509ff7b25cd696fb837da692c40264d1abb393e117aad75c"
 dependencies = [
  "crate-git-revision",
  "darling",
@@ -1307,9 +1340,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec"
-version = "21.7.2"
+version = "21.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64c723195463d8742bcb481520bd8b8325da66c39ea236ad46261e6af992e8a8"
+checksum = "12d306f61ef5c1247dca1562e04cc74b6e3adf107631c168b2ce0d5f1cf1fa13"
 dependencies = [
  "base64 0.13.1",
  "stellar-xdr",
@@ -1319,9 +1352,9 @@ dependencies = [
 
 [[package]]
 name = "soroban-spec-rust"
-version = "21.7.2"
+version = "21.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0f1b0ec2af54e38f138910f09e101b100130efe625f69ece51c76dd4f06f8b2"
+checksum = "bed06e0f622fb878fc439643f2fd86163223ac33a468beeea96e5d33f79b08b3"
 dependencies = [
  "prettyplease",
  "proc-macro2",
@@ -1609,39 +1642,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5a015fe95f3504a94bb1462c717aae75253e39b9dd6c3fb1062c934535c64aa"
 dependencies = [
  "indexmap-nostd",
-]
-
-[[package]]
-name = "webauthn-factory"
-version = "0.4.0"
-dependencies = [
- "soroban-sdk",
- "webauthn-wallet-interface",
-]
-
-[[package]]
-name = "webauthn-wallet"
-version = "0.4.1"
-dependencies = [
- "base64 0.22.1",
- "ed25519-dalek 1.0.1",
- "example-contract",
- "rand 0.8.5",
- "sample-policy",
- "serde",
- "serde-json-core",
- "sha256",
- "soroban-sdk",
- "stellar-strkey 0.0.11",
- "stellar-xdr",
- "webauthn-wallet-interface",
-]
-
-[[package]]
-name = "webauthn-wallet-interface"
-version = "0.4.1"
-dependencies = [
- "soroban-sdk",
 ]
 
 [[package]]

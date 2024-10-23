@@ -1,13 +1,13 @@
 import { Client as FactoryClient } from 'passkey-factory-sdk'
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, SorobanRpc, Keypair, Address } from '@stellar/stellar-sdk/minimal'
-import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx } from '@stellar/stellar-sdk/contract'
 import type { AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
 import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
+import { AssembledTransaction, DEFAULT_TIMEOUT, type Tx, type Spec } from '@stellar/stellar-sdk/minimal/contract'
 
 // TODO Return base64url encoded strings as well as buffers
 
@@ -55,6 +55,7 @@ export class PasskeyKit extends PasskeyBase {
                 values: [
                     keyId,
                     publicKey,
+                    undefined,
                     [new Map()],
                     { tag: 'Persistent', values: undefined },
                 ]
@@ -91,20 +92,22 @@ export class PasskeyKit extends PasskeyBase {
         const displayName = `${user} — ${now.toLocaleString()}`
         const { rpId, authenticatorSelection } = settings || {}
         const { id, response } = await this.WebAuthn.startRegistration({
-            challenge: base64url("stellaristhebetterblockchain"),
-            rp: {
-                id: rpId,
-                name: app,
-            },
-            user: {
-                id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
-                name: displayName,
-                displayName
-            },
-            authenticatorSelection,
-            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-            // attestation: "none",
-            // timeout: 120_000,
+            optionsJSON: {
+                challenge: base64url("stellaristhebetterblockchain"),
+                rp: {
+                    id: rpId,
+                    name: app,
+                },
+                user: {
+                    id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
+                    name: displayName,
+                    displayName
+                },
+                authenticatorSelection,
+                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                // attestation: "none",
+                // timeout: 120_000,
+            }
         });
 
         if (!this.keyId)
@@ -127,10 +130,12 @@ export class PasskeyKit extends PasskeyBase {
 
         if (!keyId) {
             const response = await this.WebAuthn.startAuthentication({
-                challenge: base64url("stellaristhebetterblockchain"),
-                rpId,
-                // userVerification: "discouraged",
-                // timeout: 120_000
+                optionsJSON: {
+                    challenge: base64url("stellaristhebetterblockchain"),
+                    rpId,
+                    // userVerification: "discouraged",
+                    // timeout: 120_000
+                }
             });
 
             keyId = response.id
@@ -206,8 +211,8 @@ export class PasskeyKit extends PasskeyBase {
             expiration = credentials.signatureExpirationLedger()
 
             if (!expiration) {
-                const lastLedger = await this.rpc.getLatestLedger().then(({ sequence }) => sequence)
-                expiration = lastLedger + DEFAULT_TIMEOUT / 5;
+                const { sequence } = await this.rpc.getLatestLedger()
+                expiration = sequence + DEFAULT_TIMEOUT / 5;
             }
         }
 
@@ -265,8 +270,8 @@ export class PasskeyKit extends PasskeyBase {
 
         // Default, use passkey
         else {
-            const authenticationResponse = await this.WebAuthn.startAuthentication(
-                keyId === 'any'
+            const authenticationResponse = await this.WebAuthn.startAuthentication({
+                optionsJSON: keyId === 'any'
                     || (!keyId && !this.keyId)
                     ? {
                         challenge: base64url(payload),
@@ -288,7 +293,7 @@ export class PasskeyKit extends PasskeyBase {
                         // userVerification: "discouraged",
                         // timeout: 120_000
                     }
-            );
+            });
 
             key = {
                 tag: "Secp256r1",
@@ -400,50 +405,73 @@ export class PasskeyKit extends PasskeyBase {
         return txn
     }
 
-    public addSecp256r1(keyId: string | Uint8Array, publicKey: string | Uint8Array, limits: SignerLimits, store: SignerStore) {
+    public addSecp256r1(keyId: string | Uint8Array, publicKey: string | Uint8Array, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.secp256r1(keyId, publicKey, limits, store, 'add_signer', expiration)
+    }
+    public addEd25519(publicKey: string, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.ed25519(publicKey, limits, store, 'add_signer', expiration)
+    }
+    public addPolicy(policy: string, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.policy(policy, limits, store, 'add_signer', expiration)
+    }
+
+    public updateSecp256r1(keyId: string | Uint8Array, publicKey: string | Uint8Array, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.secp256r1(keyId, publicKey, limits, store, 'update_signer', expiration)
+    }
+    public updateEd25519(publicKey: string, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.ed25519(publicKey, limits, store, 'update_signer', expiration)
+    }
+    public updatePolicy(policy: string, limits: SignerLimits, store: SignerStore, expiration?: number) {
+        return this.policy(policy, limits, store, 'update_signer', expiration)
+    }
+
+    public remove(signer: SignerKey) {
+        return this.wallet!.remove_signer({
+            signer_key: this.getSignerKey(signer)
+        });
+    }
+
+    private secp256r1(keyId: string | Uint8Array, publicKey: string | Uint8Array, limits: SignerLimits, store: SignerStore, fn: 'add_signer' | 'update_signer', expiration?: number) {
         keyId = typeof keyId === 'string' ? base64url.toBuffer(keyId) : keyId
         publicKey = typeof publicKey === 'string' ? base64url.toBuffer(publicKey) : publicKey
 
-        return this.wallet!.add({
+        return this.wallet![fn]({
             signer: {
                 tag: "Secp256r1",
                 values: [
                     Buffer.from(keyId),
                     Buffer.from(publicKey),
+                    expiration,
                     this.getSignerLimits(limits),
                     { tag: store, values: undefined },
                 ],
             },
         });
     }
-    public addEd25519(publicKey: string, limits: SignerLimits, store: SignerStore) {
-        return this.wallet!.add({
+    private ed25519(publicKey: string, limits: SignerLimits, store: SignerStore, fn: 'add_signer' | 'update_signer', expiration?: number) {
+        return this.wallet![fn]({
             signer: {
                 tag: "Ed25519",
                 values: [
                     Keypair.fromPublicKey(publicKey).rawPublicKey(),
+                    expiration,
                     this.getSignerLimits(limits),
                     { tag: store, values: undefined },
                 ],
             },
         });
     }
-    public addPolicy(policy: string, limits: SignerLimits, store: SignerStore) {
-        return this.wallet!.add({
+    private policy(policy: string, limits: SignerLimits, store: SignerStore, fn: 'add_signer' | 'update_signer', expiration?: number) {
+        return this.wallet![fn]({
             signer: {
                 tag: "Policy",
                 values: [
                     policy,
+                    expiration,
                     this.getSignerLimits(limits),
                     { tag: store, values: undefined },
                 ],
             },
-        });
-    }
-
-    public remove(signer: SignerKey) {
-        return this.wallet!.remove({
-            signer_key: this.getSignerKey(signer)
         });
     }
 

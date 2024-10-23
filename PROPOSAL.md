@@ -1,4 +1,4 @@
-# WebAuthn smart wallet contract interface
+# Smart wallet contract interface
 
 With the release of [Protocol 21](https://stellar.org/blog/developers/announcing-protocol-21) (and specifically the inclusion of the secp256r1 verification  curve) Soroban now has tremendous first class support for passkey powered smart wallets.
 
@@ -38,7 +38,7 @@ enum Error {
 
 ## Code
 
-[https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-factory/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-factory/src/lib.rs)
+[https://github.com/kalepail/passkey-kit/blob/main/contracts/smart-wallet-factory/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/smart-wallet-factory/src/lib.rs)
 
  
 
@@ -155,7 +155,7 @@ enum Error {
 
 ## Code
 
-[https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-secp256r1/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/contract-webauthn-secp256r1/src/lib.rs)
+[https://github.com/kalepail/passkey-kit/blob/main/contracts/smart-wallet/src/lib.rs](https://github.com/kalepail/passkey-kit/blob/main/contracts/smart-wallet/src/lib.rs)
 
 ### `add`
 ```rust
@@ -371,7 +371,7 @@ This is the beefy boy and most of it is only interesting to auditors ensuring th
     This is a relatively straight forward check. If the request is for the smart wallet contract ensure the only function it *might* be able to call is a `remove` of it’s own `id`. Anything else should result in an error.
     
 
-The rest of `__check_auth` is boilerplate authentication checks of the webauthn data itself and not technically part of this interface. It needs to be audited but that won’t affect the final interface of the wallet.
+The rest of `__check_auth` is boilerplate authentication checks of the signature data itself and not technically part of this interface. It needs to be audited but that won’t affect the final interface of the wallet.
 
 # Events
 
