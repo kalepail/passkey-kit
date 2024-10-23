@@ -159,8 +159,6 @@ export class PasskeyServer extends PasskeyBase {
             txn = txn.toXDR()
         }
 
-        console.log(txn); 
-
         data.set('xdr', txn);
 
         if (fee)

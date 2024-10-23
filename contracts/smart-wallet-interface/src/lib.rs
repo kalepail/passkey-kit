@@ -15,5 +15,5 @@ pub trait SmartWalletInterface {
 
 #[contractclient(name = "PolicyClient")]
 pub trait PolicyInterface {
-    fn policy__(env: Env, source: Address, contexts: Vec<Context>);
+    fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>);
 }

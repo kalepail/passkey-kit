@@ -389,9 +389,9 @@ export class PasskeyKit extends PasskeyBase {
         }
     ) {
         if (typeof txn === 'string') {
-            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec as unknown as Spec)
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn, this.wallet!.spec)
         } else if (!(txn instanceof AssembledTransaction)) {
-            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec as unknown as Spec)
+            txn = AssembledTransaction.fromXDR(this.wallet!.options, txn.toXDR(), this.wallet!.spec)
         }
 
         await txn.signAuthEntries({

@@ -36,7 +36,7 @@ pub fn verify_context(
                         return false; // self trying to do something other than remove itself
                     }
 
-                    verify_signer_limit_keys(env, signatures, &signer_limits_keys, &context);
+                    verify_signer_limit_keys(env, signer_key, signatures, &signer_limits_keys, &context);
 
                     true
                 }
@@ -47,7 +47,7 @@ pub fn verify_context(
             match signer_limits.0.get(env.current_contract_address()) {
                 None => false, // signer limitations not met
                 Some(signer_limits_keys) => {
-                    verify_signer_limit_keys(env, signatures, &signer_limits_keys, &context);
+                    verify_signer_limit_keys(env, signer_key, signatures, &signer_limits_keys, &context);
 
                     true
                 }
