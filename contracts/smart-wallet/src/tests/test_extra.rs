@@ -11,7 +11,7 @@ use soroban_sdk::{
     map, symbol_short,
     testutils::EnvTestConfig,
     xdr::{
-        ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+        ContractExecutable, ContractId, ContractIdPreimage, ContractIdPreimageFromAddress,
         CreateContractArgsV2, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits,
         ScAddress, ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry,
         SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, Uint256,
@@ -29,9 +29,7 @@ use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 mod sample_policy {
     use crate::types::SignerKey;
     use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/sample_policy.wasm"
-    );
+    soroban_sdk::contractimport!(file = "../target/wasm32v1-none/release/sample_policy.wasm");
 }
 
 #[test]
@@ -100,7 +98,7 @@ fn test_deploy_contract() {
     let root_invocation = SorobanAuthorizedInvocation {
         function: SorobanAuthorizedFunction::CreateContractV2HostFn(CreateContractArgsV2 {
             contract_id_preimage: ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-                address: ScAddress::Contract(Hash::from(wallet_address_array)),
+                address: ScAddress::Contract(ContractId(Hash::from(wallet_address_array))),
                 salt: Uint256(wasm_hash.to_array()),
             }),
             executable: ContractExecutable::Wasm(Hash::from(wasm_hash.to_array())),

@@ -1,4 +1,4 @@
 [toolchain]
-channel = "stable"
-targets = ["wasm32-unknown-unknown"]
+channel = "1.88"
+targets = ["wasm32v1-none"]
 components = ["rustc", "cargo", "rustfmt", "clippy", "rust-src"]
