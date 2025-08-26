@@ -129,7 +129,10 @@ export class PasskeyKit extends PasskeyBase {
                     displayName
                 },
                 authenticatorSelection,
-                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+                pubKeyCredParams: [
+                  { alg: -7, type: "public-key" },   // ES256
+                  { alg: -257, type: "public-key" }, // RS256
+                ],             
             }
         });
         const { id, response } = rawResponse
