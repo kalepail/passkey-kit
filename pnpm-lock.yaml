@@ -5,18 +5,15 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@stellar/stellar-sdk': 14.0.0-rc.3
+  '@stellar/stellar-sdk': 14.1.0
 
 importers:
 
   .:
     dependencies:
-      '@simplewebauthn/browser':
-        specifier: ^13.1.0
-        version: 13.1.2
       '@stellar/stellar-sdk':
-        specifier: 14.0.0-rc.3
-        version: 14.0.0-rc.3
+        specifier: 14.1.0
+        version: 14.1.0
       base64url:
         specifier: ^3.0.1
         version: 3.0.1
@@ -30,9 +27,9 @@ importers:
         specifier: workspace:*
         version: link:packages/sac-sdk
     devDependencies:
-      '@simplewebauthn/types':
-        specifier: ^12.0.0
-        version: 12.0.0
+      '@simplewebauthn/browser':
+        specifier: ^13.1.2
+        version: 13.1.2
       '@types/node':
         specifier: ^22.15.3
         version: 22.16.4
@@ -43,8 +40,8 @@ importers:
   packages/passkey-kit-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 14.0.0-rc.3
-        version: 14.0.0-rc.3
+        specifier: 14.1.0
+        version: 14.1.0
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -56,8 +53,8 @@ importers:
   packages/sac-sdk:
     dependencies:
       '@stellar/stellar-sdk':
-        specifier: 14.0.0-rc.3
-        version: 14.0.0-rc.3
+        specifier: 14.1.0
+        version: 14.1.0
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -68,8 +65,8 @@ importers:
 
 packages:
 
-  '@noble/curves@1.9.4':
-    resolution: {integrity: sha512-2bKONnuM53lINoDrSmK8qP8W271ms7pygDhZt4SiLOoLwBtoHqeCFi6RG42V8zd3mLHuJFhU/Bmaqo4nX0/kBw==}
+  '@noble/curves@1.9.7':
+    resolution: {integrity: sha512-gbKGcRUYIjA3/zCCNaWDciTMFI0dCkvou3TL8Zmy5Nc7sJ47a0jtOeZoTaMxkuqRo9cRhjOdZJXegxYE5FN/xw==}
     engines: {node: ^14.21.3 || >=16}
 
   '@noble/hashes@1.8.0':
@@ -79,18 +76,15 @@ packages:
   '@simplewebauthn/browser@13.1.2':
     resolution: {integrity: sha512-aZnW0KawAM83fSBUgglP5WofbrLbLyr7CoPqYr66Eppm7zO86YX6rrCjRB3hQKPrL7ATvY4FVXlykZ6w6FwYYw==}
 
-  '@simplewebauthn/types@12.0.0':
-    resolution: {integrity: sha512-q6y8MkoV8V8jB4zzp18Uyj2I7oFp2/ONL8c3j8uT06AOWu3cIChc1au71QYHrP2b+xDapkGTiv+9lX7xkTlAsA==}
-
   '@stellar/js-xdr@3.1.2':
     resolution: {integrity: sha512-VVolPL5goVEIsvuGqDc5uiKxV03lzfWdvYg1KikvwheDmTBO68CKDji3bAZ/kppZrx5iTA8z3Ld5yuytcvhvOQ==}
 
-  '@stellar/stellar-base@14.0.0-rc.2':
-    resolution: {integrity: sha512-jzDJANrh8hcW3yWikS0At6MWOmf2dCD2cwWS1o0nZLRDj3tFMCrIcOGmw9uB7Widomdu4DzKHetpgn+XB1prpg==}
+  '@stellar/stellar-base@14.0.0':
+    resolution: {integrity: sha512-CM84WNbj1GoB4FSWof4In60I6+m5ja0jbUFGKFmpYxabbgiU3Nmf29k9ZM9rkFwdyApgG2kFrB5WEwwoOHSmVA==}
     engines: {node: '>=20.0.0'}
 
-  '@stellar/stellar-sdk@14.0.0-rc.3':
-    resolution: {integrity: sha512-RI+8uPYAHvauuwmGNbofv9e6Q2LnUjdqUwRCBSN7ZCEWH48DA/bAL6u+X7+WcF13PHsZPeNlp5bHZ5xHbzXdYA==}
+  '@stellar/stellar-sdk@14.1.0':
+    resolution: {integrity: sha512-sEZEvAfkY99nF04+hpRQeg5HfFxRM/gMXDfBeSV+9d2oXOyw+9goz6Al/fBUtFZp9X7WR/HYxOBgYZ1IKpV8vg==}
     engines: {node: '>=20.0.0'}
 
   '@types/node@22.16.4':
@@ -304,7 +298,7 @@ packages:
 
 snapshots:
 
-  '@noble/curves@1.9.4':
+  '@noble/curves@1.9.7':
     dependencies:
       '@noble/hashes': 1.8.0
 
@@ -312,22 +306,20 @@ snapshots:
 
   '@simplewebauthn/browser@13.1.2': {}
 
-  '@simplewebauthn/types@12.0.0': {}
-
   '@stellar/js-xdr@3.1.2': {}
 
-  '@stellar/stellar-base@14.0.0-rc.2':
+  '@stellar/stellar-base@14.0.0':
     dependencies:
-      '@noble/curves': 1.9.4
+      '@noble/curves': 1.9.7
       '@stellar/js-xdr': 3.1.2
       base32.js: 0.1.0
       bignumber.js: 9.3.1
       buffer: 6.0.3
       sha.js: 2.4.12
 
-  '@stellar/stellar-sdk@14.0.0-rc.3':
+  '@stellar/stellar-sdk@14.1.0':
     dependencies:
-      '@stellar/stellar-base': 14.0.0-rc.2
+      '@stellar/stellar-base': 14.0.0
       axios: 1.10.0
       bignumber.js: 9.3.1
       eventsource: 2.0.2

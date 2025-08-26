@@ -18,15 +18,14 @@
     "ext:cp": "./clone-js-sdk.sh"
   },
   "dependencies": {
-    "@simplewebauthn/browser": "^13.1.0",
-    "@stellar/stellar-sdk": "14.0.0-rc.3",
+    "@stellar/stellar-sdk": "14.1.0",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-kit-sdk": "workspace:*",
     "sac-sdk": "workspace:*"
   },
   "devDependencies": {
-    "@simplewebauthn/types": "^12.0.0",
+    "@simplewebauthn/browser": "^13.1.2",
     "@types/node": "^22.15.3",
     "typescript": "^5.8.3"
   },
@@ -61,5 +60,6 @@
   "bugs": {
     "url": "https://github.com/kalepail/passkey-kit/issues"
   },
-  "homepage": "https://github.com/kalepail/passkey-kit/blob/main/README.md"
+  "homepage": "https://github.com/kalepail/passkey-kit/blob/main/README.md",
+  "packageManager": "pnpm@10.14.0"
 }
