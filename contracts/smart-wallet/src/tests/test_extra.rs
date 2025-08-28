@@ -21,8 +21,8 @@ use soroban_sdk::{
 };
 use stellar_strkey::{ed25519, Strkey};
 
-use crate::{Contract, ContractClient};
-use ed25519_dalek::{Keypair, Signer as _};
+use crate::Contract;
+use ed25519_dalek::{Signer as _, SigningKey};
 
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
@@ -52,7 +52,7 @@ fn test_deploy_contract() {
     let signature_expiration_ledger = env.ledger().sequence();
 
     // Super Ed25519
-    let super_ed25519_keypair = Keypair::from_bytes(&[
+    let super_ed25519_keypair = SigningKey::from_keypair_bytes(&[
         88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
         200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
         247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
@@ -60,8 +60,9 @@ fn test_deploy_contract() {
     ])
     .unwrap();
 
-    let super_ed25519_strkey =
-        Strkey::PublicKeyEd25519(ed25519::PublicKey(super_ed25519_keypair.public.to_bytes()));
+    let super_ed25519_strkey = Strkey::PublicKeyEd25519(ed25519::PublicKey(
+        super_ed25519_keypair.verifying_key().to_bytes(),
+    ));
     let super_ed25519 = Bytes::from_slice(&env, super_ed25519_strkey.to_string().as_bytes());
     let super_ed25519 = Address::from_string_bytes(&super_ed25519);
 

@@ -1,7 +1,6 @@
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk/minimal'
-import type { AuthenticationResponseJSON, AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
+import { startRegistration, startAuthentication, type AuthenticationResponseJSON, type AuthenticatorAttestationResponseJSON, type AuthenticatorSelectionCriteria } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
