@@ -40,7 +40,7 @@
 
 	async function register() {
 		const user = prompt("Give this passkey a name");
-
+		const rpId = import.meta.env.VITE_rpId;
 		if (!user) return;
 
 		try {
@@ -48,8 +48,8 @@
 				keyId: kid,
 				contractId: cid,
 				signedTx,
-			} = await account.createWallet("Super Peach", user);
-			
+			} = await account.createWallet("Super Peach", user, rpId);
+
 			const res = await server.send(signedTx);
 
 			console.log(res);
@@ -64,13 +64,15 @@
 			await fundWallet();
 		} catch (err: any) {
 			console.error(err);
-			alert(err.message);
+			// alert(err.message);
 		}
 	}
 	async function connect(keyId_?: string) {
+		const rpId = import.meta.env.VITE_rpId;
 		try {
 			const { keyId: kid, contractId: cid } = await account.connectWallet(
 				{
+					rpId: rpId,
 					keyId: keyId_,
 					getContractId: (keyId) => server.getContractId({ keyId }),
 				},
@@ -129,7 +131,7 @@
 			// keyAdmin = false;
 		} catch (err: any) {
 			console.error(err);
-			alert(err.message);
+			// alert(err.message);
 		}
 	}
 	async function addEd25519Signer() {
@@ -200,7 +202,7 @@
 			await getWalletSigners();
 		} catch (err: any) {
 			console.error(err);
-			alert(err.message);
+			// alert(err.message);
 		}
 	}
 	async function fundWallet() {
@@ -332,6 +334,7 @@
 </script>
 
 <main>
+	<h1>Passkey Kit Demo</h1>
 	<button on:click={register}>Register</button>
 	<button on:click={() => connect()}>Sign In</button>
 	<button on:click={reset}>Reset</button>

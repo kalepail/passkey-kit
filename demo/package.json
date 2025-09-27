@@ -9,6 +9,10 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/cli": "^7.4.2",
+    "@capacitor/ios": "^7.4.2",
+    "capacitor-passkey-plugin": "^0.0.3",
     "@stellar/stellar-sdk": "13.3.0",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@tsconfig/svelte": "^5.0.4",
@@ -21,10 +25,15 @@
     "typescript": "^5.8.3",
     "vite": "^5.4.14",
     "vite-plugin-filter-replace": "^0.1.14"
+
   },
   "pnpm": {
     "overrides": {
       "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
     }
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.2",
+    "capacitor-passkey-plugin": "^0.0.3"
   }
 }

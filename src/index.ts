@@ -3,3 +3,4 @@ export { PasskeyKit } from "./kit"
 export { PasskeyServer } from "./server"
 export { SACClient } from "./sac"
 export { Client as PasskeyClient } from 'passkey-kit-sdk'
+export { PasskeyService } from './passkey-service'

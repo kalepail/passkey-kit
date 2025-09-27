@@ -1,13 +1,13 @@
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk/minimal'
-import type { AuthenticationResponseJSON, AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
 import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Tx } from '@stellar/stellar-sdk/minimal/contract'
 import type { Server } from '@stellar/stellar-sdk/minimal/rpc'
+import { PasskeyService, type AuthenticationResponseJSON, type AuthenticatorAttestationResponseJSON, type AuthenticatorSelectionCriteria } from './passkey-service'
+import { PasskeyPlugin } from 'capacitor-passkey-plugin';
 
 export class PasskeyKit extends PasskeyBase {
     declare rpc: Server
@@ -17,10 +17,7 @@ export class PasskeyKit extends PasskeyBase {
     private walletPublicKey: string
     private walletWasmHash: string
     private timeoutInSeconds: number
-    private WebAuthn: {
-        startRegistration: typeof startRegistration,
-        startAuthentication: typeof startAuthentication
-    }
+    private passkeyService: PasskeyService
 
     public keyId: string | undefined
     public networkPassphrase: string
@@ -30,13 +27,9 @@ export class PasskeyKit extends PasskeyBase {
         rpcUrl: string,
         networkPassphrase: string,
         walletWasmHash: string,
-        timeoutInSeconds?: number,
-        WebAuthn?: {
-            startRegistration: typeof startRegistration,
-            startAuthentication: typeof startAuthentication
-        }
+        timeoutInSeconds?: number
     }) {
-        const { rpcUrl, networkPassphrase, walletWasmHash, WebAuthn } = options
+        const { rpcUrl, networkPassphrase, walletWasmHash } = options
 
         super(rpcUrl)
 
@@ -50,12 +43,17 @@ export class PasskeyKit extends PasskeyBase {
         this.walletPublicKey = this.walletKeypair.publicKey()
         this.walletWasmHash = walletWasmHash
         this.timeoutInSeconds = options.timeoutInSeconds || 30 // Launchtube requires <= 30 second timeout so let's default to that
-        this.WebAuthn = WebAuthn || { startRegistration, startAuthentication }
+
+        this.passkeyService = new PasskeyService({
+            passkeyPlugin: PasskeyPlugin
+        })
     }
 
-    public async createWallet(app: string, user: string) {
-        const { rawResponse, keyId, keyIdBase64, publicKey } = await this.createKey(app, user)
 
+    public async createWallet(app: string, user: string, rpId: string) {
+        const { rawResponse, keyId, keyIdBase64, publicKey } = await this.createKey(app, user,
+             {rpId: rpId}
+        )
         const at = await PasskeyClient.deploy(
             {
                 signer: {
@@ -116,22 +114,30 @@ export class PasskeyKit extends PasskeyBase {
         // In this case we should save the passkey info and retry uploading it async vs asking the user to create another passkey
         // This does introduce a storage dependency though so it likely needs to be a function with some logic for choosing how to store the passkey data
 
-        const rawResponse = await this.WebAuthn.startRegistration({
-            optionsJSON: {
-                challenge: base64url("stellaristhebetterblockchain"),
-                rp: {
-                    id: rpId,
-                    name: app,
-                },
-                user: {
-                    id: base64url(`${user}:${now.getTime()}:${Math.random()}`),
-                    name: displayName,
-                    displayName
-                },
-                authenticatorSelection,
-                pubKeyCredParams: [{ alg: -7, type: "public-key" }],
-            }
+        const userIdString = `${user}:${now.getTime()}:${Math.random()}`
+        const userIdBytes = new TextEncoder().encode(userIdString);
+        const userId = this.toBase64Url(userIdBytes);
+
+        const challengeBytes = new TextEncoder().encode('stellaristhebetterblockchain');
+        const challenge = this.toBase64Url(challengeBytes);
+
+        const rawResponse = await this.passkeyService.createPasskey({
+            challenge,
+            rp: {
+                id: rpId,
+                name: app,
+            },
+            user: {
+                id: userId,
+                name: displayName,
+                displayName
+            },
+            authenticatorSelection,
+            pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+            timeout: 60000,
+            attestation: 'none'
         });
+
         const { id, response } = rawResponse
 
         if (!this.keyId)
@@ -156,14 +162,16 @@ export class PasskeyKit extends PasskeyBase {
         let { rpId, keyId, getContractId, walletPublicKey } = opts || {}
         let keyIdBuffer: Buffer
         let rawResponse: AuthenticationResponseJSON | undefined;
-
         if (!keyId) {
-            rawResponse = await this.WebAuthn.startAuthentication({
-                optionsJSON: {
-                    challenge: base64url("stellaristhebetterblockchain"),
-                    rpId,
-                    userVerification: "preferred",
-                }
+
+            const challengeBytes = new TextEncoder().encode('stellaristhebetterblockchain');//Uint8Array
+            rawResponse = await this.passkeyService.authenticate({
+                // challenge: "stellaristhebetterblockchain",
+                challenge: this.toBase64Url(challengeBytes),
+                rpId: rpId,
+                allowCredentials: [],
+                userVerification: 'preferred',
+                timeout: 60000
             });
 
             keyId = rawResponse.id
@@ -222,6 +230,29 @@ export class PasskeyKit extends PasskeyBase {
             contractId
         }
     }
+
+    toBase64Url(uint8: any) {
+        return btoa(String.fromCharCode.apply(null, uint8))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    }
+
+    base64urlToArrayBuffer(base64url: string) {
+        const base64 = base64url
+            .replace(/-/g, '+')
+            .replace(/_/g, '/')
+            .padEnd(Math.ceil(base64url.length / 4) * 4, '=');
+
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes.buffer;
+    }
+
 
     public async signAuthEntry(
         entry: xdr.SorobanAuthorizationEntry,
@@ -307,28 +338,27 @@ export class PasskeyKit extends PasskeyBase {
 
         // Default, use passkey
         else {
-            const authenticationResponse = await this.WebAuthn.startAuthentication({
-                optionsJSON: keyId === 'any'
-                    || (!keyId && !this.keyId)
-                    ? {
-                        challenge: base64url(payload),
-                        rpId,
-                        userVerification: "preferred",
-                    }
-                    : {
-                        challenge: base64url(payload),
-                        rpId,
-                        allowCredentials: [
-                            {
-                                id: keyId instanceof Uint8Array
-                                    ? base64url(Buffer.from(keyId))
-                                    : keyId || this.keyId!,
-                                type: "public-key",
-                            },
-                        ],
-                        userVerification: "preferred",
-                    }
-            });
+            const authOptions = keyId === 'any' || (!keyId && !this.keyId)
+                ? {
+                    challenge: base64url(payload),
+                    rpId,
+                    userVerification: "preferred" as const,
+                }
+                : {
+                    challenge: base64url(payload),
+                    rpId,
+                    allowCredentials: [
+                        {
+                            id: keyId instanceof Uint8Array
+                                ? base64url(Buffer.from(keyId))
+                                : keyId || this.keyId!,
+                            type: "public-key" as const,
+                        },
+                    ],
+                    userVerification: "preferred" as const,
+                };
+
+            const authenticationResponse = await this.passkeyService.authenticate(authOptions);
 
             key = {
                 tag: "Secp256r1",
@@ -528,7 +558,7 @@ export class PasskeyKit extends PasskeyBase {
         });
     }
 
-    /* LATER 
+    /* LATER
         - Add a getKeyInfo action to get info about a specific passkey
             Specifically looking for name, type, etc. data so a user could grok what signer mapped to what passkey
     */

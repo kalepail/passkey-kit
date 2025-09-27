@@ -1,0 +1,28 @@
+PODS:
+  - Capacitor (7.4.2):
+    - CapacitorCordova
+  - CapacitorCordova (7.4.2)
+  - CapacitorPasskeyPlugin (0.0.3):
+    - Capacitor
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios`)"
+  - "CapacitorPasskeyPlugin (from `../../node_modules/.pnpm/capacitor-passkey-plugin@0.0.3_@capacitor+core@7.4.2/node_modules/capacitor-passkey-plugin`)"
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios"
+  CapacitorCordova:
+    :path: "../../node_modules/.pnpm/@capacitor+ios@7.4.2_@capacitor+core@7.4.2/node_modules/@capacitor/ios"
+  CapacitorPasskeyPlugin:
+    :path: "../../node_modules/.pnpm/capacitor-passkey-plugin@0.0.3_@capacitor+core@7.4.2/node_modules/capacitor-passkey-plugin"
+
+SPEC CHECKSUMS:
+  Capacitor: 156d98aba46ec01dde72c4bbb92fa626837cad29
+  CapacitorCordova: 5e58d04631bc5094894ac106e2bf1da18a9e6151
+  CapacitorPasskeyPlugin: 1f1ada0b2b75694cdd547048b7dd256717cf2139
+
+PODFILE CHECKSUM: 1407a0baf180918f53f6eb1c861bae2b40f409b0
+
+COCOAPODS: 1.16.2

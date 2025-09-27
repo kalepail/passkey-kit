@@ -18,15 +18,15 @@
     "ext:cp": "./clone-js-sdk.sh"
   },
   "dependencies": {
-    "@simplewebauthn/browser": "^13.1.0",
+    "@capacitor/core": "^7.4.2",
     "@stellar/stellar-sdk": "^13.3.0",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
+    "capacitor-passkey-plugin": "^0.0.3",
     "passkey-kit-sdk": "workspace:*",
     "sac-sdk": "workspace:*"
   },
   "devDependencies": {
-    "@simplewebauthn/types": "^12.0.0",
     "@types/node": "^22.15.3",
     "typescript": "^5.8.3"
   },

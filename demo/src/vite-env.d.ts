@@ -12,6 +12,7 @@ interface ImportMetaEnv {
     readonly VITE_mercuryUrl: string;
     readonly VITE_mercuryJwt: string;
     readonly VITE_mercuryKey: string;
+    readonly VITE_rpId: string;
 }
 
 interface ImportMeta {
