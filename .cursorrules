@@ -1,0 +1,170 @@
+# Passkey Kit – Cursor Workspace Rules (v2025-06-12)
+
+These rules provide canonical guidance to AI assistants and contributors interacting with this repository.  They supersede any previous `.cursorrules` file.
+Their intent is to stay *future-proof*: they encode principles that should hold even as tooling evolves.  When in doubt, prefer the spirit of the rule over its letter.
+
+---
+
+## 1  Repository Topology (overview)
+
+•  `src/` – Core **passkey-kit** TypeScript library (published to npm).
+•  `packages/passkey-kit-sdk/` – Stand-alone TS SDK used by the main package.
+•  `packages/sac-sdk/` – SAC (smart-account contract) SDK.
+•  `contracts/` – Soroban smart contracts written in Rust.
+•  `zephyr/` – Deterministic Zephyr program exposing HTTP endpoints.
+•  `demo/` – Svelte demo showcasing end-to-end usage.
+
+This repo is a **pnpm workspace**; always use `pnpm` (≥ 8) for Node tasks.
+
+---
+
+## 2  Language & Toolchain Baselines
+
+| Domain | Minimum Supported | Notes |
+|--------|-------------------|-------|
+| Node.js | 20 LTS | ESM by default, top-level `await` allowed |
+| TypeScript | 5.4 | `strict`, `moduleResolution: node16` |
+| Rust (contracts) | 1.79 | Follow the current stable Soroban toolchain |
+| Soroban SDK | 22.x | Keep minor versions in lock-step across contracts |
+| Bun (tests) | 1.x | Used for ultrafast unit tests (`bun test`) |
+| pnpm | 8.x | Managed via **Corepack**; lockfile v5 enforced |
+
+Upgrade the baselines on every **major** release of the kit.
+
+---
+
+## 3  General Coding Principles
+
+1. **Functional & immutable** – avoid shared mutable state; favour pure functions.
+2. **Fail loudly, fail early** – surface rich, actionable error messages.
+3. **Minimal dependencies** – prefer platform APIs or internal utils; justify every new dep.
+4. **Typed first** – all public surfaces must be *fully* typed; export `.d.ts` files.
+5. **Async-first** – use `async/await`; never chain raw `Promise` callbacks.
+6. **Workspace integrity** – after changes run `pnpm run build` at the repo root to guarantee type-safety across packages.
+
+---
+
+## 4  JavaScript / TypeScript Specifics
+
+• Import Stellar via `@stellar/stellar-sdk/minimal` unless full bundle is strictly required.
+• Base-64 URL encode/decode with `base64url`; avoid `Buffer.from(x, 'base64')`.
+• Prefer **named exports**; avoid `export default` in new code.
+• File extensions: `.ts` / `.tsx` (React) / `.svelte` (demo) only.
+• Module import grouping: external → workspace → relative → style imports; blank line between groups.
+• Leverage modern ECMAScript (`??`, `?.`, `Array#at`, `Intl`) – but avoid stage-3 proposals unless polyfilled.
+• Publish ESM-first: every package must declare `"type": "module"` and expose an `exports` map with `import`, `require` (fallback), and `types` conditions.
+• Mark packages `"sideEffects": false` when safe to enable aggressive tree-shaking.
+• Ship first-party `.d.ts` bundles (either via `tsc --emitDeclarationOnly` or `api-extractor`).  Do **not** rely on DefinitelyTyped for kit packages.
+• Top-level entrypoints should be 100 % statically analyzable – avoid dynamic `require()` or `eval()`.
+
+---
+
+## 5  Rust / Soroban Contract Rules
+
+1. Contracts live in `contracts/*/src`.
+2. `#![no_std]` mandatory; rely on `soroban-sdk` helpers instead of `std`.
+3. Expose a top-level `Contract` struct marked with `#[contract]`.
+4. Model errors with `#[contracterror]`; surface via `panic_with_error!`.
+5. Tests belong under `contracts/*/src/tests` using `soroban_sdk::testutils`.
+6. New contracts must be registered in `contracts/Cargo.toml` workspace members.
+
+---
+
+## 6  Zephyr Program Rules
+
+• Zephyr code resides in `zephyr/src` and **must remain deterministic** – avoid non-deterministic data sources (e.g. system time, randomness) unless explicitly mocked.
+• Each externally exposed endpoint must be documented *above* its `#[no_mangle]` function.
+
+---
+
+## 7  Svelte / Demo Rules
+
+• Demo code lives in `demo/src`.
+• Follow existing component conventions: PascalCase filenames, `<script lang="ts">`, `<style scoped>`.
+• Prefer lightweight stores over global state; mock network calls when possible.
+
+---
+
+## 8  Testing & CI
+
+1. Run `bun test` to execute JavaScript unit tests (`bun_tests/`).
+2. Rust contract tests live alongside contracts.
+3. All new public functions (TS) or contract interfaces (Rust) require unit tests.
+4. Use **Conventional Commits** in PR titles to automate semantic-release notes.
+5. CI (GitHub Actions) must run: `pnpm lint`, `pnpm run build`, `bun test`, and contract tests.
+
+---
+
+## 9  Versioning & Release
+
+• Independent package versions, shared workspace lockfile.
+• Semantic Versioning: breaking changes → major bump.
+• Root `prepublishOnly` script builds **all** packages; never publish from a dirty tree.
+• Tags follow `pkg-name@x.y.z` format.
+• Adopt **Changesets** for automated changelog generation and version bumping across the workspace; release pipeline should consume the generated changelog artefacts.
+
+---
+
+## 10  Style, Linting & Formatting
+
+• Indent: 2 spaces, trailing commas, single quotes.
+• Code formatted with **Prettier** (`pnpm format`).
+• Lint with **ESLint** + `@typescript-eslint`.  Lint errors are CI blockers.
+• Prefer `const`; use `let` only when reassignment is needed.
+
+---
+
+## 11  AI Usage Etiquette
+
+• These rules are the *source of truth* for AI coding assistants.
+• Assistants must **never** write secrets, API keys, or personal data into the codebase.
+• When creating code, ensure it can run *immediately* and is fully typed.
+• Before adding dependencies, verify they fit the "minimal deps" philosophy and update `package.json` accordingly.
+
+---
+
+## 12  Context Shortcuts
+
+Use these aliases when referencing files in chat:
+
+```text
+@kit.ts          → src/kit.ts
+@smart-wallet    → contracts/smart-wallet/src/lib.rs
+@passkey-sdk     → packages/passkey-kit-sdk/src
+```
+
+---
+
+## 13  Performance & Build Optimisation
+
+1. Prefer **incremental builds** (e.g. `pnpm --filter`, `--recursive --workspace-concurrency`) to accelerate CI and local development.
+2. Enable intelligent cache layers (GitHub Actions cache / bun test cache) to avoid redundant compilation of unchanged packages.
+3. Leverage Bun's ultra-fast test runner; keep test suites granular to maximise parallelism.
+4. When introducing heavy tasks (e.g. Soroban WASM compilation), gate them behind conditional steps so that they execute only when relevant code changes.
+5. Monitor build & test times; aim for sub-5-minute end-to-end CI under normal load.
+
+---
+
+## 14  npm Package Publishing Principles
+
+• Source of truth is **ESM**; if CJS support is required, publish it under `./cjs` and reference with the `require` condition – no transpiled dual-bundles in `dist/`.
+• Generate a **size-snapshot** report (e.g. with `size-limit`) and block PRs that increase size over budget.
+• `package.json` must include: `license`, `funding`, `homepage`, `repository`, `bugs`, and a short but descriptive `description`.
+• Use the `files` whitelist (or `.npmignore`) to keep the published tarball lean (< 30 KiB ideally).
+• Release via GitHub Actions with `npm publish --provenance` to attach Sigstore metadata; use **two-factor auth** on the npm org.
+• After publish, run `npm view @scope/pkg dist.unpackedSize` in CI and fail if unexpectedly large.
+
+---
+
+## 15  Security & Supply Chain
+
+1. Enforce automated dependency scanning (GitHub Dependabot + `pnpm audit --recursive`).
+2. Run **OpenSSF Scorecard** weekly; block merges if score < 7.
+3. Sign commits & tags (Conventional Commits + `git config commit.gpgsign`); CI verifies signatures.
+4. Harden CI with minimal permissions (`GITHUB_TOKEN` → read-only except on `release/*` jobs).
+5. Adopt `.npmrc` with `ignore-scripts=true` for CI and `prefer-offline=true` for faster deterministic installs.
+6. All public APIs must have runtime assertions (zod or custom) to prevent type coercion exploits.
+
+---
+
+End of rules. 

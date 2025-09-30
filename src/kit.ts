@@ -1,7 +1,6 @@
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
 import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk/minimal'
-import type { AuthenticationResponseJSON, AuthenticatorAttestationResponseJSON, AuthenticatorSelectionCriteria } from "@simplewebauthn/types"
-import { startRegistration, startAuthentication } from "@simplewebauthn/browser"
+import { startRegistration, startAuthentication, type AuthenticationResponseJSON, type AuthenticatorAttestationResponseJSON, type AuthenticatorSelectionCriteria } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
@@ -425,7 +424,7 @@ export class PasskeyKit extends PasskeyBase {
     ) {
         if (!(txn instanceof AssembledTransaction)) {
             try {
-                txn = AssembledTransaction.fromXDR(this.wallet!.options, typeof txn === 'string' ? txn : txn.toXDR(), this.wallet!.spec)
+                txn = AssembledTransaction.fromXDR(this.wallet!.options, typeof txn === 'string' ? txn : txn.toXDR(), this.wallet!.spec);
             } catch {
                 if (!(txn instanceof AssembledTransaction)) {
                     const built = TransactionBuilder.fromXDR(typeof txn === 'string' ? txn : txn.toXDR(), this.networkPassphrase);
