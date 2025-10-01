@@ -4,12 +4,12 @@ resolver = "2"
 members = ["smart-wallet", "smart-wallet-interface", "example-contract", "sample-policy"]
 
 [workspace.dependencies]
-soroban-sdk = "22"
-serde = { version = "1", default-features = false }
+soroban-sdk = "23.0.0-rc.2.4"
+serde = { version = "1.0", default-features = false }
 serde-json-core = { version = "0.6.0", default-features = false }
-sha256 = { version = "1.5.0" }
-ed25519-dalek = { version = "1" }
-base64 = "0.22.1"
+sha256 = { version = "1.6" }
+ed25519-dalek = { version = "2.2" }
+base64 = "0.22"
 stellar-strkey = { version = "0.0.13" }
 smart-wallet = { path = "smart-wallet" }
 smart-wallet-interface = { path = "smart-wallet-interface" }

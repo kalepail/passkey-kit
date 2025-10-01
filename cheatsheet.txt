@@ -5,8 +5,8 @@ npm publish --workspaces
 pnpm publish --no-git-checks
 
 # Stellar commands
-stellar contract bindings rust --wasm target/wasm32-unknown-unknown/release/smart_wallet.wasm
-stellar contract deploy --wasm target/wasm32-unknown-unknown/release/sample_policy.wasm --network testnet --source default
+stellar contract bindings rust --wasm target/wasm32v1-none/release/smart_wallet.wasm
+stellar contract deploy --wasm target/wasm32v1-none/release/sample_policy.wasm --network testnet --source default
 
 # Mercury commands
 # https://test.mercurydata.app/

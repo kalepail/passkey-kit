@@ -11,7 +11,7 @@ use soroban_sdk::{
     map, symbol_short,
     testutils::EnvTestConfig,
     xdr::{
-        ContractExecutable, ContractIdPreimage, ContractIdPreimageFromAddress,
+        ContractExecutable, ContractId, ContractIdPreimage, ContractIdPreimageFromAddress,
         CreateContractArgsV2, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits,
         ScAddress, ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry,
         SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, Uint256,
@@ -21,17 +21,15 @@ use soroban_sdk::{
 };
 use stellar_strkey::{ed25519, Strkey};
 
-use crate::{Contract, ContractClient};
-use ed25519_dalek::{Keypair, Signer as _};
+use crate::Contract;
+use ed25519_dalek::{Signer as _, SigningKey};
 
 use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 
 mod sample_policy {
     use crate::types::SignerKey;
     use soroban_sdk::auth::Context;
-    soroban_sdk::contractimport!(
-        file = "../target/wasm32-unknown-unknown/release/sample_policy.wasm"
-    );
+    soroban_sdk::contractimport!(file = "../target/wasm32v1-none/release/sample_policy.wasm");
 }
 
 #[test]
@@ -54,7 +52,7 @@ fn test_deploy_contract() {
     let signature_expiration_ledger = env.ledger().sequence();
 
     // Super Ed25519
-    let super_ed25519_keypair = Keypair::from_bytes(&[
+    let super_ed25519_keypair = SigningKey::from_keypair_bytes(&[
         88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
         200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
         247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
@@ -62,8 +60,9 @@ fn test_deploy_contract() {
     ])
     .unwrap();
 
-    let super_ed25519_strkey =
-        Strkey::PublicKeyEd25519(ed25519::PublicKey(super_ed25519_keypair.public.to_bytes()));
+    let super_ed25519_strkey = Strkey::PublicKeyEd25519(ed25519::PublicKey(
+        super_ed25519_keypair.verifying_key().to_bytes(),
+    ));
     let super_ed25519 = Bytes::from_slice(&env, super_ed25519_strkey.to_string().as_bytes());
     let super_ed25519 = Address::from_string_bytes(&super_ed25519);
 
@@ -100,7 +99,7 @@ fn test_deploy_contract() {
     let root_invocation = SorobanAuthorizedInvocation {
         function: SorobanAuthorizedFunction::CreateContractV2HostFn(CreateContractArgsV2 {
             contract_id_preimage: ContractIdPreimage::Address(ContractIdPreimageFromAddress {
-                address: ScAddress::Contract(Hash::from(wallet_address_array)),
+                address: ScAddress::Contract(ContractId(Hash::from(wallet_address_array))),
                 salt: Uint256(wasm_hash.to_array()),
             }),
             executable: ContractExecutable::Wasm(Hash::from(wasm_hash.to_array())),

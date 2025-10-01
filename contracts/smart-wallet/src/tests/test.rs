@@ -4,7 +4,7 @@ use std::println;
 extern crate std;
 
 use crate::{Contract, ContractClient};
-use ed25519_dalek::{Keypair, Signer as _};
+use ed25519_dalek::{Signer as _, SigningKey};
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
 use sample_policy::Contract as PolicyContract;
 use smart_wallet_interface::types::{
@@ -36,7 +36,7 @@ fn test() {
     let evil_amount = 10_000_00i128;
 
     // Super Ed25519
-    let super_ed25519_keypair = Keypair::from_bytes(&[
+    let super_ed25519_keypair = SigningKey::from_keypair_bytes(&[
         88, 206, 67, 128, 240, 45, 168, 148, 191, 111, 180, 111, 104, 83, 214, 113, 78, 27, 55, 86,
         200, 247, 164, 163, 76, 236, 24, 208, 115, 40, 231, 255, 161, 115, 141, 114, 97, 125, 136,
         247, 117, 105, 60, 155, 144, 51, 216, 187, 185, 157, 18, 126, 169, 172, 15, 4, 148, 13,
@@ -44,8 +44,9 @@ fn test() {
     ])
     .unwrap();
 
-    let super_ed25519_strkey =
-        Strkey::PublicKeyEd25519(ed25519::PublicKey(super_ed25519_keypair.public.to_bytes()));
+    let super_ed25519_strkey = Strkey::PublicKeyEd25519(ed25519::PublicKey(
+        super_ed25519_keypair.verifying_key().to_bytes(),
+    ));
     let super_ed25519 = Bytes::from_slice(&env, super_ed25519_strkey.to_string().as_bytes());
     let super_ed25519 = Address::from_string_bytes(&super_ed25519);
 
@@ -114,7 +115,7 @@ fn test() {
     ////
 
     // Simple Ed25519
-    let simple_ed25519_keypair = Keypair::from_bytes(&[
+    let simple_ed25519_keypair = SigningKey::from_keypair_bytes(&[
         149, 154, 40, 132, 13, 234, 167, 87, 182, 44, 152, 45, 242, 179, 187, 17, 139, 106, 49, 85,
         249, 235, 17, 248, 24, 170, 19, 164, 23, 117, 145, 252, 172, 35, 170, 26, 69, 15, 75, 127,
         192, 170, 166, 54, 68, 127, 218, 29, 130, 173, 159, 1, 253, 192, 48, 242, 80, 12, 55, 152,
@@ -122,8 +123,9 @@ fn test() {
     ])
     .unwrap();
 
-    let simple_ed25519_strkey =
-        Strkey::PublicKeyEd25519(ed25519::PublicKey(simple_ed25519_keypair.public.to_bytes()));
+    let simple_ed25519_strkey = Strkey::PublicKeyEd25519(ed25519::PublicKey(
+        simple_ed25519_keypair.verifying_key().to_bytes(),
+    ));
     let simple_ed25519_address =
         Bytes::from_slice(&env, simple_ed25519_strkey.to_string().as_bytes());
     let simple_ed25519_address = Address::from_string_bytes(&simple_ed25519_address);
@@ -304,7 +306,7 @@ fn test() {
         root_invocation: root_invocation.clone(),
     };
 
-    env.budget().reset_default();
+    env.cost_estimate().budget().reset_default();
 
     example_contract_client.set_auths(&[root_auth]).call(
         &sac_address,
@@ -323,5 +325,5 @@ fn test() {
     // Cpu limit: 100000000; used: 999991
     // Mem limit: 41943040; used: 86036
 
-    println!("{:?}", env.budget().print());
+    println!("{:?}", env.cost_estimate().budget().print());
 }
