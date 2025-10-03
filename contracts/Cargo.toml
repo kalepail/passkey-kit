@@ -4,9 +4,9 @@ resolver = "2"
 members = ["smart-wallet", "smart-wallet-interface", "example-contract", "sample-policy"]
 
 [workspace.dependencies]
-soroban-sdk = "23.0.0-rc.2.4"
+soroban-sdk = "23.0"
 serde = { version = "1.0", default-features = false }
-serde-json-core = { version = "0.6.0", default-features = false }
+serde-json-core = { version = "0.6", default-features = false }
 sha256 = { version = "1.6" }
 ed25519-dalek = { version = "2.2" }
 base64 = "0.22"
