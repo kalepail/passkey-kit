@@ -5,25 +5,22 @@ import type { Tx } from "@stellar/stellar-sdk/minimal/contract"
 import type { Signer } from "./types"
 import { AssembledTransaction } from "@stellar/stellar-sdk/minimal/contract"
 import { Durability } from "@stellar/stellar-sdk/minimal/rpc"
-import { version } from '../package.json'
-
-// TODO set default headers in constructor
+import { ChannelsClient } from "@openzeppelin/relayer-plugin-channels"
 
 export class PasskeyServer extends PasskeyBase {
-    private launchtubeJwt: string | undefined
+    private relayerApiKey: string | undefined
     private mercuryJwt: string | undefined
     private mercuryKey: string | undefined
+    private channelsClient: ChannelsClient | undefined
 
-    public launchtubeUrl: string | undefined
-    public launchtubeHeaders: Record<string, string> | undefined
+    public relayerUrl: string | undefined
     public mercuryProjectName: string | undefined
     public mercuryUrl: string | undefined
 
     constructor(options: {
         rpcUrl?: string,
-        launchtubeUrl?: string,
-        launchtubeJwt?: string,
-        launchtubeHeaders?: Record<string, string>
+        relayerUrl?: string,
+        relayerApiKey?: string,
         mercuryProjectName?: string,
         mercuryUrl?: string,
         mercuryJwt?: string,
@@ -31,9 +28,8 @@ export class PasskeyServer extends PasskeyBase {
     }) {
         const {
             rpcUrl,
-            launchtubeUrl,
-            launchtubeJwt,
-            launchtubeHeaders,
+            relayerUrl,
+            relayerApiKey,
             mercuryProjectName,
             mercuryUrl,
             mercuryJwt,
@@ -42,14 +38,18 @@ export class PasskeyServer extends PasskeyBase {
 
         super(rpcUrl)
 
-        if (launchtubeUrl)
-            this.launchtubeUrl = launchtubeUrl
+        if (relayerUrl)
+            this.relayerUrl = relayerUrl
 
-        if (launchtubeJwt)
-            this.launchtubeJwt = launchtubeJwt
+        if (relayerApiKey)
+            this.relayerApiKey = relayerApiKey
 
-        if (launchtubeHeaders)
-            this.launchtubeHeaders = launchtubeHeaders
+        if (relayerUrl && relayerApiKey) {
+            this.channelsClient = new ChannelsClient({
+                baseUrl: relayerUrl,
+                apiKey: relayerApiKey,
+            })
+        }
 
         if (mercuryProjectName)
             this.mercuryProjectName = mercuryProjectName
@@ -158,42 +158,22 @@ export class PasskeyServer extends PasskeyBase {
         - Add a method for getting a paginated or filtered list of all a wallet's events
     */
 
-    public async send<T>(
-        txn: AssembledTransaction<T> | Tx | string, 
-        fee?: number,
-    ) {
-        if (!this.launchtubeUrl)
-            throw new Error('Launchtube service not configured')
+    public async send<T>(txn: AssembledTransaction<T> | Tx | string) {
+        if (!this.channelsClient)
+            throw new Error('Relayer service not configured')
 
-        const data = new FormData();
+        let txnXdr: string
 
         if (txn instanceof AssembledTransaction) {
-            txn = txn.built!.toXDR()
+            txnXdr = txn.built!.toXDR()
         } else if (typeof txn !== 'string') {
-            txn = txn.toXDR()
+            txnXdr = txn.toXDR()
+        } else {
+            txnXdr = txn
         }
 
-        data.set('xdr', txn);
-
-        if (fee)
-            data.set('fee', fee.toString());
-
-        let lt_headers = Object.assign({
-            'X-Client-Name': 'passkey-kit',
-            'X-Client-Version': version,
-        }, this.launchtubeHeaders)
-
-        if (this.launchtubeJwt)
-            lt_headers.authorization = `Bearer ${this.launchtubeJwt}`
-
-        return fetch(this.launchtubeUrl, {
-            method: 'POST',
-            headers: lt_headers,
-            body: data
-        }).then(async (res) => {
-            if (res.ok)
-            return res.json()
-            else throw await res.json()
+        return this.channelsClient.submitTransaction({
+            xdr: txnXdr,
         })
     }
 }

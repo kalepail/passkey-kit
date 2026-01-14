@@ -8,6 +8,9 @@ import { PasskeyBase } from './base'
 import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Tx } from '@stellar/stellar-sdk/minimal/contract'
 import type { Server } from '@stellar/stellar-sdk/minimal/rpc'
 
+// TODO we should allow setting the rpId in the constructor so we don't have to keep setting it for every call
+// e.g. if you want to sign with a smol.xyz key on next.smol.xyz key you have to set rpId over and over again
+
 export class PasskeyKit extends PasskeyBase {
     declare rpc: Server
     declare rpcUrl: string
@@ -48,12 +51,19 @@ export class PasskeyKit extends PasskeyBase {
         this.walletKeypair = Keypair.fromRawEd25519Seed(hash(Buffer.from('kalepail')));
         this.walletPublicKey = this.walletKeypair.publicKey()
         this.walletWasmHash = walletWasmHash
-        this.timeoutInSeconds = options.timeoutInSeconds || 30 // Launchtube requires <= 30 second timeout so let's default to that
+        this.timeoutInSeconds = options.timeoutInSeconds || 30 // OpenZeppelin Relayer requires <= 30 second timeout so let's default to that
         this.WebAuthn = WebAuthn || { startRegistration, startAuthentication }
     }
 
-    public async createWallet(app: string, user: string) {
-        const { rawResponse, keyId, keyIdBase64, publicKey } = await this.createKey(app, user)
+    public async createWallet(
+        app: string, 
+        user: string, 
+        settings?: {
+            rpId?: string
+            authenticatorSelection?: AuthenticatorSelectionCriteria
+        }
+    ) {
+        const { rawResponse, keyId, keyIdBase64, publicKey } = await this.createKey(app, user, settings)
 
         const at = await PasskeyClient.deploy(
             {

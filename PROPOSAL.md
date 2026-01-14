@@ -6,7 +6,7 @@ Over the past months I've been hard at work designing a solid first stab at a v1
 
 All the best work can reviewed in my [passkey-kit](https://github.com/kalepail/passkey-kit) repo. This repo includes the factory and wallet contracts, a demo client interface, a `passkey-kit` SDK tool to make interacting with the contract interface simple and painless and finally a [Mercury Zephyr](https://www.mercurydata.app/products/zephyr-vm) program for indexing contract events in order to make the wallet more usable client side.
 
-This repo also makes use of a new [Launchtube service](https://github.com/kalepail/launchtube) which makes submitting Soroban transactions simple by handling the concerns of both transaction fees and sequence numbers.
+This repo also makes use of the [OpenZeppelin Relayer service](https://docs.openzeppelin.com/relayer/1.3.x/guides/stellar-channels-guide) which makes submitting Soroban transactions simple by handling the concerns of both transaction fees and sequence numbers.
 
 The primary interest of this proposal is to detail the contract interface itself but many of the design decisions are informed by complexities and available solutions external to the interface. A well rounded understandings of all that's involved to make passkey powered smart wallets on Stellar actually work is necessary in order to arrive at a truly viable contract interface.
 

@@ -35,8 +35,8 @@ export const account = new PasskeyKit({
 });
 export const server = new PasskeyServer({
     rpcUrl: import.meta.env.VITE_rpcUrl,
-    launchtubeUrl: import.meta.env.VITE_launchtubeUrl,
-    launchtubeJwt: import.meta.env.VITE_launchtubeJwt,
+    relayerUrl: import.meta.env.VITE_relayerUrl,
+    relayerApiKey: import.meta.env.VITE_relayerApiKey,
     mercuryProjectName: import.meta.env.VITE_mercuryProjectName,
     mercuryUrl: import.meta.env.VITE_mercuryUrl,
     mercuryJwt: import.meta.env.VITE_mercuryJwt,
