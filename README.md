@@ -1,5 +1,19 @@
 # Passkey Kit
 
+> [!TIP]
+> **Looking for the latest smart wallet SDK?**
+>
+> This package is the **legacy precursor** to [OpenZeppelin Smart Accounts](https://docs.openzeppelin.com/stellar-contracts/accounts/smart-account). For new projects, use **[smart-account-kit](https://github.com/kalepail/smart-account-kit)** — a comprehensive SDK built on top of the audited [OpenZeppelin stellar-contracts](https://github.com/OpenZeppelin/stellar-contracts) library.
+>
+> Smart Account Kit includes:
+> - Context rules with fine-grained authorization scopes
+> - Policy support (threshold multisig, spending limits, custom policies)
+> - Session management with automatic credential persistence
+> - External wallet adapter support
+> - Built-in indexer for contract discovery
+>
+> See the [OpenZeppelin Smart Account package](https://github.com/OpenZeppelin/stellar-contracts/tree/main/packages/accounts) and [multisig example](https://github.com/OpenZeppelin/stellar-contracts/tree/main/examples/multisig-smart-account/account) for more details.
+
 > [!WARNING]
 > Code in this repo is demo material only. It has not been audited. Do not use to hold, protect, or secure anything.
 
