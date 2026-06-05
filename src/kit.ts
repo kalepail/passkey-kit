@@ -8,6 +8,109 @@ import { PasskeyBase } from './base'
 import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Tx } from '@stellar/stellar-sdk/minimal/contract'
 import type { Server } from '@stellar/stellar-sdk/minimal/rpc'
 
+type P27HashIdPreimage = typeof xdr.HashIdPreimage & {
+    envelopeTypeSorobanAuthorizationWithAddress?: (value: unknown) => xdr.HashIdPreimage
+}
+
+type P27Xdr = typeof xdr & {
+    HashIdPreimageSorobanAuthorizationWithAddress?: new (fields: {
+        networkId: Buffer
+        nonce: xdr.Int64
+        signatureExpirationLedger: number
+        invocation: xdr.SorobanAuthorizedInvocation
+        address: xdr.ScAddress
+    }) => unknown
+}
+
+export function getAddressCredentials(credentials: xdr.SorobanCredentials): xdr.SorobanAddressCredentials {
+    const typedCredentials = credentials as unknown as {
+        address: () => xdr.SorobanAddressCredentials
+        addressV2?: () => xdr.SorobanAddressCredentials
+        addressWithDelegates?: () => {
+            addressCredentials: () => xdr.SorobanAddressCredentials
+        }
+    }
+
+    switch (credentials.switch().name as string) {
+        case 'sorobanCredentialsAddress':
+            return typedCredentials.address()
+        case 'sorobanCredentialsAddressV2':
+            if (!typedCredentials.addressV2) {
+                throw new Error(
+                    'ADDRESS_V2 credentials require an SDK with Protocol 27 credential support'
+                )
+            }
+            return typedCredentials.addressV2()
+        case 'sorobanCredentialsAddressWithDelegates':
+            if (!typedCredentials.addressWithDelegates) {
+                throw new Error(
+                    'ADDRESS_WITH_DELEGATES credentials require an SDK with Protocol 27 credential support'
+                )
+            }
+            return typedCredentials.addressWithDelegates().addressCredentials()
+    }
+
+    throw new Error(`Soroban credentials do not contain address credentials: ${credentials.switch().name}`)
+}
+
+export function usesAddressBoundPayload(credentials: xdr.SorobanCredentials): boolean {
+    const credentialType = credentials.switch().name as string
+    return credentialType === 'sorobanCredentialsAddressV2'
+        || credentialType === 'sorobanCredentialsAddressWithDelegates'
+}
+
+export function assertSignatureExpirationLedger(expiration: number): void {
+    if (!Number.isInteger(expiration) || expiration < 0 || expiration > 0xffffffff) {
+        throw new Error('Soroban signature expiration ledger must be a uint32 integer')
+    }
+}
+
+export function buildSignaturePayload(
+    networkPassphrase: string,
+    entry: xdr.SorobanAuthorizationEntry,
+    expiration: number
+): Buffer {
+    assertSignatureExpirationLedger(expiration)
+
+    const credentials = getAddressCredentials(entry.credentials())
+
+    if (usesAddressBoundPayload(entry.credentials())) {
+        const hashIdPreimage = xdr.HashIdPreimage as P27HashIdPreimage
+        const WithAddressPreimage = (xdr as P27Xdr).HashIdPreimageSorobanAuthorizationWithAddress
+
+        if (!hashIdPreimage.envelopeTypeSorobanAuthorizationWithAddress || !WithAddressPreimage) {
+            throw new Error(
+                'Address-bound Soroban auth credentials require an SDK with Protocol 27 auth preimage support'
+            )
+        }
+
+        credentials.signatureExpirationLedger(expiration)
+        const preimage = hashIdPreimage.envelopeTypeSorobanAuthorizationWithAddress(
+            new WithAddressPreimage({
+                networkId: hash(Buffer.from(networkPassphrase)),
+                nonce: credentials.nonce(),
+                signatureExpirationLedger: expiration,
+                invocation: entry.rootInvocation(),
+                address: credentials.address(),
+            })
+        )
+
+        return hash(preimage.toXDR())
+    }
+
+    credentials.signatureExpirationLedger(expiration)
+    const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+        new xdr.HashIdPreimageSorobanAuthorization({
+            networkId: hash(Buffer.from(networkPassphrase)),
+            nonce: credentials.nonce(),
+            signatureExpirationLedger: expiration,
+            invocation: entry.rootInvocation()
+        })
+    )
+
+    return hash(preimage.toXDR())
+}
+
 // TODO we should allow setting the rpId in the constructor so we don't have to keep setting it for every call
 // e.g. if you want to sign with a smol.xyz key on next.smol.xyz key you have to set rpId over and over again
 
@@ -247,7 +350,12 @@ export class PasskeyKit extends PasskeyBase {
         if ([keyId, keypair, policy].filter((arg) => !!arg).length > 1)
             throw new Error('Exactly one of `options.keyId`, `options.keypair`, or `options.policy` must be provided.');
 
-        const credentials = entry.credentials().address();
+        const credentialType = entry.credentials().switch().name as string
+        if (credentialType === 'sorobanCredentialsAddressWithDelegates') {
+            throw new Error('ADDRESS_WITH_DELEGATES auth entries are not supported by passkey signing yet')
+        }
+
+        const credentials = getAddressCredentials(entry.credentials());
 
         if (!expiration) {
             expiration = credentials.signatureExpirationLedger()
@@ -255,21 +363,11 @@ export class PasskeyKit extends PasskeyBase {
             if (!expiration) {
                 const { sequence } = await this.rpc.getLatestLedger()
                 expiration = sequence + this.timeoutInSeconds / 5; // assumes 5 second ledger time
+                expiration = Math.ceil(expiration)
             }
         }
 
-        credentials.signatureExpirationLedger(expiration)
-
-        const preimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-            new xdr.HashIdPreimageSorobanAuthorization({
-                networkId: hash(Buffer.from(this.networkPassphrase)),
-                nonce: credentials.nonce(),
-                signatureExpirationLedger: credentials.signatureExpirationLedger(),
-                invocation: entry.rootInvocation()
-            })
-        )
-
-        const payload = hash(preimage.toXDR())
+        const payload = buildSignaturePayload(this.networkPassphrase, entry, expiration)
 
         // let signatures: Signatures
         let key: SDKSignerKey

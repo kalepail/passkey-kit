@@ -12,6 +12,7 @@
     "deploy:demo": "npx wrangler pages deploy",
     "deploy:demo:prod": "npx wrangler pages deploy --env production",
     "prepublishOnly": "pnpm run build",
+    "test:p27-auth": "bun bun_tests/9.index.ts",
     "build:sac": "pnpm --filter=sac-sdk run build",
     "build:pks": "pnpm --filter=passkey-kit-sdk run build",
     "build": "pnpm run build:sac && pnpm run build:pks && tsc",
