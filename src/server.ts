@@ -1,10 +1,10 @@
-import { xdr } from "@stellar/stellar-sdk/minimal"
+import { xdr } from "@stellar/stellar-sdk"
 import { PasskeyBase } from "./base"
 import base64url from "base64url"
-import type { Tx } from "@stellar/stellar-sdk/minimal/contract"
+import type { Tx } from "@stellar/stellar-sdk/contract"
 import type { Signer } from "./types"
-import { AssembledTransaction } from "@stellar/stellar-sdk/minimal/contract"
-import { Durability } from "@stellar/stellar-sdk/minimal/rpc"
+import { AssembledTransaction } from "@stellar/stellar-sdk/contract"
+import { Durability } from "@stellar/stellar-sdk/rpc"
 import { ChannelsClient } from "@openzeppelin/relayer-plugin-channels"
 
 export class PasskeyServer extends PasskeyBase {

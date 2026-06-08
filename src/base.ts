@@ -1,4 +1,4 @@
-import { Server } from "@stellar/stellar-sdk/minimal/rpc"
+import { Server } from "@stellar/stellar-sdk/rpc"
 
 // TODO consider adding support for a signAuthEntry method that conforms to the ed25519 signature scheme of this passkey interface
 // once we do that we can clean the code a little with the `xdr.HashIdPreimage.envelopeTypeSorobanAuthorization` stuff

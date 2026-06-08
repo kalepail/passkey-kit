@@ -1,12 +1,13 @@
 import { Client as PasskeyClient, type Signature, type SignerKey as SDKSignerKey, type SignerLimits as SDKSignerLimits } from 'passkey-kit-sdk'
-import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk/minimal'
+import * as StellarSdk from '@stellar/stellar-sdk'
+import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk'
 import { startRegistration, startAuthentication, type AuthenticationResponseJSON, type AuthenticatorAttestationResponseJSON, type AuthenticatorSelectionCriteria } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
 import base64url from 'base64url'
 import type { SignerKey, SignerLimits, SignerStore } from './types'
 import { PasskeyBase } from './base'
-import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Tx } from '@stellar/stellar-sdk/minimal/contract'
-import type { Server } from '@stellar/stellar-sdk/minimal/rpc'
+import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Spec as ContractSpec, type Tx } from '@stellar/stellar-sdk/contract'
+import type { Server } from '@stellar/stellar-sdk/rpc'
 
 type P27HashIdPreimage = typeof xdr.HashIdPreimage & {
     envelopeTypeSorobanAuthorizationWithAddress?: (value: unknown) => xdr.HashIdPreimage
@@ -20,6 +21,18 @@ type P27Xdr = typeof xdr & {
         invocation: xdr.SorobanAuthorizedInvocation
         address: xdr.ScAddress
     }) => unknown
+}
+
+type P27AuthSdk = typeof StellarSdk & {
+    buildAuthorizationEntryPreimage?: (
+        entry: xdr.SorobanAuthorizationEntry,
+        validUntilLedgerSeq: number,
+        networkPassphrase: string
+    ) => xdr.HashIdPreimage
+}
+
+type PasskeyClientWithSpec = PasskeyClient & {
+    spec: ContractSpec
 }
 
 export function getAddressCredentials(credentials: xdr.SorobanCredentials): xdr.SorobanAddressCredentials {
@@ -73,6 +86,16 @@ export function buildSignaturePayload(
     assertSignatureExpirationLedger(expiration)
 
     const credentials = getAddressCredentials(entry.credentials())
+    const sdkAuth = StellarSdk as P27AuthSdk
+
+    if (sdkAuth.buildAuthorizationEntryPreimage) {
+        credentials.signatureExpirationLedger(expiration)
+        return hash(sdkAuth.buildAuthorizationEntryPreimage(
+            entry,
+            expiration,
+            networkPassphrase
+        ).toXDR())
+    }
 
     if (usesAddressBoundPayload(entry.credentials())) {
         const hashIdPreimage = xdr.HashIdPreimage as P27HashIdPreimage
@@ -130,6 +153,10 @@ export class PasskeyKit extends PasskeyBase {
     public keyId: string | undefined
     public networkPassphrase: string
     public wallet: PasskeyClient | undefined
+
+    private get walletSpec(): ContractSpec {
+        return (this.wallet as PasskeyClientWithSpec).spec
+    }
 
     constructor(options: {
         rpcUrl: string,
@@ -465,8 +492,8 @@ export class PasskeyKit extends PasskeyBase {
         const scValType = xdr.ScSpecTypeDef.scSpecTypeUdt(
             new xdr.ScSpecTypeUdt({ name: "Signature" }),
         );
-        const scKey = this.wallet!.spec.nativeToScVal(key, scKeyType);
-        const scVal = val ? this.wallet!.spec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
+        const scKey = this.walletSpec.nativeToScVal(key, scKeyType);
+        const scVal = val ? this.walletSpec.nativeToScVal(val, scValType) : xdr.ScVal.scvVoid();
         const scEntry = new xdr.ScMapEntry({
             key: scKey,
             val: scVal,
@@ -532,7 +559,7 @@ export class PasskeyKit extends PasskeyBase {
     ) {
         if (!(txn instanceof AssembledTransaction)) {
             try {
-                txn = AssembledTransaction.fromXDR(this.wallet!.options, typeof txn === 'string' ? txn : txn.toXDR(), this.wallet!.spec);
+                txn = AssembledTransaction.fromXDR(this.wallet!.options, typeof txn === 'string' ? txn : txn.toXDR(), this.walletSpec);
             } catch {
                 if (!(txn instanceof AssembledTransaction)) {
                     const built = TransactionBuilder.fromXDR(typeof txn === 'string' ? txn : txn.toXDR(), this.networkPassphrase);

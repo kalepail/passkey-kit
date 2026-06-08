@@ -1,8 +1,8 @@
 import { PasskeyKit, PasskeyServer, SACClient } from "passkey-kit";
-import { Account, Keypair, StrKey } from "@stellar/stellar-sdk/minimal"
+import { Account, Keypair, StrKey } from "@stellar/stellar-sdk"
 import { Buffer } from "buffer";
-import { basicNodeSigner } from "@stellar/stellar-sdk/minimal/contract";
-import { Server } from "@stellar/stellar-sdk/minimal/rpc";
+import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
+import { Server } from "@stellar/stellar-sdk/rpc";
 
 export const rpc = new Server(import.meta.env.VITE_rpcUrl);
 

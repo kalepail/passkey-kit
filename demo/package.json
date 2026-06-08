@@ -9,7 +9,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "^14.1.1",
+    "@stellar/stellar-sdk": "16.0.0-rc.1",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
     "@tsconfig/svelte": "^5.0.5",
     "base64url": "^3.0.1",
@@ -26,5 +26,8 @@
     "overrides": {
       "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
     }
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }

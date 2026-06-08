@@ -1,5 +1,13 @@
 import { strict as assert } from "node:assert";
-import { Address, Keypair, Networks, hash, xdr } from "@stellar/stellar-sdk/minimal";
+import {
+    Address,
+    Keypair,
+    Networks,
+    buildAuthorizationEntryPreimage,
+    buildWithDelegatesEntry,
+    hash,
+    xdr,
+} from "@stellar/stellar-sdk";
 import {
     assertSignatureExpirationLedger,
     buildSignaturePayload,
@@ -58,13 +66,11 @@ const networkPassphrase = Networks.TESTNET;
     const entry = makeAuthEntry(makeAccount(2));
     const payload = buildSignaturePayload(networkPassphrase, entry, 123);
     const credentials = getAddressCredentials(entry.credentials());
-    const expectedPreimage = xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
-        new xdr.HashIdPreimageSorobanAuthorization({
-            networkId: hash(Buffer.from(networkPassphrase)),
-            nonce: credentials.nonce(),
-            signatureExpirationLedger: 123,
-            invocation: entry.rootInvocation(),
-        })
+    const expectedEntry = xdr.SorobanAuthorizationEntry.fromXDR(entry.toXDR());
+    const expectedPreimage = buildAuthorizationEntryPreimage(
+        expectedEntry,
+        123,
+        networkPassphrase
     );
 
     assert.deepEqual(payload, hash(expectedPreimage.toXDR()));
@@ -72,22 +78,56 @@ const networkPassphrase = Networks.TESTNET;
 }
 
 {
-    const credentials = makeAddressCredentials(makeAccount(3), 1);
-    const fakeAddressV2Credentials = {
-        switch: () => ({ name: "sorobanCredentialsAddressV2" }),
-        addressV2: () => credentials,
-    } as unknown as xdr.SorobanCredentials;
-    const fakeAddressV2Entry = {
-        credentials: () => fakeAddressV2Credentials,
-        rootInvocation: () => makeInvocation(),
-    } as unknown as xdr.SorobanAuthorizationEntry;
-
-    assert.equal(usesAddressBoundPayload(fakeAddressV2Credentials), true);
-    assert.throws(
-        () => buildSignaturePayload(networkPassphrase, fakeAddressV2Entry, 123),
-        /Address-bound Soroban auth credentials require an SDK with Protocol 27 auth preimage support/
+    const baseEntry = makeAuthEntry(makeAccount(3));
+    const credentials = getAddressCredentials(baseEntry.credentials());
+    const credentialFactory = xdr.SorobanCredentials as unknown as {
+        sorobanCredentialsAddressV2: (
+            credentials: xdr.SorobanAddressCredentials
+        ) => xdr.SorobanCredentials;
+    };
+    const addressV2Entry = new xdr.SorobanAuthorizationEntry({
+        credentials: credentialFactory.sorobanCredentialsAddressV2(credentials),
+        rootInvocation: baseEntry.rootInvocation(),
+    });
+    const expectedEntry = xdr.SorobanAuthorizationEntry.fromXDR(addressV2Entry.toXDR());
+    const expectedPreimage = buildAuthorizationEntryPreimage(
+        expectedEntry,
+        123,
+        networkPassphrase
     );
-    assert.equal(credentials.signatureExpirationLedger(), 1);
+
+    assert.equal(addressV2Entry.credentials().switch().name, "sorobanCredentialsAddressV2");
+    assert.equal(usesAddressBoundPayload(addressV2Entry.credentials()), true);
+    assert.deepEqual(
+        buildSignaturePayload(networkPassphrase, addressV2Entry, 123),
+        hash(expectedPreimage.toXDR())
+    );
+    assert.equal(credentials.signatureExpirationLedger(), 123);
+}
+
+{
+    const delegatedEntry = buildWithDelegatesEntry({
+        entry: makeAuthEntry(makeAccount(4)),
+        validUntilLedgerSeq: 123,
+        delegates: [{ address: makeAccount(5) }],
+    });
+    const expectedEntry = xdr.SorobanAuthorizationEntry.fromXDR(delegatedEntry.toXDR());
+    const expectedPreimage = buildAuthorizationEntryPreimage(
+        expectedEntry,
+        123,
+        networkPassphrase
+    );
+
+    assert.equal(
+        delegatedEntry.credentials().switch().name,
+        "sorobanCredentialsAddressWithDelegates"
+    );
+    assert.equal(usesAddressBoundPayload(delegatedEntry.credentials()), true);
+    assert.deepEqual(
+        buildSignaturePayload(networkPassphrase, delegatedEntry, 123),
+        hash(expectedPreimage.toXDR())
+    );
+    assert.equal(getAddressCredentials(delegatedEntry.credentials()).signatureExpirationLedger(), 123);
 }
 
 {
