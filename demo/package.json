@@ -9,17 +9,17 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "devDependencies": {
-    "@stellar/stellar-sdk": "16.0.0-rc.1",
+    "@stellar/stellar-sdk": "^16.0.1",
     "@sveltejs/vite-plugin-svelte": "^3.1.2",
-    "@tsconfig/svelte": "^5.0.5",
+    "@tsconfig/svelte": "^5.0.8",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-kit": "link:..",
     "svelte": "^4.2.20",
-    "svelte-check": "^4.3.1",
+    "svelte-check": "^4.7.2",
     "tslib": "^2.8.1",
-    "typescript": "^5.9.2",
-    "vite": "^5.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
     "vite-plugin-filter-replace": "^0.1.14"
   },
   "pnpm": {
@@ -28,6 +28,6 @@
     }
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.18.0"
   }
 }

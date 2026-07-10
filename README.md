@@ -27,6 +27,14 @@ A TypeScript SDK for creating and managing Stellar smart wallets using passkeys.
 pnpm i passkey-kit
 ```
 
+Protocol 27 support requires Node.js 22.18 or newer and Stellar SDK 16.0.1 or newer:
+
+```bash
+pnpm add passkey-kit@^0.13.0 @stellar/stellar-sdk@^16.0.1
+```
+
+Passkey Kit signs legacy `ADDRESS` and Protocol 27 `ADDRESS_V2` authorization entries. It currently rejects `ADDRESS_WITH_DELEGATES` entries because delegate-tree signing is not implemented. Existing smart-wallet contract deployments do not need a WASM upgrade for this client-side signing change.
+
 ## Exports
 
 ```ts

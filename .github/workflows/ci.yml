@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - next
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+      - uses: oven-sh/setup-bun@v2
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm exec tsc --noEmit --pretty false
+      - run: pnpm run test:p27-auth
+      - run: pnpm --dir demo install --frozen-lockfile
+      - run: pnpm --dir demo run check
+      - run: pnpm --dir demo run build
+      - run: git diff --check
