@@ -10,8 +10,8 @@
  * @packageDocumentation
  */
 
-import type { Keypair } from "@stellar/stellar-sdk";
-import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
+import { TransactionBuilder } from "@stellar/stellar-sdk";
+import type { Keypair, Transaction } from "@stellar/stellar-sdk";
 import type { AssembledTransaction } from "@stellar/stellar-sdk/contract";
 import type { Server } from "@stellar/stellar-sdk/rpc";
 import type { Client as PasskeyClient } from "passkey-kit-sdk";
@@ -73,15 +73,32 @@ export class SubmissionManager {
   /**
    * Sign a deploy transaction with the deployer keypair (the fee source) and
    * return the signed transaction XDR.
+   *
+   * The deploy carries source-account auth, so it is submitted through the
+   * relayer's fee-bump (`{ xdr }`) path. A fee-bumped Soroban inner transaction
+   * must have `fee == resourceFee` — the fee-bump supplies the inclusion fee —
+   * or the relayer rejects it with a fee mismatch ("Transaction fee must be
+   * equal to the resource fee"). The assembled fee is `inclusion + resource`,
+   * so pin it to the resource fee BEFORE the deployer signs (the signature
+   * commits to the fee). `TransactionBuilder.cloneFrom` drops
+   * `SorobanTransactionData` (→ txMalformed), so set the fee field surgically on
+   * the envelope and rebuild.
    */
   async signDeploy(tx: AssembledTransaction<PasskeyClient>): Promise<string> {
-    await tx.sign({
-      signTransaction: basicNodeSigner(
-        this.deps.deployerKeypair,
-        this.deps.networkPassphrase
-      ).signTransaction,
-    });
-    return tx.signed!.toXDR();
+    if (!tx.built) {
+      throw new Error("deploy transaction has not been built/simulated");
+    }
+    const envelope = tx.built.toEnvelope();
+    const inner = envelope.v1().tx();
+    const resourceFee = inner.ext().sorobanData().resourceFee().toString();
+    inner.fee(Number(resourceFee));
+
+    const feeAdjusted = TransactionBuilder.fromXDR(
+      envelope.toXDR("base64"),
+      this.deps.networkPassphrase
+    ) as Transaction;
+    feeAdjusted.sign(this.deps.deployerKeypair);
+    return feeAdjusted.toXDR();
   }
 
   /** Restore an archived footprint reported by simulation. */

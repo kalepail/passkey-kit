@@ -85,9 +85,42 @@ fill_tid() {
 }
 has_tid() { [[ "$(ab get count "[data-testid=\"$1\"]" 2>/dev/null | tr -d '[:space:]')" != "0" ]]; }
 
+# Wait until a control is present AND enabled. Flows set `app.busy` for their
+# whole duration (disabling action buttons), and `createWallet` keeps busy set
+# through its trailing auto-fund AFTER the "Wallet created" log — so a layer that
+# acts on the "created" log alone can click a still-disabled button (a no-op).
+wait_enabled() {
+  local tid="$1" attempts="${2:-90}"
+  for _ in $(seq 1 "$attempts"); do
+    if [[ "$(ab eval "document.querySelector('[data-testid=\"$tid\"]')?.disabled === false" 2>/dev/null | tr -d '[:space:]"')" == "true" ]]; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# Best-effort "let the previous flow settle" gate. Every action button is
+# `disabled={app.busy}`, and a flow can keep busy set for a moment AFTER its
+# success log (e.g. a trailing balance refresh) — so the next layer, clicking
+# immediately, would hit a still-disabled button (a silent no-op → timeout).
+# Gates on the always-present `disconnect` button; a no-op while disconnected
+# (button absent, e.g. the create layer). Never hard-fails — the action's own
+# wait catches a genuine stall.
+wait_idle() {
+  for _ in $(seq 1 "${1:-90}"); do
+    local s
+    s="$(ab eval '(()=>{const b=document.querySelector("[data-testid=\"disconnect\"]");return b?(b.disabled?"busy":"idle"):"absent";})()' 2>/dev/null | tr -d '[:space:]"')"
+    [[ "$s" == "idle" || "$s" == "absent" ]] && return 0
+    sleep 1
+  done
+  return 0
+}
+
 # Run one write layer: capture the log count, run the click closure, wait.
 expect_after() {
   local success="$1" failure="$2" attempts="${3:-90}"; shift 3
+  wait_idle
   local before; before="$(log_line_count)"
   "$@"
   case "$(wait_new_log "$before" "$success" "$failure" "$attempts"; echo $?)" in
@@ -146,6 +179,9 @@ echo "  deploy tx: $CREATE_HASH"
 ########################################################################
 layer "reconnect" 21
 echo "Disconnect + reconnect via discoverable passkey"
+# createWallet stays busy through its auto-fund; wait for that to settle so the
+# disconnect button is actually enabled before we click it.
+wait_enabled "disconnect" 90 || fail "disconnect never became enabled (create auto-fund still running?)"
 click_tid "disconnect"
 sleep 1
 has_tid "signin" || fail "signin control missing after disconnect"
@@ -200,6 +236,7 @@ layer "update" 43
 echo "Update the Ed25519 signer (limits/store)"
 ED_ROW='[data-testid="signer-row"][data-kind="Ed25519"]'
 if [[ "$(ab get count "$ED_ROW" 2>/dev/null | tr -d '[:space:]')" != "0" ]]; then
+  wait_idle
   ab click "$ED_ROW [data-testid=\"signer-update\"]" >/dev/null 2>&1 || fail "update control missing"
   sleep 1
   before="$(log_line_count)"
@@ -217,6 +254,7 @@ fi
 layer "per-signer-transfer" 44
 echo "Per-signer transfer via the Ed25519 signer row"
 if [[ "$(ab get count "$ED_ROW" 2>/dev/null | tr -d '[:space:]')" != "0" ]]; then
+  wait_idle
   before="$(log_line_count)"
   ab click "$ED_ROW [data-testid=\"signer-transfer\"]" >/dev/null 2>&1 || fail "per-signer transfer control missing"
   case "$(wait_new_log "$before" "Transfer via Ed25519 ✓" "Transfer via Ed25519 failed" 150; echo $?)" in
@@ -232,6 +270,7 @@ fi
 layer "remove" 45
 echo "Remove the Ed25519 signer"
 if [[ "$(ab get count "$ED_ROW" 2>/dev/null | tr -d '[:space:]')" != "0" ]]; then
+  wait_idle
   before="$(log_line_count)"
   ab click "$ED_ROW [data-testid=\"signer-remove\"]" >/dev/null 2>&1 || fail "remove control missing"
   case "$(wait_new_log "$before" "Remove Ed25519 signer ✓" "Remove Ed25519 signer failed" 150; echo $?)" in
