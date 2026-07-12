@@ -13,7 +13,7 @@ set -euo pipefail
 
 # Canonical smart-wallet WASM hash — keep in sync with the deployments manifest
 # (docs/deployments-testnet-2026-07-11.md). Pinned Stellar CLI: 27.0.0.
-CANONICAL_HASH="9e7fad441d6560b31eafbf3b627dbc196cf19df4dcdb91e0aededaf6590d6fbe"
+CANONICAL_HASH="84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319"
 NETWORK="testnet"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -34,12 +34,15 @@ if [ "$ACTUAL" != "$CANONICAL_HASH" ]; then
 fi
 
 echo "Generating TypeScript bindings…"
+# The CLI derives the generated README's package name from the output-dir
+# basename; keep it "pks-gen" so the released README name stays stable across
+# regens (verify.sh compares only the name-independent spec base64).
 stellar contract bindings typescript --wasm "$TMP/smart-wallet.wasm" \
-  --overwrite --output-dir "$TMP/gen" >/dev/null
+  --overwrite --output-dir "$TMP/pks-gen" >/dev/null
 
 echo "Applying post-gen patches (copy generated spec, preserve packaging)…"
-cp "$TMP/gen/src/index.ts" "$PKG_SRC"
-cp "$TMP/gen/README.md" "$PKG_README"
+cp "$TMP/pks-gen/src/index.ts" "$PKG_SRC"
+cp "$TMP/pks-gen/README.md" "$PKG_README"
 
 echo "✓ Regenerated passkey-kit-sdk from canonical WASM ${CANONICAL_HASH}"
 echo "  Run 'pnpm --filter passkey-kit-sdk run build' to rebuild dist."

@@ -10,7 +10,7 @@
 # Usage: bash scripts/bindings/verify.sh
 set -euo pipefail
 
-CANONICAL_HASH="9e7fad441d6560b31eafbf3b627dbc196cf19df4dcdb91e0aededaf6590d6fbe"
+CANONICAL_HASH="84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319"
 NETWORK="testnet"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -31,7 +31,7 @@ if [ "$ACTUAL" != "$CANONICAL_HASH" ]; then
 fi
 
 stellar contract bindings typescript --wasm "$TMP/smart-wallet.wasm" \
-  --overwrite --output-dir "$TMP/gen" >/dev/null
+  --overwrite --output-dir "$TMP/pks-gen" >/dev/null
 
 # Extract the ContractSpec base64 string literals (>= 16 chars, base64 charset),
 # in order. This is the wasm-determined spec, independent of CLI TS formatting.
@@ -41,7 +41,7 @@ extract_spec() {
 
 if diff -u \
   <(extract_spec "$PKG_SRC") \
-  <(extract_spec "$TMP/gen/src/index.ts"); then
+  <(extract_spec "$TMP/pks-gen/src/index.ts"); then
   echo "✓ Committed bindings match canonical WASM ${CANONICAL_HASH}"
 else
   echo "" >&2
