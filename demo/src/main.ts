@@ -1,8 +1,16 @@
-import './app.css'
-import App from './App.svelte'
+import { Buffer } from "buffer";
+import { mount } from "svelte";
+import "./app.css";
+import App from "./App.svelte";
 
-const app = new App({
-  target: document.getElementById('app')!,
-})
+// stellar-sdk / passkey-kit use Node's `Buffer` for XDR + base64url work; the
+// browser has no global for it. Polyfill before anything else loads.
+if (typeof globalThis.Buffer === "undefined") {
+  globalThis.Buffer = Buffer;
+}
 
-export default app
+const app = mount(App, {
+  target: document.getElementById("app")!,
+});
+
+export default app;

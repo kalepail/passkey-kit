@@ -1,47 +1,58 @@
-# Svelte + TS + Vite
+# Passkey Kit demo
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+A Svelte 5 + Vite app that exercises the full `passkey-kit` client API against
+Stellar testnet smart wallets: passkey create / reconnect, add / update / remove
+signers (secp256r1 passkeys, Ed25519 keys, policy signers), Persistent and
+Temporary storage, per-signer `SignerLimits`, admin rotation, multisig and
+per-signer transfers, non-native SAC support, relayer-sponsored submission, and
+signer discovery through both indexer backends.
 
-## Recommended IDE Setup
+## Zero secrets in the bundle
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+Nothing here holds a secret. The client builds and **signs** transactions, then:
 
-## Need an official Svelte framework?
+- **submits** them through a server-side **relayer-proxy worker**
+  (`VITE_relayerProxyUrl`) that holds the relayer key (keyless per-IP minting),
+  and
+- **discovers** signers through a server-side **indexer proxy**
+  (`VITE_indexerProxyUrl`) that holds the Mercury / Stellar Indexer credentials.
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+`passkey-kit/server` (which carries those secrets) is never imported. Passkey →
+wallet records are persisted with the SDK's `LocalStorageAdapter`, not hand-rolled
+`localStorage`.
 
-## Technical considerations
+## Configure
 
-**Why use this over SvelteKit?**
-
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
-
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
-
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
-
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
-
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```sh
+cp .env.example .env.local
+# fill in the public values; leave the *ProxyUrl vars unset to run the core
+# flows without a live worker (submission/discovery then show "pending backend").
 ```
+
+Every `.env` value is public — see `.env.example`. Set `VITE_samplePolicyId` to a
+deployed v1 `sample-policy` instance to enable the policy-signer controls, and
+`VITE_extraTokenIds` (`label:C…,…`) to add non-native SAC tokens to the picker.
+
+## Run
+
+```sh
+pnpm --ignore-workspace install
+pnpm dev        # http://localhost:5173
+pnpm build      # svelte-check + production build
+```
+
+The demo consumes the **compiled** `passkey-kit` from the repo root via
+`link:..`, so build the SDK there first (`pnpm build` in the repo root) if `dist/`
+is missing.
+
+## Architecture
+
+- `src/lib/config.ts` — public config + singletons (`PasskeyKit`, `SACClient`,
+  storage adapter, relayer/indexer proxy clients).
+- `src/lib/actions.ts` — every flow that touches the SDK (thin components call in).
+- `src/lib/state.svelte.ts` — the reactive store (Svelte 5 runes).
+- `src/lib/{relayer-proxy,indexer-proxy,submit}.ts` — the browser↔worker seams.
+- `src/lib/components/` — one panel per concern.
+
+Live end-to-end verification (real `C…` ids, tx hashes, both indexer backends)
+runs through the e2e harness in the repo `scripts/` (todo 956).
