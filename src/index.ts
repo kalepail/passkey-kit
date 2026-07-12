@@ -9,12 +9,28 @@
  */
 
 // Core clients
-export { PasskeyKit } from "./kit.js";
+export {
+  PasskeyKit,
+  type PasskeyKitConfig,
+  type CreateOptions,
+  type ConnectOptions,
+} from "./kit.js";
 export { PasskeyServer } from "./server.js";
 export { SACClient } from "./sac.js";
 
 // Generated contract client
 export { Client as PasskeyClient } from "passkey-kit-sdk";
+
+// Signer abstraction
+export {
+  PasskeySigner,
+  Ed25519Signer,
+  PolicySigner,
+  type Signer,
+  type SignerContext,
+  type PreparedSignature,
+  type WebAuthnAuthenticator,
+} from "./signers.js";
 
 // Signer-key helpers, indexer row, storage + result types
 export {
