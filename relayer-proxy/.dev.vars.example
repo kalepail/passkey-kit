@@ -1,0 +1,7 @@
+# passkey-kit relayer-proxy local overrides.
+# Copy to .dev.vars only if you want to override the wrangler.toml [vars]
+# defaults during `wrangler dev`. No secrets are required — the worker mints
+# Relayer API keys itself via the keyless /gen endpoint.
+
+NETWORK="testnet"
+RELAYER_BASE_URL="https://channels.openzeppelin.com/testnet"

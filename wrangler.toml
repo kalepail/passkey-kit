@@ -1,0 +1,24 @@
+# Cloudflare Pages config for the demo (audit #597: "deploy broken-as-scripted —
+# no wrangler.toml anywhere; deploy:demo has no project/output dir").
+#
+# `deploy:demo` in the root package.json runs `npx wrangler pages deploy` FROM
+# THE REPO ROOT with no arguments, so the config it needs must live here. With
+# `name` + `pages_build_output_dir` set, that script now resolves the project
+# and the built assets directory without extra flags.
+#
+# Build the demo first (`pnpm run build:demo` -> demo/dist), then deploy.
+name = "passkey-kit-demo"
+pages_build_output_dir = "demo/dist"
+compatibility_date = "2024-12-01"
+
+# `deploy:demo:prod` runs `wrangler pages deploy --env production`. NOTE:
+# `wrangler pages deploy` has no first-class `--env`; Pages selects
+# production-vs-preview by BRANCH (`--branch`), not environment. This section
+# only exists so `--env production` resolves instead of erroring. The correct
+# fix belongs in the root package.json (owned by the demo/root, not services):
+# change `deploy:demo:prod` to `wrangler pages deploy --branch production` (or
+# drop it — a plain `pages deploy` publishes to production). See the C2 services
+# todo comment for the handoff to the demo agent.
+[env.production]
+name = "passkey-kit-demo"
+pages_build_output_dir = "demo/dist"

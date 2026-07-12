@@ -1,0 +1,23 @@
+{
+  "name": "passkey-kit-relayer-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:production": "wrangler deploy --env production",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openzeppelin/relayer-plugin-channels": "^0.20.0",
+    "hono": "^4.12.11"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241202.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^4.80.0"
+  }
+}
