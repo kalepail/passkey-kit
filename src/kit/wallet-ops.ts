@@ -30,6 +30,7 @@ import {
 } from "passkey-kit-sdk";
 import base64url from "../base64url.js";
 import { SignerStore, type SignerKey, type SignerLimits } from "../types.js";
+import { readContractData } from "../rpc-data.js";
 import { signerKeyToScVal, SIGNER_VAL_UDT } from "./auth-payload.js";
 
 /**
@@ -210,6 +211,11 @@ export function buildUpgradeTx(
  * Checks temporary durability before persistent (the contract's lookup order).
  * A non-null result proves the wallet holds this signer — the basis of
  * `connectWallet`'s ownership verification.
+ *
+ * `null` means a genuine not-found in BOTH durabilities. A transport error
+ * (RPC 429/5xx/timeout) is NOT swallowed — it propagates, so `connectWallet`
+ * never mistakes a flaky RPC for "the passkey is not a signer" and throws a
+ * misleading `WalletOwnershipError` for a valid credential.
  */
 export async function getSigner(
   deps: { rpc: Server; spec: ContractSpec },
@@ -219,12 +225,9 @@ export async function getSigner(
   const scKey = signerKeyToScVal(deps.spec, toContractSignerKey(signerKey));
 
   for (const durability of [Durability.Temporary, Durability.Persistent]) {
-    try {
-      const entry = await deps.rpc.getContractData(contractId, scKey, durability);
-      const scVal = entry.val.contractData().val();
+    const scVal = await readContractData(deps.rpc, contractId, scKey, durability);
+    if (scVal) {
       return deps.spec.scValToNative(scVal, SIGNER_VAL_UDT) as SignerVal;
-    } catch {
-      // Not present in this durability class; try the next.
     }
   }
 

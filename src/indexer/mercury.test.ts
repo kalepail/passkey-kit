@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Keypair } from "@stellar/stellar-sdk";
+import { Keypair, xdr } from "@stellar/stellar-sdk";
 import base64url from "../base64url.js";
 import { SignerKey } from "../types.js";
 import { SIGNER_VAL_UDT } from "../kit/auth-payload.js";
 import { deriveContractAddress } from "../utils.js";
 import { MercuryIndexer, type MercurySignerRow } from "./mercury.js";
-import { walletSpec } from "./codec.js";
+import { signerKeyToContractScVal, walletSpec } from "./codec.js";
 
 const TESTNET = "Test SDF Network ; September 2015";
 const DEPLOYER = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 9)).publicKey();
@@ -64,6 +64,82 @@ describe("MercuryIndexer.getSigners", () => {
     expect(signers[0]!.storage).toBe("persistent");
     expect(signers[0]!.status).toBe("live");
     expect(signers[0]!.publicKey).toHaveLength(65);
+  });
+});
+
+describe("MercuryIndexer eviction probe (audit H2)", () => {
+  const WALLET = "CAXCIOHU357VIEDAWOU6YZUL3IU3CDFLCHA6O4PT2VDICDX4PNGSVZDL";
+  const keyId = base64url.encode(Buffer.alloc(16, 5));
+
+  function tempRow(): MercurySignerRow {
+    return {
+      kind: "Secp256r1",
+      key: keyId,
+      val: secp256r1ValXdr(4_000_000_000),
+      storage: "Temporary",
+    };
+  }
+
+  function fakeRpc(getLedgerEntries: ReturnType<typeof vi.fn>) {
+    return { getLedgerEntries } as never;
+  }
+
+  it("probes by the SignerKey ScVal (not raw keyId bytes) and keeps a live temporary signer", async () => {
+    stubFetch({ get_signers_by_address: [tempRow()] });
+    // A present entry: readContractData resolves a non-null ScVal.
+    const present = { contractData: () => ({ val: () => xdr.ScVal.scvVoid() }) };
+    const getLedgerEntries = vi.fn(async () => ({ entries: [{ val: present }] }));
+    const indexer = new MercuryIndexer({
+      url: "https://mercury.test",
+      projectName: "proj",
+      jwt: "jwt",
+      now: () => 1000,
+      rpc: fakeRpc(getLedgerEntries),
+    });
+
+    const signers = await indexer.getSigners(WALLET);
+
+    expect(signers[0]!.status).toBe("live");
+    expect(getLedgerEntries).toHaveBeenCalledTimes(1);
+    // The probed ledger key must carry the SignerKey vec, NOT scvBytes(keyId).
+    const ledgerKey = getLedgerEntries.mock.calls[0]![0] as xdr.LedgerKey;
+    const probedKey = ledgerKey.contractData().key();
+    expect(probedKey.toXDR("base64")).toBe(
+      signerKeyToContractScVal(SignerKey.Secp256r1(keyId)).toXDR("base64")
+    );
+    expect(probedKey.switch().name).toBe("scvVec");
+  });
+
+  it("marks a temporary signer evicted only on a genuine not-found", async () => {
+    stubFetch({ get_signers_by_address: [tempRow()] });
+    const indexer = new MercuryIndexer({
+      url: "https://mercury.test",
+      projectName: "proj",
+      jwt: "jwt",
+      now: () => 1000,
+      rpc: fakeRpc(vi.fn(async () => ({ entries: [] }))),
+    });
+
+    const signers = await indexer.getSigners(WALLET);
+    expect(signers[0]!.status).toBe("evicted");
+  });
+
+  it("does NOT evict on a transport error during the probe", async () => {
+    stubFetch({ get_signers_by_address: [tempRow()] });
+    const indexer = new MercuryIndexer({
+      url: "https://mercury.test",
+      projectName: "proj",
+      jwt: "jwt",
+      now: () => 1000,
+      rpc: fakeRpc(
+        vi.fn(async () => {
+          throw new Error("429 too many requests");
+        })
+      ),
+    });
+
+    const signers = await indexer.getSigners(WALLET);
+    expect(signers[0]!.status).toBe("live"); // left as reported, not false-evicted
   });
 });
 

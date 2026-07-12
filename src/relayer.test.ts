@@ -58,6 +58,30 @@ describe("RelayerClient.send", () => {
     }
   });
 
+  it("reports a non-terminal (pending) status as a distinct non-success result", async () => {
+    // A `skipWait` submit returns status "pending" with no hash yet. It must NOT
+    // map to success:true (which a poll loop would treat as confirmed).
+    const relayer = withChannels({
+      submitSorobanTransaction: vi.fn(async () => ({
+        transactionId: "tx-p",
+        hash: "",
+        status: "pending",
+      })),
+    });
+
+    const result = await relayer.send("FUNC", [], { skipWait: true });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(RelayerError);
+      expect(result.error.code).toBe(PasskeyKitErrorCode.RELAYER_PENDING);
+      expect(result.error.context).toMatchObject({
+        pending: true,
+        status: "pending",
+        transactionId: "tx-p",
+      });
+    }
+  });
+
   it("never throws on a PluginClientError — maps it to a RelayerError", async () => {
     const relayer = withChannels({
       submitSorobanTransaction: vi.fn(async () => {

@@ -307,9 +307,19 @@ export class PasskeyKit {
     this.keyId = keyIdBase64;
 
     // 3) Ownership verification (F7): the keyId must be a live signer.
-    const signerVal = await this.signerManager.getSigner(
-      SignerKey.Secp256r1(keyIdBase64)
-    );
+    // A thrown error here is a transport failure, not proof of non-ownership —
+    // surface it as-is (a valid passkey must not read as an ownership mismatch
+    // because the RPC hiccuped); only a definitive not-found (`null`) does.
+    let signerVal;
+    try {
+      signerVal = await this.signerManager.getSigner(
+        SignerKey.Secp256r1(keyIdBase64)
+      );
+    } catch (err) {
+      this.wallet = undefined;
+      this.keyId = undefined;
+      throw err;
+    }
     if (!signerVal) {
       this.wallet = undefined;
       this.keyId = undefined;

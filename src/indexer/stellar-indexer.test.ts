@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { xdr } from "@stellar/stellar-sdk";
 import base64url from "../base64url.js";
 import { SignerKey } from "../types.js";
+import { IndexerError } from "../errors.js";
 import { SIGNER_VAL_UDT } from "../kit/auth-payload.js";
 import {
   StellarIndexerBackend,
@@ -81,5 +82,39 @@ describe("StellarIndexerBackend.findWallets", () => {
       )
     );
     expect(result).toEqual([]);
+  });
+});
+
+describe("StellarIndexerBackend response-shape handling (audit LOW)", () => {
+  const WALLET = "CAXCIOHU357VIEDAWOU6YZUL3IU3CDFLCHA6O4PT2VDICDX4PNGSVZDL";
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubResponse(json: unknown) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => json,
+        text: async () => "",
+      }))
+    );
+  }
+
+  it("throws IndexerError on an unrecognized non-empty response shape", async () => {
+    // A silent [] here would report a real wallet as signer-less after burning
+    // the retry budget.
+    stubResponse({ results: [{ key: "x" }] });
+    await expect(backend().getSigners(WALLET)).rejects.toBeInstanceOf(
+      IndexerError
+    );
+  });
+
+  it("treats a genuinely-empty object/array as no entries", async () => {
+    stubResponse({});
+    expect(await backend().getSigners(WALLET)).toEqual([]);
+    stubResponse({ entries: [] });
+    expect(await backend().getSigners(WALLET)).toEqual([]);
   });
 });

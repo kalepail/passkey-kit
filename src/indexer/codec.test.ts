@@ -11,6 +11,7 @@ import {
   signerKeyToIndexerJson,
   walletSpec,
 } from "./codec.js";
+import { toContractSignerKey } from "../kit/wallet-ops.js";
 
 /** Encode a native SignerVal to its ScVal via the contract spec. */
 function encodeSignerVal(native: unknown): xdr.ScVal {
@@ -41,6 +42,30 @@ describe("decodeSignerVal", () => {
     expect(decoded.kind).toBe("Ed25519");
     expect(decoded.publicKey).toBeUndefined();
     expect(decoded.expiration).toBeUndefined();
+  });
+});
+
+describe("decodeSignerVal — limits-nested keys (audit M1)", () => {
+  it("decodes a limits-nested Ed25519 key as a G-address that round-trips", () => {
+    const g = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 4)).publicKey();
+    const rawPk = Keypair.fromPublicKey(g).rawPublicKey();
+    const contract = "CAXCIOHU357VIEDAWOU6YZUL3IU3CDFLCHA6O4PT2VDICDX4PNGSVZDL";
+    // SignerVal Ed25519 = [ SignerExpiration, SignerLimits ]; limits = Some({
+    // contract -> Some([ Ed25519 key ]) }).
+    const scVal = encodeSignerVal({
+      tag: "Ed25519",
+      values: [
+        [undefined],
+        [new Map<string, unknown>([[contract, [{ tag: "Ed25519", values: [rawPk] }]]])],
+      ],
+    });
+
+    const nested = decodeSignerVal(scVal).limits!.get(contract)![0]!;
+    expect(nested.key).toBe("Ed25519");
+    expect(StrKey.isValidEd25519PublicKey(nested.value)).toBe(true);
+    expect(nested.value).toBe(g); // a G-address, NOT hex
+    // The old hex encoding threw here (Keypair.fromPublicKey(hex)).
+    expect(() => toContractSignerKey(nested)).not.toThrow();
   });
 });
 

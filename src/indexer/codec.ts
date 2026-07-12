@@ -130,7 +130,12 @@ function limitsOf(native: SignerVal): SignerLimits {
   if (!map) return undefined;
 
   const out: SignerLimits = new Map();
-  for (const [contract, keys] of map.entries()) {
+  // `spec.scValToNative` decodes an ScMap to an ARRAY of `[key, value]` pairs
+  // (spec.js), not a JS Map — despite the `Map` static type. Iterate the pairs
+  // directly; `map.entries()` would yield `[index, pair]` and mis-key every
+  // entry under a numeric index. Direct iteration is correct for both an
+  // array-of-pairs and a real Map, so it stays robust if the SDK ever changes.
+  for (const [contract, keys] of map) {
     out.set(
       contract,
       keys
@@ -139,8 +144,11 @@ function limitsOf(native: SignerVal): SignerLimits {
               case "Policy":
                 return SignerKey.Policy(k.values[0]);
               case "Ed25519":
+                // Ed25519 SignerKey.value is a `G…` strkey (matches
+                // scValToSignerKey and types.ts), NOT hex — a hex value throws
+                // in Keypair.fromPublicKey when re-encoded (audit M1).
                 return SignerKey.Ed25519(
-                  Buffer.from(k.values[0]).toString("hex")
+                  StrKey.encodeEd25519PublicKey(Buffer.from(k.values[0]))
                 );
               case "Secp256r1":
                 return SignerKey.Secp256r1(

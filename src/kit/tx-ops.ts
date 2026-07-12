@@ -83,8 +83,11 @@ export async function signAuthEntry(
 
   const credentials = getAddressCredentials(entry.credentials());
 
+  // `== null`, not `!expiration`: an explicit `expiration: 0` is a caller-chosen
+  // value, not "unset" — only undefined/null falls through to the entry's
+  // existing ledger or a freshly computed default.
   let expiration = options?.expiration;
-  if (!expiration) {
+  if (expiration == null) {
     expiration = credentials.signatureExpirationLedger();
     if (!expiration) {
       expiration = await deps.calculateExpiration();

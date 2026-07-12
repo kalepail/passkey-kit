@@ -19,6 +19,7 @@ import { SignerKey } from "../types.js";
 import { IndexerError, PasskeyKitErrorCode } from "../errors.js";
 import { DEFAULT_INDEXER_TIMEOUT_MS } from "../constants.js";
 import { getSigner } from "../kit/wallet-ops.js";
+import { contractDataExists } from "../rpc-data.js";
 import base64url from "../base64url.js";
 import type {
   FindWalletsHardeningDeps,
@@ -31,6 +32,7 @@ import {
   buildWalletSigner,
   decodeSignerVal,
   deriveStatus,
+  signerKeyToContractScVal,
   walletSpec,
 } from "./codec.js";
 import { deriveContractAddress } from "../utils.js";
@@ -144,7 +146,13 @@ export class MercuryIndexer implements SignerIndexer {
     if (this.config.rpc) {
       for (const row of rows) {
         if (row.storage === "Temporary" && !row.evicted) {
-          row.evicted = !(await this.entryExists(wallet, row));
+          try {
+            row.evicted = !(await this.entryExists(wallet, row));
+          } catch {
+            // Transport error (429/5xx/timeout): eviction is undeterminable, so
+            // leave the row as the indexer reported it rather than
+            // false-evicting a live signer.
+          }
         }
       }
     }
@@ -152,20 +160,23 @@ export class MercuryIndexer implements SignerIndexer {
     return rows.map((row) => this.rowToWalletSigner(row));
   }
 
+  /**
+   * Whether the signer's temporary ledger entry still exists on-chain. Probes by
+   * the `SignerKey` ScVal — the exact key the contract stores the entry under
+   * (`storage().temporary().set::<SignerKey, SignerVal>`), NOT the raw keyId
+   * bytes — so it actually matches. Throws on a transport error (caller decides
+   * eviction only from a genuine not-found).
+   */
   private async entryExists(
     wallet: string,
     row: MercurySignerRow
   ): Promise<boolean> {
-    try {
-      await this.config.rpc!.getContractData(
-        wallet,
-        xdr.ScVal.scvBytes(base64url.toBuffer(row.key)),
-        Durability.Temporary
-      );
-      return true;
-    } catch {
-      return false;
-    }
+    return contractDataExists(
+      this.config.rpc!,
+      wallet,
+      signerKeyToContractScVal(signerKeyFromRow(row)),
+      Durability.Temporary
+    );
   }
 
   async findWallets(key: SignerKey): Promise<string[]> {

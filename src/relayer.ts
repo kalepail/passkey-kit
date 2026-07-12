@@ -53,7 +53,15 @@ export interface RelayerSubmitOptions {
   fundRelayerId?: string;
 }
 
-/** A relayer status string that indicates on-chain failure. */
+/**
+ * Terminal-success statuses (ALLOWLIST). Only a status that positively confirms
+ * on-chain inclusion counts as success — anything else is failure or still
+ * pending. An allowlist (not a failure denylist) is deliberate: an unrecognized
+ * or non-terminal status must never be mistaken for a confirmed transaction.
+ */
+const SUCCESS_STATUS = /confirm|success/i;
+
+/** Terminal-failure statuses. */
 const FAILURE_STATUS = /fail|error|revert|reject/i;
 
 export class RelayerClient {
@@ -127,7 +135,17 @@ export class RelayerClient {
   }
 
   private toResult(res: ChannelsTransactionResponse): TransactionResult {
-    if (res.status && FAILURE_STATUS.test(res.status)) {
+    const status = res.status ?? "";
+
+    if (SUCCESS_STATUS.test(status)) {
+      return {
+        success: true,
+        hash: res.hash ?? "",
+        ...(res.transactionId ? { transactionId: res.transactionId } : {}),
+      };
+    }
+
+    if (FAILURE_STATUS.test(status)) {
       return failedTransaction(
         new RelayerError(
           `Relayer reported status "${res.status}"`,
@@ -138,11 +156,19 @@ export class RelayerClient {
       );
     }
 
-    return {
-      success: true,
-      hash: res.hash ?? "",
-      ...(res.transactionId ? { transactionId: res.transactionId } : {}),
-    };
+    // Neither terminal-success nor terminal-failure: the transaction is still
+    // pending (e.g. a `skipWait` submit not yet polled to confirmation). Surface
+    // it as a distinct, NON-success result carrying RELAYER_PENDING — never as
+    // `success: true` — so a poll loop keeps polling instead of treating an
+    // unconfirmed (or later-reverted) transaction as done.
+    return failedTransaction(
+      new RelayerError(
+        `Relayer status "${res.status ?? "unknown"}" is not terminal (pending)`,
+        PasskeyKitErrorCode.RELAYER_PENDING,
+        { status: res.status, transactionId: res.transactionId, pending: true }
+      ),
+      res.hash ?? undefined
+    );
   }
 
   private mapError(err: unknown): TransactionFailure {

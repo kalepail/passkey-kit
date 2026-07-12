@@ -202,11 +202,25 @@ export class StellarIndexerBackend implements SignerIndexer {
   }
 }
 
-/** Tolerantly pull the entries array out of a few likely response shapes. */
+/**
+ * Pull the entries array out of a few known response shapes.
+ *
+ * A genuinely empty response (`null`/`undefined` or `{}`) yields `[]`, but an
+ * UNRECOGNIZED non-empty envelope throws rather than silently degrading to `[]`:
+ * conflating "shape changed" with "wallet has no signers" would burn the whole
+ * retry budget and then report a valid wallet as signer-less (audit LOW).
+ */
 function extractEntries(json: unknown): StellarIndexerEntry[] {
   if (Array.isArray(json)) return json as StellarIndexerEntry[];
-  const obj = json as { entries?: unknown; data?: unknown } | null;
-  if (obj && Array.isArray(obj.entries)) return obj.entries as StellarIndexerEntry[];
-  if (obj && Array.isArray(obj.data)) return obj.data as StellarIndexerEntry[];
-  return [];
+  if (json == null) return [];
+  if (typeof json === "object") {
+    const obj = json as { entries?: unknown; data?: unknown };
+    if (Array.isArray(obj.entries)) return obj.entries as StellarIndexerEntry[];
+    if (Array.isArray(obj.data)) return obj.data as StellarIndexerEntry[];
+    if (Object.keys(obj).length === 0) return []; // genuinely-empty object
+  }
+  throw new IndexerError(
+    "Unrecognized Stellar Indexer response shape (expected an array or { entries | data: [...] })",
+    PasskeyKitErrorCode.INDEXER_REQUEST_FAILED
+  );
 }

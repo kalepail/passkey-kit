@@ -18,12 +18,10 @@
 import {
   Operation,
   TransactionBuilder,
-  xdr,
   type Transaction,
 } from "@stellar/stellar-sdk";
 import { Durability, Server } from "@stellar/stellar-sdk/rpc";
 import { AssembledTransaction } from "@stellar/stellar-sdk/contract";
-import base64url from "./base64url.js";
 import { RelayerClient, type RelayerClientConfig, type RelayerSubmitOptions } from "./relayer.js";
 import {
   ConfigurationError,
@@ -32,7 +30,10 @@ import {
   PasskeyKitErrorCode,
 } from "./errors.js";
 import { failedTransaction } from "./contract-errors.js";
+import { contractDataExists } from "./rpc-data.js";
+import { signerKeyToContractScVal } from "./indexer/codec.js";
 import { DEFAULT_INDEXER_TIMEOUT_MS } from "./constants.js";
+import { SignerKey } from "./types.js";
 import type { IndexedSigner, TransactionResult } from "./types.js";
 
 // Re-export the relayer surface so `passkey-kit/server` is the single
@@ -94,6 +95,18 @@ function toBuiltTransaction(
     return input.built;
   }
   return input;
+}
+
+/** Map an indexer row's `{ kind, key }` to the SDK-side {@link SignerKey}. */
+function indexedSignerToKey(signer: IndexedSigner): SignerKey {
+  switch (signer.kind) {
+    case "Ed25519":
+      return SignerKey.Ed25519(signer.key);
+    case "Policy":
+      return SignerKey.Policy(signer.key);
+    default:
+      return SignerKey.Secp256r1(signer.key);
+  }
 }
 
 /** Whether any invokeHostFunction op carries source-account auth. */
@@ -279,15 +292,20 @@ export class PasskeyServer {
 
     if (this.rpc) {
       for (const signer of signers) {
-        if (signer.storage === "Temporary") {
+        if (signer.storage === "Temporary" && !signer.evicted) {
           try {
-            await this.rpc.getContractData(
+            // Probe by the SignerKey ScVal the contract stores the entry under,
+            // NOT the raw keyId bytes (audit H2). A genuine not-found means
+            // evicted; a transport error is left as reported.
+            const exists = await contractDataExists(
+              this.rpc,
               contractId,
-              xdr.ScVal.scvBytes(base64url.toBuffer(signer.key)),
+              signerKeyToContractScVal(indexedSignerToKey(signer)),
               Durability.Temporary
             );
+            if (!exists) signer.evicted = true;
           } catch {
-            signer.evicted = true;
+            // Transport error (429/5xx/timeout): eviction undeterminable.
           }
         }
       }

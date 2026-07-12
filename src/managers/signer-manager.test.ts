@@ -29,9 +29,8 @@ function makeDeps(overrides: Partial<SignerManagerDeps> = {}) {
     remove_signer: vi.fn(async () => "AT_REMOVE"),
   };
   const rpc = {
-    getContractData: vi.fn(async () => {
-      throw new Error("not found");
-    }),
+    // getSigner probes via getLedgerEntries: empty entries = genuine not-found.
+    getLedgerEntries: vi.fn(async () => ({ entries: [] as unknown[] })),
   };
   const deps: SignerManagerDeps = {
     networkPassphrase: TESTNET,
@@ -124,6 +123,22 @@ describe("SignerManager.getSigner", () => {
     );
 
     expect(result).toBeNull();
-    expect(rpc.getContractData).toHaveBeenCalledTimes(2); // temporary + persistent
+    expect(rpc.getLedgerEntries).toHaveBeenCalledTimes(2); // temporary + persistent
+  });
+
+  it("propagates a transport error instead of reporting the signer absent", async () => {
+    // A transient RPC failure must NOT be swallowed into a null (which
+    // connectWallet would read as a false ownership mismatch, audit LOW).
+    const rpc = {
+      getLedgerEntries: vi.fn(async () => {
+        throw new Error("503 upstream request timeout");
+      }),
+    };
+    const { deps } = makeDeps({ rpc: rpc as never });
+    const manager = new SignerManager(deps);
+
+    await expect(
+      manager.getSigner(SignerKey.Secp256r1(base64url.encode(Buffer.alloc(16, 9))))
+    ).rejects.toThrow("503 upstream");
   });
 });

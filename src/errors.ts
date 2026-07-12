@@ -67,6 +67,8 @@ export enum PasskeyKitErrorCode {
   // Relayer (7xxx)
   RELAYER_NOT_CONFIGURED = 7001,
   RELAYER_REQUEST_FAILED = 7002,
+  /** Submitted but not yet in a terminal state — keep polling getTransaction. */
+  RELAYER_PENDING = 7003,
 
   // Validation (8xxx)
   INVALID_ADDRESS = 8001,
@@ -271,7 +273,8 @@ export class RelayerError extends PasskeyKitError {
     message: string,
     code:
       | PasskeyKitErrorCode.RELAYER_NOT_CONFIGURED
-      | PasskeyKitErrorCode.RELAYER_REQUEST_FAILED = PasskeyKitErrorCode.RELAYER_REQUEST_FAILED,
+      | PasskeyKitErrorCode.RELAYER_REQUEST_FAILED
+      | PasskeyKitErrorCode.RELAYER_PENDING = PasskeyKitErrorCode.RELAYER_REQUEST_FAILED,
     context?: Record<string, unknown>,
     cause?: Error
   ) {
