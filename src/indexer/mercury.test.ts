@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Keypair, xdr } from "@stellar/stellar-sdk";
 import base64url from "../base64url.js";
 import { SignerKey } from "../types.js";
+import { IndexerError } from "../errors.js";
 import { SIGNER_VAL_UDT } from "../kit/auth-payload.js";
 import { deriveContractAddress } from "../utils.js";
 import { MercuryIndexer, type MercurySignerRow } from "./mercury.js";
@@ -54,6 +55,7 @@ describe("MercuryIndexer.getSigners", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
       now: () => 1000,
     });
     const signers = await indexer.getSigners("CWALLET");
@@ -64,6 +66,27 @@ describe("MercuryIndexer.getSigners", () => {
     expect(signers[0]!.storage).toBe("persistent");
     expect(signers[0]!.status).toBe("live");
     expect(signers[0]!.publicKey).toHaveLength(65);
+  });
+});
+
+describe("MercuryIndexer pending-endpoint gate (F2b, todo 967)", () => {
+  // No zephyrExecuteConfirmed -> the /zephyr/execute route is retired (404), so
+  // queries must fail loud rather than silently 404.
+  function gated() {
+    return new MercuryIndexer({ url: "https://mercury.test", projectName: "proj", jwt: "jwt" });
+  }
+
+  it("throws a clear pending IndexerError from queries instead of 404-ing", async () => {
+    await expect(gated().getSigners("CWALLET")).rejects.toBeInstanceOf(IndexerError);
+    await expect(
+      gated().findWallets(SignerKey.Secp256r1(base64url.encode(Buffer.alloc(16, 1))))
+    ).rejects.toBeInstanceOf(IndexerError);
+  });
+
+  it("reports health ok:false with the pending detail (no silent failure)", async () => {
+    const h = await gated().health();
+    expect(h.ok).toBe(false);
+    expect(h.detail).toMatch(/pending|todo 967|retired/i);
   });
 });
 
@@ -93,6 +116,7 @@ describe("MercuryIndexer eviction probe (audit H2)", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
       now: () => 1000,
       rpc: fakeRpc(getLedgerEntries),
     });
@@ -116,6 +140,7 @@ describe("MercuryIndexer eviction probe (audit H2)", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
       now: () => 1000,
       rpc: fakeRpc(vi.fn(async () => ({ entries: [] }))),
     });
@@ -130,6 +155,7 @@ describe("MercuryIndexer eviction probe (audit H2)", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
       now: () => 1000,
       rpc: fakeRpc(
         vi.fn(async () => {
@@ -157,6 +183,7 @@ describe("MercuryIndexer.findWallets hardening", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
       hardening: { networkPassphrase: TESTNET, deployerPublicKey: DEPLOYER },
     });
 
@@ -171,6 +198,7 @@ describe("MercuryIndexer.findWallets hardening", () => {
       url: "https://mercury.test",
       projectName: "proj",
       jwt: "jwt",
+      zephyrExecuteConfirmed: true,
     });
     const wallets = await indexer.findWallets(
       SignerKey.Secp256r1(base64url.encode(Buffer.alloc(16, 8)))

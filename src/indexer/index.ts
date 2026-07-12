@@ -28,6 +28,8 @@ export {
   type StellarIndexerConfig,
   type StellarIndexerEntry,
   MAX_CONTRACTS_PER_QUERY,
+  STELLAR_INDEXER_NETWORK,
+  jsonScValToXdr,
 } from "./stellar-indexer.js";
 
 export {

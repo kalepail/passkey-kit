@@ -3,12 +3,36 @@
  *
  * Calls the deployed Zephyr program's serverless functions
  * (`get_signers_by_address`, `get_addresses_by_signer`) via
- * `POST {url}/zephyr/execute`.
- *
- * C1 ALIGNMENT: the exact row/argument shapes are finalized by the reworked
- * Zephyr program (todo C1). This maps the documented shapes and is reconciled in
- * F2's live cross-backend check. Expiration is treated as a UNIX timestamp
+ * `POST {url}/zephyr/execute`. Expiration is treated as a UNIX timestamp
  * (seconds), per the reworked contract (#602).
+ *
+ * ⚠️ RECONCILIATION NOTE — the query endpoint is STALE (F2b, todo 967).
+ * F2 (todo 959 c2502) confirmed `POST /zephyr/execute` returns **404** on the
+ * current Mercury `/rest` backend, and Mercury's current docs no longer document
+ * the Zephyr execute route at all — custom-program querying moved to
+ * "Retroshades" (`POST /rest/retroshade/query` with SQL, e.g.
+ * `SELECT * FROM retroshade.program_<id>_<table>`), which requires the reworked
+ * `passkey-kit-indexer` program to be deployed (its deploy path is the blocked
+ * opus-services workstream).
+ *
+ * Separately, Mercury now ships a **public, no-auth Smart Account Indexer** for
+ * passkey wallets on BOTH networks:
+ *   `https://{testnet,mainnet}.mercurydata.app/rest/smart-account-indexer`
+ *     GET /api/contract/:contractId        -> signers (this backend's getSigners)
+ *     GET /api/lookup/:credentialId        -> wallets by passkey keyId (findWallets)
+ *     GET /api/lookup/address/:address     -> wallets by signer address
+ * That likely obviates the custom Zephyr deploy entirely. It is NOT wired here
+ * yet because (a) its `GET /api/contract/:contractId` signer response schema is
+ * not published, and (b) its data model (context rules; native/external/
+ * delegated signers; policies) may not map 1:1 onto this backend's v1
+ * `SignerKey`/`SignerVal`/`SignerLimits`/durability/status. Reconciling needs a
+ * captured live response + a model-mapping decision — coordinated with
+ * opus-services' deploy characterization on todo 967.
+ *
+ * Because A-vs-B is a pending USER decision, this backend is NOT re-pointed at
+ * either surface. Instead it is GATED: unless {@link MercuryIndexerConfig.zephyrExecuteConfirmed}
+ * is set, every query throws a clear "pending" error (todo 967) rather than
+ * firing at the dead `/zephyr/execute` route — honest failure, no silent 404.
  *
  * @packageDocumentation
  */
@@ -60,6 +84,22 @@ export interface MercuryIndexerConfig {
   hardening?: FindWalletsHardeningDeps;
   /** Clock source (seconds); injectable for tests. Defaults to `Date.now()`. */
   now?: () => number;
+  /**
+   * OPT-IN to the (currently non-functional) `POST /zephyr/execute` query path.
+   *
+   * The Mercury query integration is PENDING a strategy decision the USER owns
+   * (todo 967): the SDK's assumed `/zephyr/execute` route is RETIRED — it 404s
+   * even with a valid JWT (F2b, todo 959 c2502/2504). The two unresolved options:
+   *   A. Mercury's hosted Smart Account Indexer REST surface
+   *      (`/rest/smart-account-indexer/api/lookup/*`) — the same product
+   *      smart-account-kit uses; would need Mercury to index passkey-kit's wasm.
+   *   B. Keep this self-deployed zephyr program model and obtain the current
+   *      Mercury deploy + query tooling.
+   * Until that lands the backend is GATED: unless this is `true`, every query
+   * throws a clear "pending" {@link IndexerError} instead of silently 404-ing.
+   * Set it to `true` only once strategy B has a live endpoint at `url`.
+   */
+  zephyrExecuteConfirmed?: boolean;
 }
 
 export class MercuryIndexer implements SignerIndexer {
@@ -77,6 +117,20 @@ export class MercuryIndexer implements SignerIndexer {
   }
 
   private async execute<T>(fname: string, args: unknown): Promise<T> {
+    // Gate: the `/zephyr/execute` route is retired (404) and the replacement is
+    // a pending user decision (todo 967). Fail loud + actionable rather than
+    // firing a request that just 404s. `health()` catches this → `{ ok: false }`.
+    if (!this.config.zephyrExecuteConfirmed) {
+      throw new IndexerError(
+        "Mercury query integration is pending a strategy decision (todo 967): the assumed " +
+          "POST /zephyr/execute route is retired (404 with a valid JWT). Resolve strategy A " +
+          "(hosted Smart Account Indexer /rest/smart-account-indexer) vs B (self-deployed zephyr " +
+          "program + current tooling), then wire the chosen endpoint. Set " +
+          "zephyrExecuteConfirmed:true to force the legacy path once B has a live endpoint.",
+        PasskeyKitErrorCode.INDEXER_NOT_CONFIGURED
+      );
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
