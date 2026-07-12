@@ -1,19 +1,35 @@
 [package]
-name = "smart-wallets-next-dima"
-version = "0.0.0"
+name = "passkey-kit-indexer"
+version = "1.0.0"
 edition = "2021"
+publish = false
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-zephyr-sdk = { version = "0.2.4", git="https://github.com/xycloo/rs-zephyr-toolkit", rev="7e9e458" }
+# Current (Protocol 27) Zephyr SDK. The `stellar-main-2` branch is upstream's
+# live default branch; it pins a single soroban-sdk (22.x) internally, which is
+# the ONLY soroban-sdk in this program's tree (see README "Toolchain & F1").
+zephyr-sdk = { git = "https://github.com/xycloo/rs-zephyr-toolkit", rev = "3b832840b25289af243326fc3be8a29108891ec2" }
+
+# Pinned to EXACTLY the soroban-sdk that zephyr-sdk resolves, so Cargo unifies
+# to a single crate instance (this is the ONLY soroban-sdk in the tree — we do
+# NOT depend on `smart-wallet-interface`/soroban-sdk 27, which caused the
+# dual-soroban-sdk build failure, audit F1). Used only for the local
+# `#[contracttype]` mirror types that decode the wallet's ScVal events/keys.
+#
+# `=22.0.7` is required: 22.0.7 gates its wasm `#[panic_handler]` behind
+# `not(feature = "alloc")` (and zephyr-sdk enables `alloc`), so it emits no
+# panic handler and doesn't clash with `std` (which stellar-xdr pulls in). 22.0.8+
+# made the panic handler unconditional on wasm, which duplicates `std`'s
+# `panic_impl` lang item and fails the build. See zephyr/README "Toolchain & F1".
+soroban-sdk = { version = "=22.0.7", features = ["alloc"] }
+
 stellar-strkey = "0.0.13"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-smart-wallet-interface = { path = "../contracts/smart-wallet-interface" }
-hex = "0.4.3"
 base64 = "0.22"
+hex = "0.4.3"
 
 [profile.release]
 opt-level = "z"
