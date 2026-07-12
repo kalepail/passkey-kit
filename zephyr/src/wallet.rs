@@ -115,8 +115,9 @@ pub struct UpgradedData {
 /// `signer_added`/… events could inject arbitrary signer rows and poison the
 /// reverse (keyId -> wallet) lookup (audit F3).
 pub const ALLOWLISTED_WASM_HASHES: [&str; 2] = [
-    // v1 smart wallet — soroban-sdk 27, #[contractevent] schema.
-    "9e7fad441d6560b31eafbf3b627dbc196cf19df4dcdb91e0aededaf6590d6fbe",
+    // v1 smart wallet — soroban-sdk 27, #[contractevent] schema. FINAL
+    // post-audit-gate hash (supersedes the interim pre-audit 9e7fad44…).
+    "84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319",
     // Legacy pre-1.0 wallet — sw_v1 tuple events (ignored by this indexer), but
     // a known smart wallet: a legacy wallet can upgrade in place to a v1 hash
     // and keep its address, at which point it starts emitting v1 events.

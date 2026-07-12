@@ -115,7 +115,8 @@ Any contract can emit well-formed `signer_added` events; without a gate an
 attacker could inject rows and poison the reverse lookup. On each ledger close
 the program scans **successful** contract-instance ledger entries and records a
 wallet as trusted only when its instance executable hash is a known passkey-kit
-WASM (`src/wallet.rs::ALLOWLISTED_WASM_HASHES`, sourced from
+WASM (`src/wallet.rs::ALLOWLISTED_WASM_HASHES` — the FINAL post-audit-gate v1
+hash `84924c53…` + legacy `e45c42b9…`, sourced from
 `docs/deployments-testnet-2026-07-11.md` — never rebuilt locally). Signer events
 are ingested only from wallets in the trusted set. The SDK still verifies
 ownership client-side (audit F7) as defence in depth.
