@@ -1,3 +1,15 @@
+<!--
+  HISTORICAL DOCUMENT — superseded by the v1 overhaul.
+
+  This is the original (Protocol 21 era) proposal, including the factory-based
+  design that was NOT built. The shipped v1 contract has no factory: every wallet
+  is deployed directly via `__constructor(signer)` and interacts through
+  `add_signer` / `update_signer` / `remove_signer` / `upgrade` / `get_signer`.
+
+  For the current interface see `contracts/smart-wallet-interface/src/`, the root
+  `README.md` (§ Contract interface), and `CHANGELOG.md`. Kept for design context.
+-->
+
 # Smart wallet contract interface
 
 With the release of [Protocol 21](https://stellar.org/blog/developers/announcing-protocol-21) (and specifically the inclusion of the secp256r1 verification  curve) Soroban now has tremendous first class support for passkey powered smart wallets.
