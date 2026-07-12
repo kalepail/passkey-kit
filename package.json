@@ -2,26 +2,49 @@
   "name": "passkey-kit",
   "version": "0.12.1",
   "description": "A helper library for creating and using smart wallet accounts on the Stellar blockchain.",
-  "author": "Tyler van der Hoeven",
+  "author": "Tyler van der Hoeven <tyler@stellar.org>",
   "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "types/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./storage": {
+      "import": "./dist/storage/index.js",
+      "types": "./dist/storage/index.d.ts"
+    },
+    "./server": {
+      "import": "./dist/server.js",
+      "types": "./dist/server.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENCE"
+  ],
   "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "prebuild": "node scripts/sync-version.js",
+    "build:bindings": "pnpm --filter sac-sdk run build && pnpm --filter passkey-kit-sdk run build",
+    "build": "pnpm run build:bindings && tsc && node scripts/verify-esm.mjs",
+    "verify:esm": "node scripts/verify-esm.mjs",
+    "test": "vitest",
+    "clean": "rm -rf dist packages/passkey-kit-sdk/dist packages/sac-sdk/dist",
     "build:demo": "cd demo && pnpm --ignore-workspace install && pnpm run build",
     "deploy:demo": "npx wrangler pages deploy",
     "deploy:demo:prod": "npx wrangler pages deploy --env production",
-    "prepublishOnly": "pnpm run build",
-    "test:p27-auth": "bun bun_tests/9.index.ts",
-    "build:sac": "pnpm --filter=sac-sdk run build",
-    "build:pks": "pnpm --filter=passkey-kit-sdk run build",
-    "build": "pnpm run build:sac && pnpm run build:pks && tsc",
-    "ext:cp": "./clone-js-sdk.sh"
+    "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@openzeppelin/relayer-plugin-channels": "^0.5.0",
-    "@simplewebauthn/browser": "^13.2.0",
-    "@stellar/stellar-sdk": "16.0.0-rc.1",
+    "@openzeppelin/relayer-plugin-channels": "^0.20.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@stellar/stellar-sdk": "16.0.1",
     "base64url": "^3.0.1",
     "buffer": "^6.0.3",
     "passkey-kit-sdk": "workspace:*",
@@ -29,18 +52,23 @@
   },
   "devDependencies": {
     "@types/node": "^24.6.0",
-    "typescript": "^5.9.2"
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "@stellar/stellar-sdk": ">=16.0.0"
   },
   "pnpm": {
     "overrides": {
       "@stellar/stellar-sdk": "$@stellar/stellar-sdk"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   },
-  "workspaces": [
-    "packages/*"
-  ],
   "engines": {
-    "node": ">=22.18.0"
+    "node": ">=22.0.0"
   },
   "repository": {
     "type": "git",

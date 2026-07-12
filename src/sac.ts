@@ -1,5 +1,5 @@
 import { Client as SacClient } from 'sac-sdk'
-import { PasskeyBase } from "./base"
+import { PasskeyBase } from "./base.js"
 import type { Server } from '@stellar/stellar-sdk/rpc'
 
 export class SACClient extends PasskeyBase {

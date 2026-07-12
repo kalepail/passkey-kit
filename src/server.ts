@@ -1,8 +1,8 @@
 import { xdr } from "@stellar/stellar-sdk"
-import { PasskeyBase } from "./base"
-import base64url from "base64url"
+import { PasskeyBase } from "./base.js"
+import base64url from "./base64url.js"
 import type { Tx } from "@stellar/stellar-sdk/contract"
-import type { Signer } from "./types"
+import type { IndexedSigner } from "./types.js"
 import { AssembledTransaction } from "@stellar/stellar-sdk/contract"
 import { Durability } from "@stellar/stellar-sdk/rpc"
 import { ChannelsClient } from "@openzeppelin/relayer-plugin-channels"
@@ -103,7 +103,7 @@ export class PasskeyServer extends PasskeyBase {
             }
         }
 
-        return signers as Signer[]
+        return signers as IndexedSigner[]
     }
 
     public async getContractId(options: {

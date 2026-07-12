@@ -2,17 +2,32 @@
   "version": "0.4.3",
   "name": "sac-sdk",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "types/index.d.ts",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "prepublishOnly": "pnpm run build",
     "build": "tsc"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "16.0.0-rc.1",
     "buffer": "^6.0.3"
   },
+  "peerDependencies": {
+    "@stellar/stellar-sdk": ">=16.0.0"
+  },
   "devDependencies": {
+    "@stellar/stellar-sdk": "16.0.1",
     "typescript": "^5.9.2"
   },
   "engines": {

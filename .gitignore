@@ -118,7 +118,9 @@ out
 # Nuxt.js build / generate output
 
 .nuxt
-# dist
+
+# Compiled SDK / bindings output (built at publish time)
+dist/
 
 # Gatsby files
 

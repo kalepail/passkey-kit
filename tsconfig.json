@@ -1,28 +1,23 @@
 {
   "compilerOptions": {
-    "outDir": "./types",
-    "rootDir": "./src",
-    // Enable latest features
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleDetection": "force",
-    // Bundler mode
-    "moduleResolution": "Bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022", "DOM"],
     "declaration": true,
-    "emitDeclarationOnly": true,
-    // Best practices
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "dist",
+    "rootDir": "src",
     "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
-    "noFallthroughCasesInSwitch": true,
-    // Some stricter flags (disabled by default)
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noPropertyAccessFromIndexSignature": false,
-    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "noFallthroughCasesInSwitch": true
   },
-  "include": [
-    "src",
-  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

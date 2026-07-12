@@ -3,9 +3,9 @@ import * as StellarSdk from '@stellar/stellar-sdk'
 import { StrKey, hash, xdr, Keypair, Address, TransactionBuilder, Operation } from '@stellar/stellar-sdk'
 import { startRegistration, startAuthentication, type AuthenticationResponseJSON, type AuthenticatorAttestationResponseJSON, type AuthenticatorSelectionCriteria } from "@simplewebauthn/browser"
 import { Buffer } from 'buffer'
-import base64url from 'base64url'
-import type { SignerKey, SignerLimits, SignerStore } from './types'
-import { PasskeyBase } from './base'
+import base64url from './base64url.js'
+import type { SignerKey, SignerLimits, SignerStore } from './types.js'
+import { PasskeyBase } from './base.js'
 import { AssembledTransaction, basicNodeSigner, type AssembledTransactionOptions, type Spec as ContractSpec, type Tx } from '@stellar/stellar-sdk/contract'
 import type { Server } from '@stellar/stellar-sdk/rpc'
 
