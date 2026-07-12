@@ -14,7 +14,7 @@ The versions checked into each `package.json` are authoritative; `npm view` is t
 |---|---|
 | `passkey-kit-sdk` | `0.7.3` |
 | `sac-sdk` | `0.4.3` |
-| `passkey-kit` | `0.12.1` (v1 release version decided at publish — see [CHANGELOG](../CHANGELOG.md)) |
+| `passkey-kit` | `0.13.0` (v1 release — see [CHANGELOG](../CHANGELOG.md)) |
 
 > [!IMPORTANT]
 > Publishing is an **outward-facing, user-gated** step. Bump the versions intentionally, and have the person with npm access run the publish commands (they hold the credentials and the OTP device).

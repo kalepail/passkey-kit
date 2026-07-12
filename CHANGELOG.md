@@ -2,14 +2,14 @@
 
 All notable changes to `passkey-kit` are recorded here. The entry below covers the ground-up **v1 overhaul** of the contract, SDK, bindings, and services.
 
-## v1 — Unreleased
+## 0.13.0 — 2026-07-12
 
 > [!NOTE]
-> **Version.** The npm package is `0.12.1` at time of writing; the v1 release version (`0.13.0` vs `1.0.0`) is chosen at publish time. The reworked contract already stamps `binver = 1.0.0` in its metadata. Per-component versions below are the source of truth; `npm view` is authoritative for what is published.
+> **Version.** The v1 overhaul ships as `passkey-kit@0.13.0` (minor bump from `0.12.1`, forward-only). The reworked contract stamps `binver = 1.0.0` in its metadata. Per-component versions below are the source of truth; `npm view` is authoritative for what is published. This tag is the reference for the canonical v1 contract WASM hash `84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319` (see [`docs/deployments-testnet-2026-07-11.md`](./docs/deployments-testnet-2026-07-11.md)).
 >
 > | Component | Version |
 > |---|---|
-> | `passkey-kit` (SDK) | `0.12.1` → **TBD at publish** |
+> | `passkey-kit` (SDK) | `0.12.1` → **`0.13.0`** |
 > | `passkey-kit-sdk` (bindings) | regenerated from canonical v1 WASM |
 > | `sac-sdk` (bindings) | regenerated |
 > | `smart-wallet` (contract) | `binver 1.0.0`, `soroban-sdk 27.0.0` |
