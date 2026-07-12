@@ -1,14 +1,18 @@
 #![no_std]
 
 use context::verify_context;
-use signer::{get_signer_val_storage, process_signer, store_signer, verify_signer_expiration};
+use signer::{
+    get_signer_val_storage, is_signer_expired, process_signer, signer_expiration, signer_limits,
+    store_signer,
+};
 use smart_wallet_interface::{
+    events::{SignerAdded, SignerRemoved, SignerUpdated, Upgraded},
     types::{Error, Signature, Signatures, Signer, SignerKey, SignerStorage, SignerVal},
     PolicyClient, SmartWalletInterface,
 };
 use soroban_sdk::{
     auth::{Context, CustomAccountInterface},
-    contract, contractimpl,
+    contract, contractimpl, contractmeta,
     crypto::Hash,
     panic_with_error, symbol_short, BytesN, Env, Symbol, Vec,
 };
@@ -19,7 +23,6 @@ mod base64_url;
 mod context;
 mod signer;
 mod storage;
-mod types;
 mod verify;
 
 #[path = "./tests/test.rs"]
@@ -27,82 +30,139 @@ mod test;
 #[path = "./tests/test_extra.rs"]
 mod test_extra;
 
+contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
+
+/// Instance storage key caching the wasm hash installed by the most recent
+/// `upgrade`. Absent until the first upgrade (a contract cannot read its own
+/// executable hash from the host). Sourced for `Upgraded.old_hash`.
+const WASM_HASH: Symbol = symbol_short!("wasm_hash");
+
 #[contract]
 pub struct Contract;
 
-const EVENT_TAG: Symbol = symbol_short!("sw_v1");
-const INITIALIZED: Symbol = symbol_short!("init");
+impl Contract {
+    fn add_signer_impl(env: &Env, signer: Signer) -> Result<(), Error> {
+        let (signer_key, signer_val, signer_storage) = process_signer(signer);
+
+        store_signer(env, &signer_key, &signer_val, &signer_storage, false)?;
+
+        // Policy signers get their install hook invoked (the policy sees the
+        // wallet as its authenticated invoker). A failing install aborts the
+        // add — policies must opt in to being attached.
+        if let SignerKey::Policy(policy) = &signer_key {
+            PolicyClient::new(env, policy).install(&env.current_contract_address());
+        }
+
+        extend_instance(env);
+
+        SignerAdded {
+            key: signer_key,
+            val: signer_val,
+            storage: signer_storage,
+        }
+        .publish(env);
+
+        Ok(())
+    }
+}
 
 #[contractimpl]
 impl SmartWalletInterface for Contract {
     fn __constructor(env: Env, signer: Signer) {
-        Self::add_signer(env, signer);
+        // Deploy-time-only initialization (CAP-0058 constructor). There is no
+        // init flag and no un-authenticated first-add path.
+        if let Err(error) = Self::add_signer_impl(&env, signer) {
+            panic_with_error!(env, error);
+        }
     }
-    fn add_signer(env: Env, signer: Signer) {
-        if env
+
+    fn add_signer(env: Env, signer: Signer) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        Self::add_signer_impl(&env, signer)
+    }
+
+    fn update_signer(env: Env, signer: Signer) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        let (signer_key, signer_val, signer_storage) = process_signer(signer);
+
+        let old_storage = store_signer(&env, &signer_key, &signer_val, &signer_storage, true)?
+            .ok_or(Error::SignerNotFound)?;
+
+        extend_instance(&env);
+
+        SignerUpdated {
+            key: signer_key,
+            val: signer_val,
+            storage: signer_storage,
+            old_storage,
+        }
+        .publish(&env);
+
+        Ok(())
+    }
+
+    fn remove_signer(env: Env, signer_key: SignerKey) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        let (_, signer_storage) =
+            get_signer_val_storage(&env, &signer_key, false).ok_or(Error::SignerNotFound)?;
+
+        match &signer_storage {
+            SignerStorage::Persistent => {
+                env.storage().persistent().remove::<SignerKey>(&signer_key);
+            }
+            SignerStorage::Temporary => {
+                env.storage().temporary().remove::<SignerKey>(&signer_key);
+            }
+        }
+
+        // Best-effort uninstall: a failing (or malicious) policy must never
+        // be able to block its own removal from the wallet.
+        if let SignerKey::Policy(policy) = &signer_key {
+            let _ = PolicyClient::new(&env, policy).try_uninstall(&env.current_contract_address());
+        }
+
+        extend_instance(&env);
+
+        SignerRemoved {
+            key: signer_key,
+            storage: signer_storage,
+        }
+        .publish(&env);
+
+        Ok(())
+    }
+
+    fn upgrade(env: Env, new_wasm_hash: BytesN<32>) -> Result<(), Error> {
+        env.current_contract_address().require_auth();
+
+        let old_hash = env
             .storage()
             .instance()
-            .get::<Symbol, bool>(&INITIALIZED)
-            .unwrap_or(false)
-        {
-            env.current_contract_address().require_auth();
-        } else {
-            env.storage()
-                .instance()
-                .set::<Symbol, bool>(&INITIALIZED, &true);
+            .get::<Symbol, BytesN<32>>(&WASM_HASH);
+
+        env.deployer()
+            .update_current_contract_wasm(new_wasm_hash.clone());
+
+        env.storage()
+            .instance()
+            .set::<Symbol, BytesN<32>>(&WASM_HASH, &new_wasm_hash);
+
+        extend_instance(&env);
+
+        Upgraded {
+            old_hash,
+            new_hash: new_wasm_hash,
         }
+        .publish(&env);
 
-        let (signer_key, signer_val, signer_storage) = process_signer(signer);
-
-        store_signer(&env, &signer_key, &signer_val, &signer_storage, false);
-
-        extend_instance(&env);
-
-        env.events().publish(
-            (EVENT_TAG, symbol_short!("add"), signer_key),
-            (signer_val, signer_storage),
-        );
+        Ok(())
     }
-    fn update_signer(env: Env, signer: Signer) {
-        env.current_contract_address().require_auth();
 
-        let (signer_key, signer_val, signer_storage) = process_signer(signer);
-
-        store_signer(&env, &signer_key, &signer_val, &signer_storage, true);
-
-        extend_instance(&env);
-
-        env.events().publish(
-            (EVENT_TAG, symbol_short!("update"), signer_key),
-            (signer_val, signer_storage),
-        );
-    }
-    fn remove_signer(env: Env, signer_key: SignerKey) {
-        env.current_contract_address().require_auth();
-
-        match get_signer_val_storage(&env, &signer_key, false) {
-            Some((_, signer_storage)) => match signer_storage {
-                SignerStorage::Persistent => {
-                    env.storage().persistent().remove::<SignerKey>(&signer_key);
-                }
-                SignerStorage::Temporary => {
-                    env.storage().temporary().remove::<SignerKey>(&signer_key);
-                }
-            },
-            None => panic_with_error!(env, Error::NotFound),
-        }
-
-        extend_instance(&env);
-
-        env.events()
-            .publish((EVENT_TAG, symbol_short!("remove"), signer_key), ());
-    }
-    fn update_contract_code(env: Env, hash: BytesN<32>) {
-        env.current_contract_address().require_auth();
-
-        env.deployer().update_current_contract_wasm(hash);
-
-        extend_instance(&env);
+    fn get_signer(env: Env, signer_key: SignerKey) -> Option<SignerVal> {
+        get_signer_val_storage(&env, &signer_key, false).map(|(signer_val, _)| signer_val)
     }
 }
 
@@ -118,88 +178,89 @@ impl CustomAccountInterface for Contract {
         signatures: Signatures,
         auth_contexts: Vec<Context>,
     ) -> Result<(), Error> {
-        // Check all contexts for an authorizing signature
+        // Pass 1 — context coverage. Every context must be authorizable by at
+        // least one signer in the signatures map. `verify_context` is purely
+        // boolean: a candidate that can't cover a context never poisons the
+        // attempt for other candidates. Expiration is deliberately NOT
+        // checked here — pass 2 is the single point of truth and fails the
+        // whole auth if ANY map entry is expired.
         for context in auth_contexts.iter() {
-            'check: loop {
-                for (signer_key, _) in signatures.0.iter() {
-                    if let Some((signer_val, _)) = get_signer_val_storage(&env, &signer_key, false)
-                    {
-                        let (signer_expiration, signer_limits) = match signer_val {
-                            SignerVal::Policy(signer_expiration, signer_limits) => {
-                                (signer_expiration, signer_limits)
-                            }
-                            SignerVal::Ed25519(signer_expiration, signer_limits) => {
-                                (signer_expiration, signer_limits)
-                            }
-                            SignerVal::Secp256r1(_, signer_expiration, signer_limits) => {
-                                (signer_expiration, signer_limits)
-                            }
-                        };
+            let mut covered = false;
 
-                        verify_signer_expiration(&env, signer_expiration);
-
-                        if verify_context(&env, &context, &signer_key, &signer_limits, &signatures)
-                        {
-                            break 'check;
-                        } else {
-                            continue;
-                        }
+            for (signer_key, _) in signatures.0.iter() {
+                if let Some((signer_val, _)) = get_signer_val_storage(&env, &signer_key, false) {
+                    if verify_context(
+                        &env,
+                        &context,
+                        &signer_key,
+                        signer_limits(&signer_val),
+                        &signatures,
+                        0,
+                    ) {
+                        covered = true;
+                        break;
                     }
                 }
+            }
 
-                panic_with_error!(env, Error::MissingContext);
+            if !covered {
+                return Err(Error::MissingContext);
             }
         }
 
-        // Check all signatures for a matching context
+        // Pass 2 — verify EVERY signatures map entry: it must be stored on
+        // this wallet, unexpired, and its signature material must verify.
+        // Include only signatures that are needed; an invalid or expired
+        // extra entry fails the entire authorization (deterministically,
+        // regardless of map order).
         for (signer_key, signature) in signatures.0.iter() {
-            // This is probably the only right place to verify_signer_expiration for crypto keys
+            let (signer_val, _) =
+                get_signer_val_storage(&env, &signer_key, true).ok_or(Error::SignerNotFound)?;
 
-            match get_signer_val_storage(&env, &signer_key, true) {
-                None => panic_with_error!(env, Error::NotFound),
-                Some((signer_val, _)) => {
-                    match signature {
-                        Signature::Policy => {
-                            // If there's a policy signer in the signatures map we call it as a full forward of this __check_auth's Vec<Context>
-                            if let SignerKey::Policy(policy) = &signer_key {
-                                PolicyClient::new(&env, policy).policy__(
-                                    &env.current_contract_address(),
-                                    &signer_key,
-                                    &auth_contexts,
-                                );
-                                continue;
-                            }
+            if is_signer_expired(&env, signer_expiration(&signer_val)) {
+                return Err(Error::SignerExpired);
+            }
 
-                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
-                        }
-                        Signature::Ed25519(signature) => {
-                            if let SignerKey::Ed25519(public_key) = &signer_key {
-                                env.crypto().ed25519_verify(
-                                    &public_key,
-                                    &signature_payload.clone().into(),
-                                    &signature,
-                                );
-                                continue;
-                            }
-
-                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
-                        }
-                        Signature::Secp256r1(signature) => {
-                            if let SignerVal::Secp256r1(public_key, _, _) = signer_val {
-                                verify_secp256r1_signature(
-                                    &env,
-                                    &signature_payload,
-                                    &public_key,
-                                    signature,
-                                );
-                                continue;
-                            }
-
-                            panic_with_error!(&env, Error::SignatureKeyValueMismatch)
-                        }
+            match signature {
+                Signature::Policy => {
+                    if let SignerKey::Policy(policy) = &signer_key {
+                        // Policy-as-signature sees the FULL context list (a
+                        // policy used inside another signer's limits sees one
+                        // context at a time). A rejecting policy fails the
+                        // whole authorization.
+                        PolicyClient::new(&env, policy).policy__(
+                            &env.current_contract_address(),
+                            &signer_key,
+                            &auth_contexts,
+                        );
+                    } else {
+                        return Err(Error::SignatureKeyValueMismatch);
                     }
                 }
-            };
+                Signature::Ed25519(signature) => {
+                    if let SignerKey::Ed25519(public_key) = &signer_key {
+                        env.crypto().ed25519_verify(
+                            public_key,
+                            &signature_payload.clone().into(),
+                            &signature,
+                        );
+                    } else {
+                        return Err(Error::SignatureKeyValueMismatch);
+                    }
+                }
+                Signature::Secp256r1(signature) => {
+                    if let SignerVal::Secp256r1(public_key, _, _) = &signer_val {
+                        verify_secp256r1_signature(
+                            &env,
+                            &signature_payload,
+                            public_key,
+                            signature,
+                        )?;
+                    } else {
+                        return Err(Error::SignatureKeyValueMismatch);
+                    }
+                }
+            }
         }
 
         extend_instance(&env);

@@ -56,7 +56,7 @@ fn test() {
     super_ed25519_bytes.copy_into_slice(&mut super_ed25519_array);
     let super_ed25519_bytes = BytesN::from_array(&env, &super_ed25519_array);
 
-    let super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
+    let _super_ed25519_signer_key = SignerKey::Ed25519(super_ed25519_bytes.clone());
     //
 
     let wallet_address = env.register(
@@ -81,7 +81,7 @@ fn test() {
     let sac = env.register_stellar_asset_contract_v2(sac_admin);
     let sac_address = sac.address();
     let sac_admin_client = token::StellarAssetClient::new(&env, &sac_address);
-    let sac_client = token::Client::new(&env, &sac_address);
+    let _sac_client = token::Client::new(&env, &sac_address);
     //
 
     sac_admin_client

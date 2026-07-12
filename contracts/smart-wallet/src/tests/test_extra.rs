@@ -1,6 +1,5 @@
 #![cfg(test)]
 
-use std::println;
 extern crate std;
 
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
@@ -8,14 +7,13 @@ use smart_wallet_interface::types::{
     Signature, Signatures, Signer, SignerExpiration, SignerKey, SignerLimits, SignerStorage,
 };
 use soroban_sdk::{
-    map, symbol_short,
+    map,
     testutils::EnvTestConfig,
     xdr::{
         ContractExecutable, ContractId, ContractIdPreimage, ContractIdPreimageFromAddress,
         CreateContractArgsV2, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorization, Limits,
-        ScAddress, ScVal, SorobanAddressCredentials, SorobanAuthorizationEntry,
-        SorobanAuthorizedFunction, SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, Uint256,
-        VecM, WriteXdr,
+        ScAddress, SorobanAddressCredentials, SorobanAuthorizationEntry, SorobanAuthorizedFunction,
+        SorobanAuthorizedInvocation, SorobanCredentials, ToXdr, Uint256, VecM, WriteXdr,
     },
     Address, Bytes, BytesN, Env,
 };
@@ -24,21 +22,9 @@ use stellar_strkey::{ed25519, Strkey};
 use crate::Contract;
 use ed25519_dalek::{Signer as _, SigningKey};
 
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
-
 mod sample_policy {
-    use crate::types::SignerKey;
     use soroban_sdk::auth::Context;
     soroban_sdk::contractimport!(file = "../target/wasm32v1-none/release/sample_policy.wasm");
-}
-
-#[test]
-fn test() {
-    let env = Env::default();
-
-    let test = symbol_short!("sw_v1");
-
-    println!("{:?}", test.to_xdr(&env));
 }
 
 #[test]
@@ -84,7 +70,6 @@ fn test_deploy_contract() {
             SignerStorage::Persistent,
         ),),
     );
-    // let wallet_client = ContractClient::new(&env, &wallet_address);
 
     let example_contract_address = env.register(ExampleContract, ());
     let example_contract_client = ExampleContractClient::new(&env, &example_contract_address);
@@ -143,18 +128,4 @@ fn test_deploy_contract() {
     example_contract_client
         .set_auths(&[root_auth])
         .deploy(&wallet_address, &wasm_hash);
-}
-
-#[test]
-fn who_am_i() {
-    let env: Env = Env::default();
-
-    let none = None::<Address>;
-    let none = none.to_xdr(&env);
-    let mut none_bytes: [u8; 4] = [0; 4];
-
-    none.copy_into_slice(&mut none_bytes);
-
-    println!("{:?}", URL_SAFE.encode(none_bytes));
-    println!("{:?}", ScVal::Void.to_xdr_base64(Limits::none()).unwrap());
 }

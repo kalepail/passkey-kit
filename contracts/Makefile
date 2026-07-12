@@ -1,31 +1,33 @@
-export STELLAR_NETWORK=testnet
-export STELLAR_ACCOUNT=default
-# export STELLAR_NETWORK=vc
-# export STELLAR_ACCOUNT=live
+export STELLAR_NETWORK ?= testnet
+export STELLAR_ACCOUNT ?= default
 
-# TESTNET
-export SMART_WALLET_WASM=e45c42b944a767bd5f37f8c4a469b48917d28e23481dbfd550419c84cdacde92
+# Native XLM SAC on testnet, used only for sac-sdk bindings generation.
+SAC_ID ?= CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 
+# Canonical wasm hashes live in docs/deployments-testnet.md — this Makefile
+# does not pin them; `make build` output is the source of truth.
+
+# `stellar contract build` optimizes by default (CLI 27+); out/smart_wallet.wasm
+# is the canonical, already-optimized artifact.
 build:
 	rm -rf out/
-	rm -rf smart-wallet/target/wasm32v1-none/
+	stellar contract build --package smart-wallet --out-dir out
 
-	stellar contract build
-		
-	@cd smart-wallet && stellar contract build --package smart-wallet --out-dir ../out
-	stellar contract optimize --wasm ./out/smart_wallet.wasm
+# Tests import sample_policy.wasm (cross-contract fixture), so build it first.
+test:
+	stellar contract build --package sample-policy
+	cargo test
 
 upload:
-	stellar contract upload --wasm ./out/smart_wallet.optimized.wasm --source $(STELLAR_ACCOUNT)
+	stellar contract upload --wasm out/smart_wallet.wasm --source $(STELLAR_ACCOUNT) --network $(STELLAR_NETWORK)
 
 bindings:
-	stellar contract bindings typescript --id CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --network $(STELLAR_NETWORK) --output-dir ./out/sac-sdk --overwrite
-	stellar contract bindings typescript --wasm ./target/wasm32v1-none/release/smart_wallet.wasm --network $(STELLAR_NETWORK) --output-dir ./out/passkey-kit-sdk --overwrite
+	stellar contract bindings typescript --id $(SAC_ID) --network $(STELLAR_NETWORK) --output-dir out/sac-sdk --overwrite
+	stellar contract bindings typescript --wasm out/smart_wallet.wasm --network $(STELLAR_NETWORK) --output-dir out/passkey-kit-sdk --overwrite
 
 fmt:
-	@cd smart-wallet && cargo fmt --all
+	cargo fmt --all
 
 clean:
 	rm -rf out/
-	rm -rf smart-wallet/target/
-	@cd smart-wallet && cargo clean
+	cargo clean
