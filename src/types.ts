@@ -187,10 +187,12 @@ export interface ConnectWalletResult {
 /** Successful result of a submission operation. */
 export interface TransactionSuccess {
   success: true;
-  /** Transaction hash. */
+  /** Transaction hash (may be empty for a `skipWait` submission not yet polled). */
   hash: string;
   /** Ledger the transaction was included in, when known. */
   ledger?: number;
+  /** Relayer transaction id, for polling a `skipWait` submission. */
+  transactionId?: string;
 }
 
 /**

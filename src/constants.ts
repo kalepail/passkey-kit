@@ -96,6 +96,31 @@ export const IDB_INDEX_CONTRACT_ID = "contractId";
 export const LOCALSTORAGE_CREDENTIALS_KEY = "passkey-kit:credentials";
 
 // ============================================================================
+// Relayer
+// ============================================================================
+
+/**
+ * Default relayer request timeout, in milliseconds (6 minutes).
+ *
+ * Long enough to absorb testnet channel-account funding retries after a network
+ * reset. Mainnet requests return quickly; this only bounds the maximum wait.
+ */
+export const DEFAULT_RELAYER_TIMEOUT_MS = 360_000;
+
+/** OpenZeppelin managed Channels relayer endpoint (mainnet). */
+export const CHANNELS_MAINNET_URL = "https://channels.openzeppelin.com";
+
+/** OpenZeppelin managed Channels relayer endpoint (testnet). */
+export const CHANNELS_TESTNET_URL = "https://channels.openzeppelin.com/testnet";
+
+// ============================================================================
+// Indexer
+// ============================================================================
+
+/** Default indexer request timeout, in milliseconds. */
+export const DEFAULT_INDEXER_TIMEOUT_MS = 10_000;
+
+// ============================================================================
 // Networks
 // ============================================================================
 

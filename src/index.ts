@@ -8,15 +8,16 @@
  * @packageDocumentation
  */
 
-// Core clients
+// Core client. (The server-only `PasskeyServer` lives at `passkey-kit/server`
+// so it — and the relayer secret it holds — can never be bundled into browser
+// code.)
 export {
   PasskeyKit,
   type PasskeyKitConfig,
   type CreateOptions,
   type ConnectOptions,
 } from "./kit.js";
-export { PasskeyServer } from "./server.js";
-export { SACClient } from "./sac.js";
+export { SACClient, buildTokenTransferHostFunction } from "./sac.js";
 
 // Generated contract client
 export { Client as PasskeyClient } from "passkey-kit-sdk";

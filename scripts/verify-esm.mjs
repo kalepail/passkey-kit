@@ -34,17 +34,17 @@ async function check(specifier, expectedExports) {
 console.log("Node ESM import smoke test:");
 await check("passkey-kit", [
   "PasskeyKit",
-  "PasskeyServer",
   "PasskeyKitError",
   "PasskeyEventEmitter",
   "deriveContractAddress",
+  "buildTokenTransferHostFunction",
 ]);
 await check("passkey-kit/storage", [
   "MemoryStorage",
   "LocalStorageAdapter",
   "IndexedDBStorage",
 ]);
-await check("passkey-kit/server", ["PasskeyServer"]);
+await check("passkey-kit/server", ["PasskeyServer", "RelayerClient"]);
 
 if (failures.length) {
   console.error("\nESM import smoke test FAILED:");
