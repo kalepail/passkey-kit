@@ -4,8 +4,8 @@ export STELLAR_ACCOUNT ?= default
 # Native XLM SAC on testnet, used only for sac-sdk bindings generation.
 SAC_ID ?= CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC
 
-# Canonical wasm hashes live in docs/deployments-testnet.md — this Makefile
-# does not pin them; `make build` output is the source of truth.
+# Canonical wasm hashes live in ../docs/deployments-testnet-2026-07-11.md —
+# builds only reproduce those hashes from the exact commit recorded there.
 
 # `stellar contract build` optimizes by default (CLI 27+); out/smart_wallet.wasm
 # is the canonical, already-optimized artifact.
