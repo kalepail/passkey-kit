@@ -22,12 +22,23 @@ export type RelayerProxyBody =
   | { func: string; auth: string[] }
   | { xdr: string };
 
-/** Shape the worker returns on a non-2xx response. */
-interface WorkerError {
-  message?: string;
-  code?: string;
-  contractCode?: number;
-  details?: unknown;
+/**
+ * The worker's response envelope (relayer-proxy/src/index.ts):
+ *   success → `{ success: true, data: { transactionId, hash, status } }`
+ *   failure → `{ success: false, error: <message string>, data?: { code, details } }`
+ *             with a non-2xx HTTP status.
+ * There is no `ledger` field.
+ */
+interface WorkerEnvelope {
+  success?: boolean;
+  error?: string;
+  data?: {
+    transactionId?: string;
+    hash?: string;
+    status?: string;
+    code?: string | number;
+    details?: unknown;
+  };
 }
 
 const TIMEOUT_MS = 6 * 60 * 1000;
@@ -67,17 +78,16 @@ export class RelayerProxyClient {
       });
 
       const text = await res.text();
-      const payload = text ? safeParse(text) : undefined;
+      const payload = text ? (safeParse(text) as WorkerEnvelope | undefined) : undefined;
 
-      if (!res.ok) {
+      // Failure = non-2xx OR an explicit `success: false` (defensive).
+      if (!res.ok || payload?.success === false) {
         return fail(toError(payload, res.status, text));
       }
 
-      const ok = (payload ?? {}) as {
-        hash?: string;
-        ledger?: number;
-        transactionId?: string;
-      };
+      // Success: unwrap the `data` envelope. The worker returns no `ledger`, so
+      // it stays undefined; `transactionId`/`status` come from `data`.
+      const ok = payload?.data ?? {};
       if (!ok.hash) {
         return fail(
           new RelayerError(
@@ -89,7 +99,6 @@ export class RelayerProxyClient {
       return {
         success: true,
         hash: ok.hash,
-        ledger: ok.ledger,
         transactionId: ok.transactionId,
       };
     } catch (err) {
@@ -122,27 +131,32 @@ function safeParse(text: string): unknown {
   }
 }
 
-/** Map a worker error payload to a typed SDK error (ContractError when decodable). */
+/** Map the worker error envelope to a typed SDK error (ContractError when decodable). */
 function toError(
-  payload: unknown,
+  payload: WorkerEnvelope | undefined,
   status: number,
   raw: string,
 ): PasskeyKitError {
-  const e =
-    (payload as { error?: WorkerError })?.error ?? (payload as WorkerError);
   const message =
-    e?.message ?? `Relayer proxy failed (HTTP ${status}): ${raw.slice(0, 200)}`;
+    (typeof payload?.error === "string" && payload.error) ||
+    `Relayer proxy failed (HTTP ${status}): ${raw.slice(0, 200)}`;
+  const code = payload?.data?.code;
+  const details = payload?.data?.details;
 
-  // Prefer an explicit contract code, else scan the raw body for Error(Contract, #N).
+  // A numeric `data.code` may be a contract error code; otherwise scan the
+  // message + raw body for an `Error(Contract, #N)` marker (the relayer surfaces
+  // the contract failure there) so contract-error codes aren't dropped.
   const contract =
-    (typeof e?.contractCode === "number"
-      ? contractErrorFromCode(e.contractCode, { status, details: e.details })
-      : null) ?? decodeContractError(raw);
+    (typeof code === "number"
+      ? contractErrorFromCode(code, { status, details })
+      : null) ??
+    decodeContractError(message) ??
+    decodeContractError(raw);
   if (contract) return contract;
 
   return new RelayerError(message, PasskeyKitErrorCode.RELAYER_REQUEST_FAILED, {
     status,
-    code: e?.code,
-    details: e?.details,
+    code: code === undefined ? undefined : String(code),
+    details,
   });
 }

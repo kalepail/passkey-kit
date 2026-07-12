@@ -161,7 +161,15 @@ export async function register(name: string): Promise<void> {
     await refreshKnown();
 
     await refreshBalance();
-    await fundWallet(100);
+    // Auto-fund the fresh wallet. Call the UNWRAPPED helper: `app.busy` is
+    // already set by this `run("Create wallet")` block, so `fundWallet` (which
+    // wraps in its own `run`) would hit the busy-guard and silently no-op. A
+    // fund failure must not fail wallet creation (the wallet is already live).
+    try {
+      await fundWalletInner(100);
+    } catch (err) {
+      pushLog("error", `Auto-fund failed: ${describeError(err).message}`);
+    }
   });
 }
 
@@ -449,22 +457,31 @@ function signersFor(signWith: SignWith): Signer[] {
 
 export async function fundWallet(amountXlm: number): Promise<void> {
   if (!requireConnected()) return;
-  await run(`Fund wallet (${amountXlm} XLM)`, async () => {
-    const fundKp = await fundKeypair;
-    const signer = await fundSigner();
-    const native = sac.getSACClient(config.nativeContractId);
-    const at = await native.transfer({
-      to: app.contractId!,
-      from: fundKp.publicKey(),
-      amount: BigInt(amountXlm) * 10_000_000n,
-    });
-    await at.signAuthEntries({
-      address: fundKp.publicKey(),
-      signAuthEntry: signer.signAuthEntry,
-    });
-    if (!reportResult(`Fund wallet`, await submit(at))) return;
-    await refreshBalance();
+  await run(`Fund wallet (${amountXlm} XLM)`, () => fundWalletInner(amountXlm));
+}
+
+/**
+ * The fund body WITHOUT a `run()` wrapper, so it can be called from inside
+ * another flow's `run()` block (e.g. `register`) without tripping the busy-guard
+ * (which early-returns when `app.busy` is already set).
+ */
+async function fundWalletInner(amountXlm: number): Promise<void> {
+  const fundKp = await fundKeypair;
+  const signer = await fundSigner();
+  const native = sac.getSACClient(config.nativeContractId);
+  const at = await native.transfer({
+    to: app.contractId!,
+    from: fundKp.publicKey(),
+    // `<input type=number>` allows fractional XLM; BigInt() throws on a
+    // non-integer, so scale then round to whole stroops.
+    amount: BigInt(Math.round(amountXlm * 10_000_000)),
   });
+  await at.signAuthEntries({
+    address: fundKp.publicKey(),
+    signAuthEntry: signer.signAuthEntry,
+  });
+  if (!reportResult(`Fund wallet`, await submit(at))) return;
+  await refreshBalance();
 }
 
 export async function refreshBalance(): Promise<void> {
