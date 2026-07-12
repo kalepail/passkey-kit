@@ -1,6 +1,6 @@
 {
   "name": "passkey-kit",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "A helper library for creating and using smart wallet accounts on the Stellar blockchain.",
   "author": "Tyler van der Hoeven",
   "license": "MIT",
