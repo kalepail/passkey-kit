@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# Regenerate the passkey-kit-sdk bindings from the canonical smart-wallet WASM.
+#
+# The canonical hash is THE source of truth (docs/deployments-testnet-*.md). The
+# WASM is fetched by hash from testnet, bindings are generated to a temp dir with
+# the pinned Stellar CLI, and only the generated `src/index.ts` (+ README) are
+# copied into the package — the B1 packaging (package.json, tsconfig, dist build)
+# is preserved. NEVER hand-edit the generated bindings; add post-gen steps here.
+#
+# Usage: bash scripts/bindings/build.sh
+set -euo pipefail
+
+# Canonical smart-wallet WASM hash — keep in sync with the deployments manifest
+# (docs/deployments-testnet-2026-07-11.md). Pinned Stellar CLI: 27.0.0.
+CANONICAL_HASH="9e7fad441d6560b31eafbf3b627dbc196cf19df4dcdb91e0aededaf6590d6fbe"
+NETWORK="testnet"
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+PKG_SRC="$ROOT/packages/passkey-kit-sdk/src/index.ts"
+PKG_README="$ROOT/packages/passkey-kit-sdk/README.md"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+echo "Fetching canonical WASM ${CANONICAL_HASH} from ${NETWORK}…"
+stellar contract fetch --wasm-hash "$CANONICAL_HASH" --network "$NETWORK" \
+  --out-file "$TMP/smart-wallet.wasm"
+
+ACTUAL="$(shasum -a 256 "$TMP/smart-wallet.wasm" | awk '{print $1}')"
+if [ "$ACTUAL" != "$CANONICAL_HASH" ]; then
+  echo "✗ Fetched WASM hash ($ACTUAL) != canonical ($CANONICAL_HASH)" >&2
+  exit 1
+fi
+
+echo "Generating TypeScript bindings…"
+stellar contract bindings typescript --wasm "$TMP/smart-wallet.wasm" \
+  --overwrite --output-dir "$TMP/gen" >/dev/null
+
+echo "Applying post-gen patches (copy generated spec, preserve packaging)…"
+cp "$TMP/gen/src/index.ts" "$PKG_SRC"
+cp "$TMP/gen/README.md" "$PKG_README"
+
+echo "✓ Regenerated passkey-kit-sdk from canonical WASM ${CANONICAL_HASH}"
+echo "  Run 'pnpm --filter passkey-kit-sdk run build' to rebuild dist."

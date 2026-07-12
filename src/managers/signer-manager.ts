@@ -35,7 +35,9 @@ import {
   buildPolicySignerTx,
   buildRemoveSignerTx,
   buildSecp256r1SignerTx,
+  buildUpgradeTx,
   getSigner as getSignerOp,
+  type WalletTx,
 } from "../kit/wallet-ops.js";
 
 /** Extract the contract `Spec` from a generated client (not in the public type). */
@@ -113,7 +115,7 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildSecp256r1SignerTx(this.writeDeps(), "add_signer", keyId, publicKey, limits, store, expiration);
   }
 
@@ -123,7 +125,7 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildSecp256r1SignerTx(this.writeDeps(), "update_signer", keyId, publicKey, limits, store, expiration);
   }
 
@@ -132,7 +134,7 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildEd25519SignerTx(this.writeDeps(), "add_signer", publicKey, limits, store, expiration);
   }
 
@@ -141,7 +143,7 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildEd25519SignerTx(this.writeDeps(), "update_signer", publicKey, limits, store, expiration);
   }
 
@@ -150,7 +152,7 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildPolicySignerTx(this.writeDeps(), "add_signer", policy, limits, store, expiration);
   }
 
@@ -159,12 +161,17 @@ export class SignerManager {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return buildPolicySignerTx(this.writeDeps(), "update_signer", policy, limits, store, expiration);
   }
 
-  remove(signerKey: SignerKey): Promise<AssembledTransaction<null>> {
+  remove(signerKey: SignerKey): Promise<WalletTx> {
     return buildRemoveSignerTx(this.writeDeps(), signerKey);
+  }
+
+  /** Build an `upgrade(new_wasm_hash)` transaction. */
+  upgrade(newWasmHash: Buffer | Uint8Array): Promise<WalletTx> {
+    return buildUpgradeTx(this.writeDeps(), newWasmHash);
   }
 
   // -- Reads -------------------------------------------------------------------

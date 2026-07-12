@@ -51,6 +51,7 @@ import {
   SubmissionManager,
 } from "./managers/index.js";
 import { resolveDeployer } from "./kit/deploy-ops.js";
+import type { WalletTx } from "./kit/wallet-ops.js";
 
 /** Configuration for a {@link PasskeyKit} client. */
 export interface PasskeyKitConfig {
@@ -391,7 +392,7 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.addSecp256r1(keyId, publicKey, limits, store, expiration);
   }
   updateSecp256r1(
@@ -400,7 +401,7 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.updateSecp256r1(keyId, publicKey, limits, store, expiration);
   }
   addEd25519(
@@ -408,7 +409,7 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.addEd25519(publicKey, limits, store, expiration);
   }
   updateEd25519(
@@ -416,7 +417,7 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.updateEd25519(publicKey, limits, store, expiration);
   }
   addPolicy(
@@ -424,7 +425,7 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.addPolicy(policy, limits, store, expiration);
   }
   updatePolicy(
@@ -432,11 +433,16 @@ export class PasskeyKit {
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
-  ): Promise<AssembledTransaction<null>> {
+  ): Promise<WalletTx> {
     return this.signerManager.updatePolicy(policy, limits, store, expiration);
   }
-  remove(signerKey: SignerKey): Promise<AssembledTransaction<null>> {
+  remove(signerKey: SignerKey): Promise<WalletTx> {
     return this.signerManager.remove(signerKey);
+  }
+
+  /** Build an `upgrade(new_wasm_hash)` transaction for the connected wallet. */
+  upgrade(newWasmHash: Buffer | Uint8Array): Promise<WalletTx> {
+    return this.signerManager.upgrade(newWasmHash);
   }
 
   /** Read a signer entry from the ledger (temporary before persistent). */

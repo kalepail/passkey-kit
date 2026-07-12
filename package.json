@@ -32,6 +32,8 @@
     "sync-version": "node scripts/sync-version.js",
     "prebuild": "node scripts/sync-version.js",
     "build:bindings": "pnpm --filter sac-sdk run build && pnpm --filter passkey-kit-sdk run build",
+    "bindings:regen": "bash scripts/bindings/build.sh",
+    "verify:bindings": "bash scripts/bindings/verify.sh",
     "build": "pnpm run build:bindings && tsc && node scripts/verify-esm.mjs",
     "verify:esm": "node scripts/verify-esm.mjs",
     "test": "vitest",
@@ -39,7 +41,7 @@
     "build:demo": "cd demo && pnpm --ignore-workspace install && pnpm run build",
     "deploy:demo": "npx wrangler pages deploy",
     "deploy:demo:prod": "npx wrangler pages deploy --env production",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run verify:bindings && pnpm run build"
   },
   "dependencies": {
     "@openzeppelin/relayer-plugin-channels": "^0.20.0",

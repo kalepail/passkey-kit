@@ -17,43 +17,49 @@ import {
 } from "./errors.js";
 
 describe("decodeContractError", () => {
-  it("decodes a contract error from a diagnostic string", () => {
+  it("decodes a v1 contract error from a diagnostic string", () => {
     const error = decodeContractError(
-      "HostError: Error(Contract, #4) ... SignerExpired"
+      "HostError: Error(Contract, #102) ... SignerExpired"
     );
     expect(error).toBeInstanceOf(ContractError);
-    expect(error?.contractCode).toBe(4);
+    expect(error?.contractCode).toBe(102);
     expect(error?.contractErrorName).toBe("SignerExpired");
     expect(error?.family).toBe("SmartWallet");
     expect(error?.code).toBe(PasskeyKitErrorCode.CONTRACT_ERROR);
   });
 
   it.each([
-    [1, "NotFound"],
-    [2, "AlreadyExists"],
-    [3, "MissingContext"],
-    [7, "SignatureKeyValueMismatch"],
-    [8, "ClientDataJsonChallengeIncorrect"],
-    [9, "JsonParseError"],
-  ])("decodes #%i as %s", (code, name) => {
+    [100, "SignerNotFound"],
+    [101, "SignerAlreadyExists"],
+    [110, "MissingContext"],
+    [122, "ClientDataJsonChallengeIncorrect"],
+    [123, "InvalidWebAuthnType"],
+    [125, "UserPresenceRequired"],
+  ])("decodes v1 #%i as %s", (code, name) => {
     const error = decodeContractError(`Error(Contract, #${code})`);
     expect(error?.contractCode).toBe(code);
     expect(error?.contractErrorName).toBe(name);
     expect(error?.family).toBe("SmartWallet");
   });
 
+  it("still decodes legacy (< 100) codes as SmartWalletLegacy", () => {
+    const error = decodeContractError("Error(Contract, #4)");
+    expect(error?.contractErrorName).toBe("SignerExpired");
+    expect(error?.family).toBe("SmartWalletLegacy");
+  });
+
   it("handles whitespace variations in the marker", () => {
-    expect(decodeContractError("Error(Contract,#2)")?.contractErrorName).toBe(
-      "AlreadyExists"
+    expect(decodeContractError("Error(Contract,#101)")?.contractErrorName).toBe(
+      "SignerAlreadyExists"
     );
-    expect(decodeContractError("Error(Contract,   #2)")?.contractErrorName).toBe(
-      "AlreadyExists"
-    );
+    expect(
+      decodeContractError("Error(Contract,   #101)")?.contractErrorName
+    ).toBe("SignerAlreadyExists");
   });
 
   it("decodes from an Error object's message", () => {
-    const error = decodeContractError(new Error("Error(Contract, #5)"));
-    expect(error?.contractErrorName).toBe("FailedSignerLimits");
+    const error = decodeContractError(new Error("Error(Contract, #111)"));
+    expect(error?.contractErrorName).toBe("SignatureKeyValueMismatch");
   });
 
   it("returns null when there is no contract marker", () => {
@@ -70,9 +76,9 @@ describe("decodeContractError", () => {
 
 describe("contractErrorFromCode", () => {
   it("builds a ContractError for a known code", () => {
-    const error = contractErrorFromCode(6);
+    const error = contractErrorFromCode(120);
     expect(error).toBeInstanceOf(ContractError);
-    expect(error?.contractErrorName).toBe("FailedPolicySignerLimits");
+    expect(error?.contractErrorName).toBe("ClientDataJsonTooLarge");
   });
 
   it("returns null for an unknown code", () => {
@@ -120,7 +126,7 @@ describe("transaction failure helpers", () => {
   });
 
   it("simulationFailure decodes a contract error when present", () => {
-    const failure = simulationFailure("Error(Contract, #4)");
+    const failure = simulationFailure("Error(Contract, #102)");
     expect(failure.error).toBeInstanceOf(ContractError);
     expect(failure.error.code).toBe(PasskeyKitErrorCode.CONTRACT_ERROR);
   });

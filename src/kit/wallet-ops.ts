@@ -15,10 +15,15 @@
 
 import { Keypair } from "@stellar/stellar-sdk";
 import { Durability, type Server } from "@stellar/stellar-sdk/rpc";
-import type { AssembledTransaction, Spec as ContractSpec } from "@stellar/stellar-sdk/contract";
+import type {
+  AssembledTransaction,
+  Result,
+  Spec as ContractSpec,
+} from "@stellar/stellar-sdk/contract";
 import {
   Client as PasskeyClient,
   type Signer as SDKSigner,
+  type SignerExpiration,
   type SignerKey as SDKSignerKey,
   type SignerLimits as SDKSignerLimits,
   type SignerVal,
@@ -26,6 +31,18 @@ import {
 import base64url from "../base64url.js";
 import { SignerStore, type SignerKey, type SignerLimits } from "../types.js";
 import { signerKeyToScVal, SIGNER_VAL_UDT } from "./auth-payload.js";
+
+/**
+ * The result of a signer-write / upgrade transaction. The reworked contract's
+ * admin functions are typed `Result<void>` (they return `Ok(())` or a typed
+ * contract error), so the AssembledTransaction is generic over that.
+ */
+export type WalletTx = AssembledTransaction<Result<void>>;
+
+/** Encode an optional expiration into the contract's `Option<u64>` timestamp. */
+function toSignerExpiration(expiration?: number): SignerExpiration {
+  return [expiration == null ? undefined : BigInt(expiration)];
+}
 
 /** Which write the builder targets. */
 type SignerFn = "add_signer" | "update_signer";
@@ -76,7 +93,7 @@ function buildSecp256r1Signer(
     values: [
       keyIdBuffer,
       publicKeyBuffer,
-      [expiration],
+      toSignerExpiration(expiration),
       toContractSignerLimits(limits),
       { tag: store, values: undefined },
     ],
@@ -93,7 +110,7 @@ function buildEd25519Signer(
     tag: "Ed25519",
     values: [
       Keypair.fromPublicKey(publicKey).rawPublicKey(),
-      [expiration],
+      toSignerExpiration(expiration),
       toContractSignerLimits(limits),
       { tag: store, values: undefined },
     ],
@@ -110,7 +127,7 @@ function buildPolicySigner(
     tag: "Policy",
     values: [
       policy,
-      [expiration],
+      toSignerExpiration(expiration),
       toContractSignerLimits(limits),
       { tag: store, values: undefined },
     ],
@@ -131,7 +148,7 @@ export function buildSecp256r1SignerTx(
   limits: SignerLimits,
   store: SignerStore,
   expiration?: number
-): Promise<AssembledTransaction<null>> {
+): Promise<WalletTx> {
   return deps.wallet[fn](
     { signer: buildSecp256r1Signer(keyId, publicKey, limits, store, expiration) },
     { timeoutInSeconds: deps.timeoutInSeconds }
@@ -145,7 +162,7 @@ export function buildEd25519SignerTx(
   limits: SignerLimits,
   store: SignerStore,
   expiration?: number
-): Promise<AssembledTransaction<null>> {
+): Promise<WalletTx> {
   return deps.wallet[fn](
     { signer: buildEd25519Signer(publicKey, limits, store, expiration) },
     { timeoutInSeconds: deps.timeoutInSeconds }
@@ -159,7 +176,7 @@ export function buildPolicySignerTx(
   limits: SignerLimits,
   store: SignerStore,
   expiration?: number
-): Promise<AssembledTransaction<null>> {
+): Promise<WalletTx> {
   return deps.wallet[fn](
     { signer: buildPolicySigner(policy, limits, store, expiration) },
     { timeoutInSeconds: deps.timeoutInSeconds }
@@ -169,9 +186,20 @@ export function buildPolicySignerTx(
 export function buildRemoveSignerTx(
   deps: WalletWriteDeps,
   signerKey: SignerKey
-): Promise<AssembledTransaction<null>> {
+): Promise<WalletTx> {
   return deps.wallet.remove_signer(
     { signer_key: toContractSignerKey(signerKey) },
+    { timeoutInSeconds: deps.timeoutInSeconds }
+  );
+}
+
+/** Build an `upgrade(new_wasm_hash)` transaction (renamed from update_contract_code). */
+export function buildUpgradeTx(
+  deps: WalletWriteDeps,
+  newWasmHash: Buffer | Uint8Array
+): Promise<WalletTx> {
+  return deps.wallet.upgrade(
+    { new_wasm_hash: Buffer.from(newWasmHash) },
     { timeoutInSeconds: deps.timeoutInSeconds }
   );
 }

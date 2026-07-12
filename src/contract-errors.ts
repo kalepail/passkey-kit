@@ -9,9 +9,10 @@
  * `Errors` map; `contract-errors.test.ts` asserts this registry stays in sync
  * with it, so a bindings regen surfaces any drift.
  *
- * NOTE: these are the CURRENT contract's 9 codes (1-9). The reworked contract
- * deliberately renumbers and adds codes (spec #602); this registry is resynced
- * to the regenerated bindings in B4.
+ * The v1 contract deliberately renumbered its error space to 100-129 so it is
+ * disjoint from the legacy (pre-1.0) 1-9 range: a decoded code < 100 means the
+ * client is talking to a legacy wallet. Both ranges are kept here so errors
+ * from legacy deployed wallets still decode (family `SmartWalletLegacy`).
  *
  * @packageDocumentation
  */
@@ -27,7 +28,7 @@ import type { TransactionFailure } from "./types.js";
 /**
  * Contract families that expose custom error codes.
  */
-export type ContractErrorFamily = "SmartWallet";
+export type ContractErrorFamily = "SmartWallet" | "SmartWalletLegacy";
 
 /**
  * A single contract error entry: code, enum variant name, family, and a
@@ -56,15 +57,32 @@ export const CONTRACT_ERROR_REGISTRY: Readonly<
   Record<number, ContractErrorInfo>
 > = Object.freeze(
   Object.fromEntries([
-    entry(1, "NotFound", "SmartWallet", "The specified signer was not found."),
-    entry(2, "AlreadyExists", "SmartWallet", "The signer already exists on this wallet."),
-    entry(3, "MissingContext", "SmartWallet", "The signature did not cover a required authorization context."),
-    entry(4, "SignerExpired", "SmartWallet", "The signer has expired."),
-    entry(5, "FailedSignerLimits", "SmartWallet", "The signer is not permitted to authorize this context by its limits."),
-    entry(6, "FailedPolicySignerLimits", "SmartWallet", "A policy signer's limits rejected this context."),
-    entry(7, "SignatureKeyValueMismatch", "SmartWallet", "A signature entry's key and value did not match."),
-    entry(8, "ClientDataJsonChallengeIncorrect", "SmartWallet", "The WebAuthn clientDataJSON challenge did not match the signature payload."),
-    entry(9, "JsonParseError", "SmartWallet", "The WebAuthn clientDataJSON could not be parsed."),
+    // --- v1 SmartWallet (100-129) — source of truth in the bindings Errors map ---
+    // 100-109: signer storage / management
+    entry(100, "SignerNotFound", "SmartWallet", "The requested signer does not exist on this smart wallet."),
+    entry(101, "SignerAlreadyExists", "SmartWallet", "add_signer was called with a signer key that already exists."),
+    entry(102, "SignerExpired", "SmartWallet", "The signer's expiration timestamp is in the past."),
+    // 110-119: auth (__check_auth)
+    entry(110, "MissingContext", "SmartWallet", "No signer in the signatures map is permitted to authorize one of the requested auth contexts."),
+    entry(111, "SignatureKeyValueMismatch", "SmartWallet", "A signature's variant does not match the stored signer it claims to be for."),
+    // 120-129: WebAuthn (secp256r1) verification
+    entry(120, "ClientDataJsonTooLarge", "SmartWallet", "clientDataJSON exceeds the 1024-byte parse buffer."),
+    entry(121, "ClientDataJsonParseError", "SmartWallet", "clientDataJSON is not parseable JSON (or is missing required fields)."),
+    entry(122, "ClientDataJsonChallengeIncorrect", "SmartWallet", "The clientDataJSON challenge does not match the signature payload; this binding MUST NOT be weakened."),
+    entry(123, "InvalidWebAuthnType", "SmartWallet", 'clientDataJSON `type` is not "webauthn.get".'),
+    entry(124, "InvalidAuthenticatorData", "SmartWallet", "authenticatorData is shorter than the WebAuthn minimum of 37 bytes."),
+    entry(125, "UserPresenceRequired", "SmartWallet", "The authenticator did not set the User Present (UP) flag."),
+
+    // --- Legacy (pre-1.0) 1-9 — kept so errors from legacy deployed wallets decode ---
+    entry(1, "NotFound", "SmartWalletLegacy", "[legacy] The specified signer was not found."),
+    entry(2, "AlreadyExists", "SmartWalletLegacy", "[legacy] The signer already exists on this wallet."),
+    entry(3, "MissingContext", "SmartWalletLegacy", "[legacy] The signature did not cover a required authorization context."),
+    entry(4, "SignerExpired", "SmartWalletLegacy", "[legacy] The signer has expired."),
+    entry(5, "FailedSignerLimits", "SmartWalletLegacy", "[legacy] The signer is not permitted to authorize this context by its limits."),
+    entry(6, "FailedPolicySignerLimits", "SmartWalletLegacy", "[legacy] A policy signer's limits rejected this context."),
+    entry(7, "SignatureKeyValueMismatch", "SmartWalletLegacy", "[legacy] A signature entry's key and value did not match."),
+    entry(8, "ClientDataJsonChallengeIncorrect", "SmartWalletLegacy", "[legacy] The WebAuthn clientDataJSON challenge did not match the signature payload."),
+    entry(9, "JsonParseError", "SmartWalletLegacy", "[legacy] The WebAuthn clientDataJSON could not be parsed."),
   ])
 );
 

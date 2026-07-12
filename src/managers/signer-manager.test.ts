@@ -72,7 +72,7 @@ describe("SignerManager signer writes", () => {
 
     const [{ signer }] = wallet.add_signer.mock.calls[0]!;
     expect(signer.tag).toBe("Secp256r1");
-    expect(signer.values[2]).toEqual([777]); // SignerExpiration
+    expect(signer.values[2]).toEqual([777n]); // SignerExpiration (Option<u64>)
     expect(signer.values[3]).toEqual([undefined]); // unlimited SignerLimits
     expect(signer.values[4]).toEqual({ tag: "Temporary", values: undefined });
   });
