@@ -41,10 +41,16 @@ pub enum Error {
     /// authenticatorData is shorter than the WebAuthn minimum of 37 bytes
     /// (rpIdHash 32 + flags 1 + signCount 4).
     InvalidAuthenticatorData = 124,
-    /// The authenticator did not set the User Present (UP) flag. User
-    /// Verification (UV) is deliberately NOT required; requiring UP only
-    /// keeps silent, non-interactive assertions out while remaining
-    /// compatible with authenticators that don't do user verification.
+    /// The authenticator did not set the User Present (UP) flag.
+    ///
+    /// UP-only is the deliberate default (audit FIX-7). Requiring UP keeps
+    /// silent, non-interactive assertions out while staying compatible with
+    /// authenticators that cannot do User Verification (UV — biometric/PIN).
+    /// UV is therefore NOT required by this contract. A deployment that wants
+    /// UV-required assertions should enforce it at the client/relayer layer,
+    /// or via a future per-signer flag (which would be a signer-model change,
+    /// not a change to this check); the contract cannot upgrade UP-only
+    /// signers to UV-required retroactively without such a flag.
     UserPresenceRequired = 125,
 }
 
@@ -71,12 +77,28 @@ pub struct SignerExpiration(pub Option<u64>);
 /// - `Some({address -> None})`: the signer may authorize any invocation of
 ///   contract `address`, with no co-signers required.
 /// - `Some({address -> Some([keys])})`: the signer may authorize invocations
-///   of contract `address` only if every listed key also passes: non-policy
-///   keys must be present in the transaction's signatures map (and therefore
-///   fully verified in pass 2 of `__check_auth`); policy keys are invoked via
-///   `policy__` for the specific context (and, if the policy key is also
-///   stored on this wallet, its own stored limits are verified recursively,
-///   bounded by a fixed depth guard).
+///   of contract `address` only if every listed key also APPROVES. The listed
+///   keys are required CO-SIGNERS.
+///
+/// ## Required co-signers are scope-independent approvers (audit FIX-5)
+///
+/// A required co-signer's OWN `SignerLimits` do NOT constrain its co-signer
+/// role — a key's limits govern only its INDEPENDENT authority (whether it can
+/// cover a context on its own). This is symmetric across key kinds:
+///
+/// - A non-policy required key must be present in the transaction's signatures
+///   map (and is therefore fully verified — stored, unexpired, crypto-valid —
+///   in pass 2 of `__check_auth`). Its own limits are not consulted.
+/// - A policy required key must APPROVE the specific context via `policy__`
+///   (it need not appear in the signatures map). If the policy key is also
+///   stored on this wallet it must be unexpired, but its own stored limits are
+///   NOT recursively enforced.
+///
+/// Consequence: `Some(empty map)` on a key disables that key's INDEPENDENT
+/// coverage only. A key with empty limits can still serve as a required
+/// co-signer for another signer. Because no stored policy's limits are
+/// re-entered, there is no policy-limit recursion (and thus no cycle to
+/// guard against).
 ///
 /// Notes:
 /// - Deploy permission is NOT grantable through limits: `CreateContract*`

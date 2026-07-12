@@ -7,7 +7,7 @@ use std::println;
 extern crate std;
 
 use example_contract::{Contract as ExampleContract, ContractClient as ExampleContractClient};
-use sample_policy::Contract as PolicyContract;
+use sample_policy::{Contract as PolicyContract, ContractClient as PolicyContractClient};
 use smart_wallet_interface::types::{
     Signatures, Signer, SignerExpiration, SignerKey, SignerLimits, SignerStorage,
 };
@@ -223,4 +223,55 @@ fn secp256r1_passkey_full_stack() {
 
     assert_eq!(sac_client.balance(&wallet_address), 100_000_000 - amount);
     assert_eq!(sac_client.balance(&recipient_address), amount);
+}
+
+/// FIX-2: `policy__` is publicly callable, but the hardened sample policy
+/// authenticates its caller with `source.require_auth()`. An external caller
+/// that is not the wallet — even for a wallet that DID install the policy —
+/// cannot invoke `policy__` on that wallet's behalf.
+///
+/// The positive direction (invoker auth satisfies `require_auth` during a real
+/// `__check_auth`) is proven by `ed25519_with_policy_limits_full_stack`, which
+/// drives the sample policy through `set_auths`.
+#[test]
+fn sample_policy_rejects_spoofed_caller() {
+    let env = test_env();
+    let signer = Ed25519Signer::new(41);
+
+    let (wallet_address, wallet_client) = register_wallet(
+        &env,
+        &signer.signer(
+            &env,
+            SignerExpiration(None),
+            SignerLimits(None),
+            SignerStorage::Persistent,
+        ),
+    );
+
+    let policy_address = env.register(PolicyContract, ());
+    let policy_client = PolicyContractClient::new(&env, &policy_address);
+
+    // Install the policy on the wallet (wallet-authenticated).
+    wallet_client.mock_all_auths().add_signer(&Signer::Policy(
+        policy_address.clone(),
+        SignerExpiration(None),
+        SignerLimits(None),
+        SignerStorage::Temporary,
+    ));
+
+    let token = Address::generate(&env);
+    let contexts = soroban_sdk::vec![&env, transfer_context(&env, &token, &wallet_address, 1)];
+
+    // Direct policy__ call with NO auth for the wallet: source.require_auth()
+    // is unsatisfied, so it fails. (Note the absence of mock_all_auths.)
+    let result = policy_client.try_policy__(
+        &wallet_address,
+        &SignerKey::Policy(policy_address.clone()),
+        &contexts,
+    );
+
+    assert!(
+        result.is_err(),
+        "spoofed policy__ caller must be rejected by source.require_auth()"
+    );
 }

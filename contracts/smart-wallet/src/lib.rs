@@ -116,12 +116,15 @@ impl SmartWalletInterface for Contract {
             }
         }
 
-        // Best-effort uninstall: a failing (or malicious) policy must never
-        // be able to block its own removal from the wallet.
-        if let SignerKey::Policy(policy) = &signer_key {
-            let _ = PolicyClient::new(&env, policy).try_uninstall(&env.current_contract_address());
-        }
-
+        // Removal is pure wallet state — NO untrusted policy code runs on this
+        // critical path (audit FIX-1). Calling the policy's `uninstall` here
+        // would let a malicious/broken policy block its own removal: `try_*`
+        // recovers only *recoverable* contract errors, so a policy that
+        // exhausts the transaction budget triggers a non-recoverable
+        // Budget/Storage ExceededLimit that unwinds the whole atomic
+        // transaction and rolls the removal back. Policies instead self-clean
+        // their install-state via the permissionless `uninstall` entrypoint,
+        // which verifies the signer is actually gone before acting.
         extend_instance(&env);
 
         SignerRemoved {
@@ -193,7 +196,6 @@ impl CustomAccountInterface for Contract {
                         &signer_key,
                         signer_limits(&signer_val),
                         &signatures,
-                        0,
                     ) {
                         covered = true;
                         break;

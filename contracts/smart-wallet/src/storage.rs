@@ -13,12 +13,21 @@ use soroban_sdk::Env;
 /// rewrite state, not any auth semantics, so drift is harmless.
 const WEEK_OF_LEDGERS: u32 = 60 * 60 * 24 / 5 * 7;
 
+/// The extend threshold: one week below `max_ttl`. `saturating_sub` so a
+/// hypothetical network config with `max_ttl < WEEK_OF_LEDGERS` yields a `0`
+/// threshold (bump every time) rather than an overflow panic that would brick
+/// all auth and mutation (audit FIX-6). `overflow-checks = true` is on for
+/// release, so this must not underflow.
+fn extend_threshold(max_ttl: u32) -> u32 {
+    max_ttl.saturating_sub(WEEK_OF_LEDGERS)
+}
+
 pub fn extend_instance(env: &Env) {
     let max_ttl = env.storage().max_ttl();
 
     env.storage()
         .instance()
-        .extend_ttl(max_ttl - WEEK_OF_LEDGERS, max_ttl);
+        .extend_ttl(extend_threshold(max_ttl), max_ttl);
 }
 
 pub fn extend_signer_key(env: &Env, signer_key: &SignerKey, persistent: bool) {
@@ -27,13 +36,13 @@ pub fn extend_signer_key(env: &Env, signer_key: &SignerKey, persistent: bool) {
     if persistent {
         env.storage().persistent().extend_ttl::<SignerKey>(
             signer_key,
-            max_ttl - WEEK_OF_LEDGERS,
+            extend_threshold(max_ttl),
             max_ttl,
         );
     } else {
         env.storage().temporary().extend_ttl::<SignerKey>(
             signer_key,
-            max_ttl - WEEK_OF_LEDGERS,
+            extend_threshold(max_ttl),
             max_ttl,
         );
     }

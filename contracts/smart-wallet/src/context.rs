@@ -1,5 +1,5 @@
 use smart_wallet_interface::{
-    types::{Signatures, SignerKey, SignerLimits, SignerVal},
+    types::{Signatures, SignerKey, SignerLimits},
     PolicyClient,
 };
 use soroban_sdk::{
@@ -8,12 +8,6 @@ use soroban_sdk::{
 };
 
 use crate::signer::{get_signer_val_storage, is_signer_expired, signer_expiration};
-
-/// Cap on nested policy-limit verification (a stored policy key inside a
-/// signer's limits has its own stored limits verified recursively, which can
-/// cycle: A requires B, B requires A). Depth past this bound fails closed —
-/// the candidate simply doesn't cover the context.
-const MAX_LIMIT_KEY_DEPTH: u32 = 4;
 
 /// Decide whether `signer_key` (with `signer_limits`) may authorize
 /// `context`.
@@ -33,7 +27,6 @@ pub fn verify_context(
     signer_key: &SignerKey,
     signer_limits: &SignerLimits,
     signatures: &Signatures,
-    depth: u32,
 ) -> bool {
     let limits = match &signer_limits.0 {
         // No limits: the signer can authorize anything.
@@ -69,14 +62,9 @@ pub fn verify_context(
             match limits.get(contract.clone()) {
                 // No entry for this contract: not permitted.
                 None => false,
-                Some(required_keys) => verify_signer_limit_keys(
-                    env,
-                    signer_key,
-                    signatures,
-                    &required_keys,
-                    context,
-                    depth,
-                ),
+                Some(required_keys) => {
+                    verify_signer_limit_keys(env, signer_key, signatures, &required_keys, context)
+                }
             }
         }
         // Deploy permission is not grantable through limits: CreateContract*
@@ -86,24 +74,28 @@ pub fn verify_context(
     }
 }
 
-/// Check a limits entry's co-signer requirements for one context.
+/// Check a limits entry's required co-signers for one context.
 ///
-/// - Non-policy keys must be present in the signatures map. Their crypto,
-///   existence and expiration are enforced by pass 2 of `__check_auth`,
-///   which verifies every signatures map entry.
+/// Required keys are scope-independent APPROVERS: their role as a co-signer
+/// is decoupled from their own `SignerLimits`. This makes both key kinds
+/// symmetric (FIX-5, audit) — a required key's own limits govern only its
+/// INDEPENDENT (as-a-covering-signer) authority, never its co-signer role:
+///
+/// - Non-policy keys must be present in the signatures map. Their existence,
+///   expiration and crypto are enforced by pass 2 of `__check_auth`. Their
+///   own `SignerLimits` are NOT consulted here.
 /// - Policy keys need not be in the signatures map (they can be "adjacent"
-///   requirements). If the policy key is stored on this wallet it must be
-///   unexpired and its own stored limits must cover this context
-///   (recursive, depth-guarded). The policy contract is then invoked via
-///   `try_policy__` for this single context — a rejecting or failing policy
-///   rejects the candidate, never the whole transaction.
+///   requirements). The policy must APPROVE this context via `policy__`. If
+///   the policy key is also stored on this wallet it must be unexpired, but
+///   its own `SignerLimits` are NOT recursively enforced. Because no stored
+///   policy's limits are re-entered, there is no policy-limit recursion and
+///   thus no cycle to guard against.
 fn verify_signer_limit_keys(
     env: &Env,
     signer_key: &SignerKey,
     signatures: &Signatures,
     required_keys: &Option<soroban_sdk::Vec<SignerKey>>,
     context: &Context,
-    depth: u32,
 ) -> bool {
     let required_keys = match required_keys {
         // No co-signer requirements for this contract.
@@ -114,29 +106,18 @@ fn verify_signer_limit_keys(
     for required_key in required_keys.iter() {
         match &required_key {
             SignerKey::Policy(policy) => {
-                if depth >= MAX_LIMIT_KEY_DEPTH {
-                    return false;
-                }
-
+                // If the policy is stored on this wallet it must be unexpired
+                // (it need not be in the signatures map, so pass 2 would not
+                // otherwise check it). We do NOT re-enter its own limits.
                 if let Some((signer_val, _)) = get_signer_val_storage(env, &required_key, true) {
                     if is_signer_expired(env, signer_expiration(&signer_val)) {
                         return false;
                     }
-
-                    if let SignerVal::Policy(_, limits) = &signer_val {
-                        if !verify_context(
-                            env,
-                            context,
-                            &required_key,
-                            limits,
-                            signatures,
-                            depth + 1,
-                        ) {
-                            return false;
-                        }
-                    }
                 }
 
+                // The policy must approve THIS context. try_policy__ so a
+                // rejecting or failing policy rejects the candidate, never the
+                // whole transaction.
                 if PolicyClient::new(env, policy)
                     .try_policy__(
                         &env.current_contract_address(),

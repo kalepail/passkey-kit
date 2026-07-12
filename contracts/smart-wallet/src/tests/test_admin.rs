@@ -7,7 +7,7 @@ extern crate std;
 use smart_wallet_interface::{
     events::{SignerAdded, SignerRemoved, SignerUpdated, Upgraded},
     types::{Error, Signer, SignerExpiration, SignerKey, SignerLimits, SignerStorage, SignerVal},
-    PolicyInterface,
+    PolicyInterface, SmartWalletClient,
 };
 use soroban_sdk::{
     auth::Context,
@@ -45,7 +45,13 @@ impl PolicyInterface for LifecyclePolicy {
     }
 
     fn uninstall(env: Env, wallet: Address) {
-        wallet.require_auth();
+        // Permissionless self-clean (FIX-1): only clear once this policy is
+        // genuinely no longer a signer on `wallet`.
+        let still_signer = SmartWalletClient::new(&env, &wallet)
+            .get_signer(&SignerKey::Policy(env.current_contract_address()))
+            .is_some();
+        assert!(!still_signer, "policy still installed");
+
         env.storage()
             .persistent()
             .remove(&LifecycleKey::Installed(wallet));
@@ -67,12 +73,15 @@ impl PolicyInterface for RejectingPolicy {
     fn uninstall(_env: Env, _wallet: Address) {}
 }
 
-/// Policy whose uninstall always panics: removal must still succeed.
+/// Policy whose `uninstall` exhausts the transaction budget — a
+/// NON-recoverable failure that `try_*` cannot catch. The wallet must never
+/// invoke it on the removal critical path (FIX-1), so removal must still
+/// succeed.
 #[contract]
-pub struct StickyPolicy;
+pub struct BudgetBurnPolicy;
 
 #[contractimpl]
-impl PolicyInterface for StickyPolicy {
+impl PolicyInterface for BudgetBurnPolicy {
     fn policy__(_env: Env, _source: Address, _signer: SignerKey, _contexts: Vec<Context>) {}
 
     fn install(env: Env, wallet: Address) {
@@ -80,8 +89,14 @@ impl PolicyInterface for StickyPolicy {
         let _ = env;
     }
 
-    fn uninstall(_env: Env, _wallet: Address) {
-        panic!("uninstall rejected");
+    fn uninstall(env: Env, _wallet: Address) {
+        // Unbounded metered work → Budget ExceededLimit (non-recoverable),
+        // which unwinds the whole atomic transaction if ever reached.
+        let mut bytes = Bytes::new(&env);
+        loop {
+            bytes.push_back(0xff);
+            let _ = env.crypto().sha256(&bytes);
+        }
     }
 }
 
@@ -554,6 +569,7 @@ fn policy_install_uninstall_lifecycle() {
     let env = test_env();
     let a = Ed25519Signer::new(1);
     let policy = env.register(LifecyclePolicy, ());
+    let policy_client = LifecyclePolicyClient::new(&env, &policy);
     let policy_key = SignerKey::Policy(policy.clone());
 
     let (wallet, client) = register_wallet(
@@ -576,9 +592,20 @@ fn policy_install_uninstall_lifecycle() {
     ));
     assert!(is_installed(&env, &policy, &wallet));
 
+    // Permissionless uninstall is REFUSED while the policy is still a signer:
+    // a griefer cannot clear install-state for an active policy.
+    assert!(policy_client.try_uninstall(&wallet).is_err());
+    assert!(is_installed(&env, &policy, &wallet));
+
+    // Removal is pure wallet state — the wallet does NOT call uninstall, so
+    // the signer is gone but the policy's install marker lingers.
     client.mock_all_auths().remove_signer(&policy_key);
-    assert!(!is_installed(&env, &policy, &wallet));
     assert_eq!(client.get_signer(&policy_key), None);
+    assert!(is_installed(&env, &policy, &wallet));
+
+    // Now anyone can clean up: the cross-check to get_signer returns None.
+    policy_client.uninstall(&wallet);
+    assert!(!is_installed(&env, &policy, &wallet));
 }
 
 /// A policy signer can also be the FIRST signer: the constructor runs the
@@ -638,12 +665,17 @@ fn rejecting_policy_cannot_be_added() {
     ));
 }
 
-/// A policy whose uninstall panics must NOT be able to block its own removal.
+/// FIX-1 regression: a policy whose `uninstall` exhausts the transaction
+/// budget (a NON-recoverable failure that `try_uninstall` could not catch)
+/// must NOT be able to block its own removal. Because the wallet never calls
+/// uninstall on the removal path, the budget-burn never runs and removal
+/// succeeds. Under the old best-effort `try_uninstall` this call would have
+/// aborted the whole transaction and rolled the removal back.
 #[test]
-fn sticky_policy_can_still_be_removed() {
+fn malicious_uninstall_cannot_block_removal() {
     let env = test_env();
     let a = Ed25519Signer::new(1);
-    let policy = env.register(StickyPolicy, ());
+    let policy = env.register(BudgetBurnPolicy, ());
     let policy_key = SignerKey::Policy(policy.clone());
 
     let (_, client) = register_wallet(

@@ -1,7 +1,7 @@
 #![cfg(test)]
 //! `__check_auth` semantics: signer limits branches, expiration boundaries,
 //! multi-sig requirements, self-removal, deploy permission, policy
-//! granularity, and the recursion depth guard.
+//! granularity, and required-co-signer scope-independence (FIX-5).
 
 extern crate std;
 
@@ -970,12 +970,76 @@ fn policy_as_limit_called_per_context() {
     assert_eq!(policy_count(&env, &policy), 2);
 }
 
-// --- Recursion depth guard (F10) ---------------------------------------------
+// --- Required co-signer scope-independence (FIX-5) ---------------------------
 
-/// Two stored policies whose limits require each other would recurse
-/// unboundedly without the depth guard; with it, coverage fails closed.
+/// A non-policy required co-signer's OWN limits do not constrain its
+/// co-signer role: even `Some(empty)` ("no independent permissions") does not
+/// disable it as an approver. A+B authorize the token context although B could
+/// not cover anything on its own.
 #[test]
-fn cyclic_policy_limits_fail_closed() {
+fn nonpolicy_co_signer_own_limits_not_enforced() {
+    let env = test_env();
+    let a = Ed25519Signer::new(1);
+    let b = Ed25519Signer::new(2);
+    let token = Address::generate(&env);
+
+    let (wallet, client) = register_wallet(
+        &env,
+        &a.signer(
+            &env,
+            SignerExpiration(None),
+            contract_limits(&env, &token, Some(vec![&env, b.signer_key(&env)])),
+            SignerStorage::Persistent,
+        ),
+    );
+
+    // B has an empty limits map — it cannot INDEPENDENTLY cover anything.
+    client.mock_all_auths().add_signer(&b.signer(
+        &env,
+        SignerExpiration(None),
+        empty_limits(&env),
+        SignerStorage::Persistent,
+    ));
+
+    let payload = payload(&env, 7);
+    let contexts = vec![&env, transfer_context(&env, &token, &wallet, 1)];
+
+    // B on its own cannot cover the token context.
+    assert_eq!(
+        check_auth(
+            &env,
+            &wallet,
+            &payload,
+            Signatures(map![&env, (b.signer_key(&env), b.sign(&env, &payload))]),
+            &contexts,
+        ),
+        Err(Ok(Error::MissingContext))
+    );
+
+    // But B still serves as A's required co-signer.
+    assert_eq!(
+        check_auth(
+            &env,
+            &wallet,
+            &payload,
+            Signatures(map![
+                &env,
+                (a.signer_key(&env), a.sign(&env, &payload)),
+                (b.signer_key(&env), b.sign(&env, &payload)),
+            ]),
+            &contexts,
+        ),
+        Ok(())
+    );
+}
+
+/// A stored policy required co-signer's OWN limits are likewise not
+/// recursively enforced: only its `policy__` decision matters. What was
+/// previously a "cycle" (policy_a requires policy_b requires policy_a) simply
+/// resolves through each policy's `policy__` approval — no recursion, no depth
+/// guard, no blowup.
+#[test]
+fn policy_co_signer_own_limits_not_enforced() {
     let env = test_env();
     let policy_a = env.register(CountingPolicy, ());
     let policy_b = env.register(CountingPolicy, ());
@@ -996,7 +1060,8 @@ fn cyclic_policy_limits_fail_closed() {
         ),
     );
 
-    // policy_a requires policy_b for token, policy_b requires policy_a: cycle.
+    // policy_a's own limits reference policy_b (and vice versa). These are NOT
+    // re-entered; policy_a is used purely as an approver via policy__.
     client.mock_all_auths().add_signer(&Signer::Policy(
         policy_a.clone(),
         SignerExpiration(None),
@@ -1021,7 +1086,8 @@ fn cyclic_policy_limits_fail_closed() {
     let payload = payload(&env, 7);
     let contexts = vec![&env, transfer_context(&env, &token, &wallet, 1)];
 
-    // Fails closed via the depth guard — no stack/budget blowup.
+    // policy_a approves (CountingPolicy allows everything); its own limits are
+    // ignored, so this resolves to Ok with policy_a invoked exactly once.
     assert_eq!(
         check_auth(
             &env,
@@ -1030,8 +1096,11 @@ fn cyclic_policy_limits_fail_closed() {
             Signatures(map![&env, (s.signer_key(&env), s.sign(&env, &payload))]),
             &contexts,
         ),
-        Err(Ok(Error::MissingContext))
+        Ok(())
     );
+    assert_eq!(policy_count(&env, &policy_a), 1);
+    // policy_b is never invoked — policy_a's limits are not re-entered.
+    assert_eq!(policy_count(&env, &policy_b), 0);
 }
 
 /// An expired stored policy referenced in limits rejects the candidate
