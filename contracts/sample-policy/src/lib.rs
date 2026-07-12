@@ -1,27 +1,41 @@
-//! Sample policy demonstrating the smart wallet policy lifecycle SAFELY.
+//! Sample policy: a CUMULATIVE rolling-window spending allowance.
 //!
 //! It is a reference others copy, so it models every hardening the audit
-//! asked for:
+//! asked for and — critically — is safe even though `Signature::Policy`
+//! carries no secret (anyone can submit it):
 //!
+//! - **Cumulative allowance (FIX-3b).** A per-transfer cap is NOT a spending
+//!   limit: because policy signatures are secretless, a per-transfer cap is
+//!   trivially bypassed by repeating capped transfers to drain the wallet.
+//!   This policy instead tracks cumulative spend per wallet within a rolling
+//!   time window and rejects once the window's total would exceed the cap, so
+//!   the most anyone can move through it is `WINDOW_ALLOWANCE` per
+//!   `WINDOW_SECONDS` — a genuine, bounded rate limit.
 //! - **Caller authentication (FIX-2).** `policy__` is publicly callable with
 //!   an attacker-chosen `source`. Because this policy keeps per-wallet state,
 //!   it calls `source.require_auth()` first. During a real `__check_auth` the
 //!   wallet is the direct invoker of `policy__`, so invoker auth satisfies
 //!   this; an external caller cannot satisfy it for a wallet it does not
-//!   control. The `Installed(source)` marker is a secondary gate (it proves
-//!   past installation, never current caller identity).
+//!   control.
 //! - **Deny-by-default (FIX-3).** Every context is rejected unless it is a
-//!   `transfer` within the cap. Any other function, any non-contract context,
-//!   a missing/mistyped amount argument, or a context targeting the wallet's
-//!   own admin surface all FAIL CLOSED.
+//!   `transfer` of a positive amount to a contract other than the wallet.
+//!   Any other function, any non-contract context, a missing/mistyped amount,
+//!   a non-positive amount, or a context targeting the wallet's own admin
+//!   surface all FAIL CLOSED.
 //! - **TTL renewal (FIX-4).** `install` and every successful `policy__`
-//!   extend this policy's instance/code TTL and the `Installed(wallet)` key,
-//!   so a policy participating in a wallet's authorization cannot silently
+//!   extend this policy's instance/code TTL and the per-wallet state keys, so
+//!   a policy participating in a wallet's authorization cannot silently
 //!   archive into a wallet lock.
 //! - **Permissionless self-clean (FIX-1).** The wallet does NOT call
-//!   `uninstall` on removal. Anyone may call it; it clears `Installed(wallet)`
+//!   `uninstall` on removal. Anyone may call it; it clears per-wallet state
 //!   only after confirming (via the wallet's own `get_signer`) that this
 //!   policy is genuinely no longer a signer on that wallet.
+//!
+//! Even with a cumulative allowance, a secretless value-moving policy should
+//! generally ALSO be paired — via the granting signer's `SignerLimits` — with
+//! an authenticated cryptographic co-signer, so that the bounded amount still
+//! requires a real signature to move. The allowance bounds worst-case loss;
+//! the co-signer removes the "anyone" from "anyone can spend up to the cap".
 
 #![no_std]
 
@@ -36,7 +50,8 @@ use soroban_sdk::{
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[repr(u32)]
 pub enum PolicyError {
-    /// A context is not permitted (deny-by-default).
+    /// A context is not permitted (deny-by-default), or the cumulative
+    /// window allowance would be exceeded.
     NotAllowed = 1,
     /// `policy__` was called for a wallet that never installed this policy.
     NotInstalled = 2,
@@ -45,8 +60,13 @@ pub enum PolicyError {
     StillInstalled = 3,
 }
 
-/// Maximum per-`transfer` amount this policy permits.
-const TRANSFER_LIMIT: i128 = 10_000_000;
+/// Cumulative amount this policy will authorize for a wallet within one
+/// window.
+const WINDOW_ALLOWANCE: i128 = 100_000_000;
+/// Rolling-window length in seconds (24h). A tumbling window: the first spend
+/// after `WINDOW_SECONDS` have elapsed since the window started resets the
+/// counter and begins a new window.
+const WINDOW_SECONDS: u64 = 60 * 60 * 24;
 
 /// TTL renewal parameters (in ledgers at the historical 5s close time): bump
 /// to ~30 days whenever remaining TTL drops below ~1 week. Both are well under
@@ -58,6 +78,15 @@ const RENEW_TO: u32 = 60 * 60 * 24 / 5 * 30;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StorageKey {
     Installed(Address),
+    Spend(Address),
+}
+
+/// Per-wallet cumulative-spend accounting for the current window.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Allowance {
+    pub window_start: u64,
+    pub spent: i128,
 }
 
 #[contract]
@@ -69,18 +98,19 @@ impl PolicyInterface for Contract {
         // The wallet is the direct invoker during add_signer; invoker auth.
         wallet.require_auth();
 
-        let key = StorageKey::Installed(wallet);
+        let installed_key = StorageKey::Installed(wallet);
         env.storage()
             .persistent()
-            .set::<StorageKey, bool>(&key, &true);
+            .set::<StorageKey, bool>(&installed_key, &true);
 
-        renew_ttls(&env, &key);
+        renew_instance(&env);
+        renew_persistent(&env, &installed_key);
     }
 
     fn uninstall(env: Env, wallet: Address) {
-        // Permissionless (FIX-1): clear install-state only once this policy is
-        // genuinely no longer a signer on `wallet`. The wallet's get_signer is
-        // a read-only view; a griefer cannot clear state for a wallet where
+        // Permissionless (FIX-1): clear per-wallet state only once this policy
+        // is genuinely no longer a signer on `wallet`. The wallet's get_signer
+        // is a read-only view; a griefer cannot clear state for a wallet where
         // this policy is still installed.
         let still_signer = SmartWalletClient::new(&env, &wallet)
             .get_signer(&SignerKey::Policy(env.current_contract_address()))
@@ -92,7 +122,10 @@ impl PolicyInterface for Contract {
 
         env.storage()
             .persistent()
-            .remove::<StorageKey>(&StorageKey::Installed(wallet));
+            .remove::<StorageKey>(&StorageKey::Installed(wallet.clone()));
+        env.storage()
+            .persistent()
+            .remove::<StorageKey>(&StorageKey::Spend(wallet));
     }
 
     fn policy__(env: Env, source: Address, _signer: SignerKey, contexts: Vec<Context>) {
@@ -100,16 +133,14 @@ impl PolicyInterface for Contract {
         // any per-wallet state. Satisfied by invoker auth during __check_auth.
         source.require_auth();
 
-        let key = StorageKey::Installed(source.clone());
-        if !env.storage().persistent().has::<StorageKey>(&key) {
+        let installed_key = StorageKey::Installed(source.clone());
+        if !env.storage().persistent().has::<StorageKey>(&installed_key) {
             panic_with_error!(&env, PolicyError::NotInstalled);
         }
 
-        // FIX-4: keep this policy and its install marker alive for as long as
-        // it is actively authorizing.
-        renew_ttls(&env, &key);
-
-        // FIX-3: deny-by-default. Anything not explicitly permitted rejects.
+        // FIX-3: deny-by-default. Sum the transfer amounts across all contexts
+        // in this invocation; anything not explicitly permitted rejects.
+        let mut total: i128 = 0;
         for context in contexts.iter() {
             match context {
                 Context::Contract(ContractContext {
@@ -117,9 +148,8 @@ impl PolicyInterface for Contract {
                     fn_name,
                     args,
                 }) => {
-                    // Never independently authorize the wallet's own admin
-                    // surface (add/update/remove/upgrade). `source` is the
-                    // wallet.
+                    // Never authorize the wallet's own admin surface
+                    // (add/update/remove/upgrade). `source` is the wallet.
                     if contract == source {
                         panic_with_error!(&env, PolicyError::NotAllowed);
                     }
@@ -130,28 +160,75 @@ impl PolicyInterface for Contract {
                     }
 
                     // Fail closed if the amount argument is missing or not an
-                    // i128 (previously this fell open).
+                    // i128.
                     let amount = match args.get(2).and_then(|v| i128::try_from_val(&env, &v).ok()) {
                         Some(amount) => amount,
                         None => panic_with_error!(&env, PolicyError::NotAllowed),
                     };
 
-                    if amount <= 0 || amount > TRANSFER_LIMIT {
+                    if amount <= 0 {
                         panic_with_error!(&env, PolicyError::NotAllowed);
                     }
+
+                    total = match total.checked_add(amount) {
+                        Some(total) => total,
+                        None => panic_with_error!(&env, PolicyError::NotAllowed),
+                    };
                 }
                 // Non-contract contexts (deploys, etc.) are never permitted.
                 _ => panic_with_error!(&env, PolicyError::NotAllowed),
             }
         }
+
+        // FIX-3b: cumulative rolling-window allowance. Load the wallet's spend
+        // record, resetting it if the window has elapsed, and reject if this
+        // invocation would push cumulative spend over the cap.
+        let now = env.ledger().timestamp();
+        let spend_key = StorageKey::Spend(source.clone());
+        let mut allowance = env
+            .storage()
+            .persistent()
+            .get::<StorageKey, Allowance>(&spend_key)
+            .unwrap_or(Allowance {
+                window_start: now,
+                spent: 0,
+            });
+
+        if now.saturating_sub(allowance.window_start) >= WINDOW_SECONDS {
+            allowance.window_start = now;
+            allowance.spent = 0;
+        }
+
+        let new_spent = match allowance.spent.checked_add(total) {
+            Some(new_spent) => new_spent,
+            None => panic_with_error!(&env, PolicyError::NotAllowed),
+        };
+
+        if new_spent > WINDOW_ALLOWANCE {
+            panic_with_error!(&env, PolicyError::NotAllowed);
+        }
+
+        allowance.spent = new_spent;
+        env.storage()
+            .persistent()
+            .set::<StorageKey, Allowance>(&spend_key, &allowance);
+
+        // FIX-4: keep this policy and its per-wallet state alive for as long
+        // as it is actively authorizing.
+        renew_instance(&env);
+        renew_persistent(&env, &installed_key);
+        renew_persistent(&env, &spend_key);
     }
 }
 
-fn renew_ttls(env: &Env, installed_key: &StorageKey) {
+fn renew_instance(env: &Env) {
     env.storage()
         .instance()
         .extend_ttl(RENEW_THRESHOLD, RENEW_TO);
+}
+
+fn renew_persistent(env: &Env, key: &StorageKey) {
     env.storage()
         .persistent()
-        .extend_ttl::<StorageKey>(installed_key, RENEW_THRESHOLD, RENEW_TO);
+        .extend_ttl::<StorageKey>(key, RENEW_THRESHOLD, RENEW_TO);
 }

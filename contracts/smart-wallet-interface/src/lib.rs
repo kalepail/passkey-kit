@@ -69,6 +69,23 @@ pub trait PolicyInterface {
     /// host ScVal order, so a stateful policy used inside limits can observe
     /// order-dependent invocation. A read-only (or idempotent) policy is
     /// immune to this.
+    ///
+    /// ## Value transfers with a SECRETLESS policy (audit FIX-3b)
+    ///
+    /// `Signature::Policy` carries NO secret — anyone can submit it, so a
+    /// policy that authorizes value transfers is authorizing them for
+    /// EVERYONE. A per-transfer cap is therefore NOT a spending limit: it is
+    /// trivially bypassed by repeating capped transfers to drain the wallet.
+    /// A value-moving policy is only safe when it is one (ideally both) of:
+    ///
+    /// - a CUMULATIVE / rate-limited allowance that bounds total spend over a
+    ///   window (so worst-case loss is bounded — see `sample-policy`), and/or
+    /// - paired, via the granting signer's `SignerLimits`, with an
+    ///   authenticated cryptographic co-signer, so the bounded amount still
+    ///   requires a real signature to move.
+    ///
+    /// Never ship a policy that authorizes transfers under only an
+    /// unbounded per-transfer cap.
     fn policy__(env: Env, source: Address, signer: SignerKey, contexts: Vec<Context>);
     /// Lifecycle hook invoked by a wallet when this policy is added as a
     /// signer (from `add_signer`/`__constructor`). The wallet is the direct

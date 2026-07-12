@@ -13,7 +13,7 @@ use smart_wallet_interface::types::{
 };
 use soroban_sdk::{
     map,
-    testutils::Address as _,
+    testutils::{Address as _, Ledger as _},
     token,
     xdr::{
         InvokeContractArgs, SorobanAddressCredentials, SorobanAuthorizationEntry,
@@ -274,4 +274,61 @@ fn sample_policy_rejects_spoofed_caller() {
         result.is_err(),
         "spoofed policy__ caller must be rejected by source.require_auth()"
     );
+}
+
+/// FIX-3b: the sample policy is a CUMULATIVE rolling-window allowance, not a
+/// per-transfer cap. Repeated sub-cap transfers are rejected once the window's
+/// cumulative spend would exceed the cap — closing the secretless repeat-drain
+/// — and the counter resets after the window elapses.
+#[test]
+fn sample_policy_cumulative_allowance() {
+    let env = test_env();
+    env.ledger().set_timestamp(1_000_000);
+
+    let signer = Ed25519Signer::new(51);
+    let (wallet, wallet_client) = register_wallet(
+        &env,
+        &signer.signer(
+            &env,
+            SignerExpiration(None),
+            SignerLimits(None),
+            SignerStorage::Persistent,
+        ),
+    );
+
+    let policy = env.register(PolicyContract, ());
+    let policy_client = PolicyContractClient::new(&env, &policy);
+    let policy_key = SignerKey::Policy(policy.clone());
+
+    wallet_client.mock_all_auths().add_signer(&Signer::Policy(
+        policy.clone(),
+        SignerExpiration(None),
+        SignerLimits(None),
+        SignerStorage::Temporary,
+    ));
+
+    let token = Address::generate(&env);
+
+    // Authorize a single transfer of `amount` (mock_all_auths satisfies the
+    // policy's source.require_auth()).
+    let authorize = |amount: i128| {
+        policy_client.mock_all_auths().try_policy__(
+            &wallet,
+            &policy_key,
+            &soroban_sdk::vec![&env, transfer_context(&env, &token, &wallet, amount)],
+        )
+    };
+
+    // The cumulative window cap is 100_000_000. Spend up to it in chunks.
+    assert!(authorize(60_000_000).is_ok());
+    assert!(authorize(40_000_000).is_ok()); // cumulative now == cap
+
+    // A tiny sub-cap transfer is now rejected: the repeat-drain is closed.
+    assert!(authorize(1).is_err());
+
+    // After the window elapses, the counter resets and spending resumes.
+    env.ledger().set_timestamp(1_000_000 + 60 * 60 * 24 + 1);
+    assert!(authorize(70_000_000).is_ok());
+    assert!(authorize(30_000_000).is_ok()); // cumulative == cap again
+    assert!(authorize(1).is_err());
 }
