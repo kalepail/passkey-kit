@@ -11,10 +11,15 @@ demo's client JS (audit #597/#598).
 ## How it works
 
 - **Keyless per-IP key minting.** On the first request from an IP the worker
-  calls the Relayer's unauthenticated `GET {RELAYER_BASE_URL}/gen` endpoint,
-  and caches the returned key in KV under `api-key:<ip>` (indefinitely — the
-  Relayer resets usage limits every 24h on its side). Client IP is taken from
-  `CF-Connecting-IP`, then `X-Forwarded-For`, then `X-Real-IP`.
+  calls the Relayer's unauthenticated `GET {RELAYER_BASE_URL}/gen` endpoint and
+  stores the returned key. Custody lives in a **per-IP Durable Object**
+  (`ApiKeyStore`, one instance per `CF-Connecting-IP`): its `blockConcurrencyWhile`
+  serializes get-or-create, so N concurrent first-requests from one IP mint at
+  most ONE key — the atomic get-or-create that KV cannot provide (no CAS). The
+  key persists indefinitely; the Relayer resets usage limits every 24h.
+- **Client IP** is taken ONLY from `CF-Connecting-IP` (always set at the CF
+  edge, unspoofable). `X-Forwarded-For` / `X-Real-IP` are client-controlled and
+  deliberately not trusted for key custody.
 - **Two submission modes** (`POST /`):
   - `{ func, auth }` → `submitSorobanTransaction` — Relayer builds the tx with
     channel accounts (Address credentials: transfers, wallet ops).
@@ -42,13 +47,9 @@ demo's client JS (audit #597/#598).
 
 - Testnet (default): `NETWORK=testnet`, `RELAYER_BASE_URL=https://channels.openzeppelin.com/testnet`.
 - Mainnet (`[env.production]`): `NETWORK=mainnet`, `RELAYER_BASE_URL=https://channels.openzeppelin.com`.
-- KV binding `API_KEYS` (one namespace per network). The committed ids are
-  placeholders — provision real ones before deploying:
-
-```sh
-wrangler kv namespace create API_KEYS            # testnet id -> [[kv_namespaces]]
-wrangler kv namespace create API_KEYS            # mainnet id -> [[env.production.kv_namespaces]]
-```
+- Durable Object binding `API_KEY_DO` → class `ApiKeyStore` (+ a `[[migrations]]`
+  entry), one per environment. No namespace id to provision — the class is bound
+  directly, and the DO is created on first use.
 
 No secrets are needed; the worker mints Relayer keys itself.
 
@@ -62,10 +63,11 @@ pnpm typecheck                     # tsc --noEmit
 pnpm dev                           # wrangler dev (local)
 ```
 
-The tests mock `@openzeppelin/relayer-plugin-channels` and KV, and cover: IP
-extraction, mode validation, both submission paths, the three error mappings,
-testnet-vs-mainnet retry behavior, and the per-IP key lifecycle (mint / reuse /
-legacy-format migration).
+The tests mock `@openzeppelin/relayer-plugin-channels` and the DO namespace, and
+cover: IP extraction (CF-Connecting-IP only), mode validation, both submission
+paths, the three error mappings, testnet-vs-mainnet retry behavior, and the
+`ApiKeyStore` DO get-or-create logic (returns stored / mints from `/gen` /
+502-on-mint-failure / `/peek`).
 
 ## Deploy
 

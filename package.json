@@ -40,7 +40,7 @@
     "clean": "rm -rf dist packages/passkey-kit-sdk/dist packages/sac-sdk/dist",
     "build:demo": "cd demo && pnpm --ignore-workspace install && pnpm run build",
     "deploy:demo": "npx wrangler pages deploy",
-    "deploy:demo:prod": "npx wrangler pages deploy --env production",
+    "deploy:demo:prod": "npx wrangler pages deploy --branch production",
     "prepublishOnly": "pnpm run verify:bindings && pnpm run build"
   },
   "dependencies": {

@@ -9,7 +9,8 @@
  * Uses the official `@openzeppelin/relayer-plugin-channels` SDK.
  *
  * Features:
- * - Automatic API-key generation per IP (persisted indefinitely in KV).
+ * - Automatic API-key generation per IP, custody in a per-IP Durable Object so
+ *   concurrent first-requests mint at most ONE key (KV has no CAS — review M5).
  * - One API key per IP; the Relayer's usage limits reset every 24h on its side.
  * - Two submission modes: `{ func, auth }` (Address credentials) and `{ xdr }`
  *   (source-account auth, e.g. deploys).
@@ -27,7 +28,6 @@ import {
 import {
   SERVICE_NAME,
   FRIENDBOT_URL,
-  API_KEY_PREFIX,
   API_KEY_FIELD_NAMES,
   API_KEY_MIN_LENGTH,
   API_KEY_MAX_LENGTH,
@@ -37,20 +37,18 @@ import {
   UNKNOWN_IP,
 } from "./constants";
 
-interface StoredApiKey {
-  apiKey: string;
-  createdAt: number;
-}
-
-interface ApiKeyReadResult {
-  storedKey: StoredApiKey;
-  needsMigration: boolean;
-}
+/** Durable Object storage key holding the IP's Relayer API key. */
+const DO_KEY = "apiKey";
 
 // Hono app
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable CORS
+// CORS is intentionally open: the browser calls this cross-origin and the
+// endpoint holds no secret the caller could exfiltrate (it mints its own keys).
+// SECURITY DECISION (endgame, before any MAINNET deploy): decide whether an
+// open, keyless, fee-sponsoring `POST /` is acceptable on mainnet, or whether
+// it needs an origin allowlist / auth / stricter rate limiting. On testnet the
+// open policy is fine.
 app.use("*", cors());
 
 app.onError((error, c) => {
@@ -69,22 +67,13 @@ app.onError((error, c) => {
 // ============================================================================
 
 /**
- * Get the client IP from the request, preferring Cloudflare's trusted header.
+ * Get the client IP from the request. Uses ONLY `CF-Connecting-IP`, which
+ * Cloudflare always sets at the edge and the client cannot spoof. The
+ * `X-Forwarded-For` / `X-Real-IP` headers are client-controlled and must NOT be
+ * trusted for per-IP key custody (review LOW).
  */
 export function getClientIP(request: Request): string {
-  return (
-    request.headers.get(IP_HEADERS.CF_CONNECTING_IP) ||
-    request.headers.get(IP_HEADERS.X_FORWARDED_FOR)?.split(",")[0]?.trim() ||
-    request.headers.get(IP_HEADERS.X_REAL_IP) ||
-    UNKNOWN_IP
-  );
-}
-
-/**
- * Generate a unique KV key for an IP.
- */
-function getKVKey(ip: string): string {
-  return `${API_KEY_PREFIX}${ip}`;
+  return request.headers.get(IP_HEADERS.CF_CONNECTING_IP) || UNKNOWN_IP;
 }
 
 /**
@@ -95,135 +84,6 @@ function isValidApiKey(apiKey: string): boolean {
   return (
     trimmed.length >= API_KEY_MIN_LENGTH && trimmed.length <= API_KEY_MAX_LENGTH
   );
-}
-
-/**
- * Runtime type guard for stored API key records.
- */
-function isStoredApiKey(value: unknown): value is StoredApiKey {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const candidate = value as Partial<StoredApiKey>;
-  return (
-    typeof candidate.apiKey === "string" &&
-    typeof candidate.createdAt === "number" &&
-    isValidApiKey(candidate.apiKey)
-  );
-}
-
-/**
- * Read and normalize a stored API key record.
- *
- * Supports legacy plain-text / JSON-string values and migrates them lazily.
- */
-async function readStoredApiKey(
-  env: Env,
-  kvKey: string
-): Promise<ApiKeyReadResult | null> {
-  try {
-    const raw = await env.API_KEYS.get(kvKey);
-    if (!raw) {
-      return null;
-    }
-
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      console.error(`Empty API key value in KV for ${kvKey}. Deleting record.`);
-      await env.API_KEYS.delete(kvKey);
-      return null;
-    }
-
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-
-      if (isStoredApiKey(parsed)) {
-        return { storedKey: parsed, needsMigration: false };
-      }
-
-      // Backward compatibility: JSON string value, e.g. "\"sk_...\""
-      if (typeof parsed === "string" && isValidApiKey(parsed)) {
-        return {
-          storedKey: {
-            apiKey: parsed.trim(),
-            createdAt: Date.now(),
-          },
-          needsMigration: true,
-        };
-      }
-    } catch {
-      // Backward compatibility: plain text value, e.g. "sk_..."
-      if (isValidApiKey(trimmed)) {
-        return {
-          storedKey: {
-            apiKey: trimmed,
-            createdAt: Date.now(),
-          },
-          needsMigration: true,
-        };
-      }
-    }
-
-    console.error(
-      `Corrupted API key KV value for ${kvKey}. Deleting invalid record.`
-    );
-    await env.API_KEYS.delete(kvKey);
-    return null;
-  } catch (error) {
-    console.error(`Failed reading API key from KV for ${kvKey}:`, error);
-    return null;
-  }
-}
-
-/**
- * Get or generate an API key for the given IP.
- * Keys are stored indefinitely — one key per IP address.
- * The Relayer's usage limits reset every 24 hours on their side.
- */
-async function getOrCreateApiKey(
-  env: Env,
-  ip: string
-): Promise<{ apiKey: string; isNew: boolean } | null> {
-  const kvKey = getKVKey(ip);
-
-  // Check if we already have an API key for this IP.
-  const cached = await readStoredApiKey(env, kvKey);
-  if (cached) {
-    if (cached.needsMigration) {
-      try {
-        await env.API_KEYS.put(kvKey, JSON.stringify(cached.storedKey));
-      } catch (error) {
-        console.error(
-          `Failed migrating legacy API key format for ${kvKey}:`,
-          error
-        );
-      }
-    }
-
-    return { apiKey: cached.storedKey.apiKey, isNew: false };
-  }
-
-  // No existing key — generate a new one from the Relayer's /gen endpoint.
-  const newApiKey = await generateApiKey(env);
-  if (!newApiKey) {
-    return null;
-  }
-
-  const storedKey: StoredApiKey = {
-    apiKey: newApiKey,
-    createdAt: Date.now(),
-  };
-
-  // Store without expiration TTL — key persists until manually deleted.
-  try {
-    await env.API_KEYS.put(kvKey, JSON.stringify(storedKey));
-  } catch (error) {
-    console.error(`Failed storing API key in KV for ${kvKey}:`, error);
-    return null;
-  }
-
-  return { apiKey: newApiKey, isNew: true };
 }
 
 /**
@@ -248,10 +108,12 @@ async function generateApiKey(env: Env): Promise<string | null> {
         if (typeof apiKey === "string") {
           return apiKey;
         }
-        console.error("API key not found in response:", data);
+        // Do NOT log the body: it may contain the key under an unexpected
+        // field. Log only that extraction failed (review LOW: no secret logs).
+        console.error("API key field not found in /gen response");
         return null;
       } catch {
-        // Response might be a plain-text API key.
+        // Response might be a plain-text API key — never log the raw text.
         if (
           text &&
           text.length > API_KEY_MIN_LENGTH &&
@@ -259,17 +121,84 @@ async function generateApiKey(env: Env): Promise<string | null> {
         ) {
           return text.trim();
         }
-        console.error("Could not parse API key response:", text);
+        console.error(
+          `Could not parse /gen response (length ${text.length})`
+        );
         return null;
       }
     }
 
-    console.error("Failed to generate API key:", response.status, text);
+    console.error(
+      `Failed to generate API key: status ${response.status} (body length ${text.length})`
+    );
     return null;
   } catch (error) {
     console.error("Error generating API key:", error);
     return null;
   }
+}
+
+/**
+ * Per-IP Relayer API key custody.
+ *
+ * One Durable Object instance per client IP (`idFromName(ip)`). All access to a
+ * given IP's key is serialized by the DO input gate + `blockConcurrencyWhile`,
+ * so N concurrent first-requests from one IP mint at most ONE `/gen` key. This
+ * is the atomic get-or-create KV cannot provide (KV has no CAS — review M5).
+ *
+ * Routes:
+ * - default (`/get`): get-or-create → 200 with the key, or 502 if minting fails.
+ * - `/peek`: report presence WITHOUT minting → `{ hasKey }` (for GET /status).
+ */
+export class ApiKeyStore implements DurableObject {
+  constructor(
+    private readonly state: DurableObjectState,
+    private readonly env: Env
+  ) {}
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+
+    if (url.pathname === "/peek") {
+      const existing = await this.state.storage.get<string>(DO_KEY);
+      return Response.json({
+        hasKey: !!existing && isValidApiKey(existing),
+      });
+    }
+
+    // Get-or-create, serialized per instance.
+    const apiKey = await this.state.blockConcurrencyWhile(async () => {
+      const existing = await this.state.storage.get<string>(DO_KEY);
+      if (existing && isValidApiKey(existing)) {
+        return existing;
+      }
+      const minted = await generateApiKey(this.env);
+      if (!minted) {
+        return null;
+      }
+      await this.state.storage.put(DO_KEY, minted);
+      return minted;
+    });
+
+    if (!apiKey) {
+      return new Response("Could not mint API key", { status: 502 });
+    }
+    return new Response(apiKey, { status: 200 });
+  }
+}
+
+/**
+ * Get (or lazily mint) the Relayer API key for an IP via its Durable Object.
+ */
+async function getApiKeyForIp(env: Env, ip: string): Promise<string | null> {
+  const id = env.API_KEY_DO.idFromName(ip);
+  const stub = env.API_KEY_DO.get(id);
+  const res = await stub.fetch("https://api-key-store/get");
+  if (!res.ok) {
+    return null;
+  }
+  const apiKey = (await res.text()).trim();
+  return isValidApiKey(apiKey) ? apiKey : null;
 }
 
 /**
@@ -334,9 +263,9 @@ app.get("/", (c) => {
 app.post("/", async (c) => {
   try {
     const ip = getClientIP(c.req.raw);
-    const apiKeyResult = await getOrCreateApiKey(c.env, ip);
+    const apiKey = await getApiKeyForIp(c.env, ip);
 
-    if (!apiKeyResult) {
+    if (!apiKey) {
       return c.json(
         {
           success: false,
@@ -376,7 +305,7 @@ app.post("/", async (c) => {
       );
     }
 
-    const client = createClient(c.env, apiKeyResult.apiKey);
+    const client = createClient(c.env, apiKey);
     const isTestnet = c.env.NETWORK === "testnet";
 
     // On testnet, retry for up to 5 minutes to handle channel accounts needing
@@ -494,17 +423,19 @@ app.post("/", async (c) => {
 app.get("/status", async (c) => {
   try {
     const ip = getClientIP(c.req.raw);
-    const kvKey = getKVKey(ip);
-
-    const apiKey = await readStoredApiKey(c.env, kvKey);
+    const id = c.env.API_KEY_DO.idFromName(ip);
+    const stub = c.env.API_KEY_DO.get(id);
+    const res = await stub.fetch("https://api-key-store/peek");
+    const peek = (res.ok ? await res.json() : { hasKey: false }) as {
+      hasKey: boolean;
+    };
 
     return c.json({
       success: true,
       data: {
         clientIP: ip,
         network: c.env.NETWORK,
-        hasKey: !!apiKey,
-        keyCreatedAt: apiKey?.storedKey.createdAt,
+        hasKey: peek.hasKey,
       },
     });
   } catch (error) {

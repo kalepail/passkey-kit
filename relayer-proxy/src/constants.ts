@@ -20,9 +20,6 @@ export const FRIENDBOT_URL = "https://friendbot.stellar.org";
 // API Key Configuration
 // ============================================================================
 
-/** KV storage key prefix for API keys */
-export const API_KEY_PREFIX = "api-key:";
-
 /** Possible field names for the API key in the /gen response */
 export const API_KEY_FIELD_NAMES = ["apiKey", "api_key", "key", "token"] as const;
 
@@ -53,10 +50,11 @@ export const TESTNET_RETRY_DURATION_MS = 5 * 60 * 1000;
 // HTTP Headers
 // ============================================================================
 
+// Only CF-Connecting-IP is trusted: Cloudflare always sets it at the edge and
+// the client cannot spoof it. X-Forwarded-For / X-Real-IP are client-controlled
+// and deliberately NOT used for per-IP key custody (review LOW).
 export const IP_HEADERS = {
   CF_CONNECTING_IP: "CF-Connecting-IP",
-  X_FORWARDED_FOR: "X-Forwarded-For",
-  X_REAL_IP: "X-Real-IP",
 } as const;
 
 /** Default IP value when none can be determined */

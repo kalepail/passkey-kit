@@ -3,7 +3,7 @@ import {
   PluginExecutionError,
   PluginTransportError,
 } from "@openzeppelin/relayer-plugin-channels";
-import worker, { extractMissingAccount, getClientIP } from "./index";
+import worker, { ApiKeyStore, extractMissingAccount, getClientIP } from "./index";
 import { SERVICE_NAME } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -46,42 +46,48 @@ vi.mock("@openzeppelin/relayer-plugin-channels", () => {
 // ---------------------------------------------------------------------------
 // Test doubles
 // ---------------------------------------------------------------------------
-const SEEDED_KEY = "sk_seededapikey123456";
+const DO_KEY = "sk_do_relay_key_1234567";
 const CLIENT_IP = "203.0.113.7";
-const KV_KEY = `api-key:${CLIENT_IP}`;
 
-function createKV(initial: Record<string, string> = {}) {
-  const store = new Map(Object.entries(initial));
+// Fake per-IP DurableObjectNamespace. The stub's fetch answers /get (returns a
+// key, or 502 when `key` is null) and /peek (presence). This exercises the
+// worker's DO integration; the ApiKeyStore's own get-or-create logic is tested
+// directly below.
+function makeApiKeyDO(opts: { key?: string | null } = {}) {
+  const key = opts.key === undefined ? DO_KEY : opts.key;
+  const stub = {
+    fetch: vi.fn(async (input: unknown) => {
+      const url =
+        typeof input === "string" ? input : (input as Request).url ?? "";
+      if (url.includes("/peek")) {
+        return new Response(JSON.stringify({ hasKey: key !== null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (key === null) return new Response("mint failed", { status: 502 });
+      return new Response(key, { status: 200 });
+    }),
+  };
   return {
-    store,
-    get: vi.fn(async (k: string) => (store.has(k) ? store.get(k)! : null)),
-    put: vi.fn(async (k: string, v: string) => {
-      store.set(k, v);
-    }),
-    delete: vi.fn(async (k: string) => {
-      store.delete(k);
-    }),
+    idFromName: vi.fn((_ip: string) => "do-id"),
+    get: vi.fn((_id: unknown) => stub),
+    _stub: stub,
   };
 }
 
-type FakeKV = ReturnType<typeof createKV>;
-
-function makeEnv(opts: { kv?: FakeKV; network?: "testnet" | "mainnet" } = {}) {
+function makeEnv(
+  opts: { network?: "testnet" | "mainnet"; do?: ReturnType<typeof makeApiKeyDO> } = {}
+) {
   const network = opts.network ?? "testnet";
   return {
-    API_KEYS: opts.kv ?? createKV(),
+    API_KEY_DO: opts.do ?? makeApiKeyDO(),
     NETWORK: network,
     RELAYER_BASE_URL:
       network === "mainnet"
         ? "https://channels.openzeppelin.com"
         : "https://channels.openzeppelin.com/testnet",
   } as any;
-}
-
-function seededKV() {
-  return createKV({
-    [KV_KEY]: JSON.stringify({ apiKey: SEEDED_KEY, createdAt: 1000 }),
-  });
 }
 
 const ctx = () =>
@@ -113,10 +119,8 @@ function notOk(status = 500, text = "error") {
   return { ok: false, status, text: async () => text };
 }
 
-function stubFetch(handlers: {
-  gen?: () => unknown;
-  friendbot?: () => unknown;
-}) {
+// Stub the GLOBAL fetch (used by generateApiKey's /gen call and friendbot).
+function stubFetch(handlers: { gen?: () => unknown; friendbot?: () => unknown }) {
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = typeof input === "string" ? input : (input as Request).url;
     if (url.includes("/gen")) return handlers.gen?.() ?? okJson({});
@@ -125,6 +129,22 @@ function stubFetch(handlers: {
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+// Fake DurableObjectState for direct ApiKeyStore tests.
+function fakeState(initial?: string) {
+  const store = new Map<string, unknown>();
+  if (initial !== undefined) store.set("apiKey", initial);
+  return {
+    storage: {
+      get: vi.fn(async (k: string) => store.get(k)),
+      put: vi.fn(async (k: string, v: unknown) => {
+        store.set(k, v);
+      }),
+    },
+    blockConcurrencyWhile: vi.fn(async (fn: () => Promise<unknown>) => fn()),
+    _store: store,
+  } as any;
 }
 
 const G_ADDRESS = `G${"A".repeat(55)}`;
@@ -138,27 +158,27 @@ afterEach(() => {
 // Pure helpers
 // ---------------------------------------------------------------------------
 describe("getClientIP", () => {
-  it("prefers CF-Connecting-IP, then X-Forwarded-For, then X-Real-IP", () => {
+  it("uses CF-Connecting-IP", () => {
     expect(
       getClientIP(
         new Request("http://x", { headers: { "CF-Connecting-IP": "1.1.1.1" } })
       )
     ).toBe("1.1.1.1");
+  });
+
+  it("ignores spoofable X-Forwarded-For / X-Real-IP, falling back to 'unknown'", () => {
     expect(
       getClientIP(
         new Request("http://x", {
           headers: { "X-Forwarded-For": "2.2.2.2, 3.3.3.3" },
         })
       )
-    ).toBe("2.2.2.2");
+    ).toBe("unknown");
     expect(
       getClientIP(
         new Request("http://x", { headers: { "X-Real-IP": "4.4.4.4" } })
       )
-    ).toBe("4.4.4.4");
-  });
-
-  it("falls back to 'unknown' with no IP headers", () => {
+    ).toBe("unknown");
     expect(getClientIP(new Request("http://x"))).toBe("unknown");
   });
 });
@@ -197,7 +217,7 @@ describe("POST / validation", () => {
   it("rejects a request with neither xdr nor func+auth (400)", async () => {
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: {} }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
     expect(res.status).toBe(400);
@@ -215,7 +235,7 @@ describe("POST / validation", () => {
         method: "POST",
         body: { xdr: "AAA", func: "BBB", auth: ["CCC"] },
       }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
     expect(res.status).toBe(400);
@@ -228,7 +248,7 @@ describe("POST / validation", () => {
   it("rejects malformed JSON (400)", async () => {
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: "{not json" }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
     expect(res.status).toBe(400);
@@ -244,7 +264,6 @@ describe("POST / validation", () => {
 // ---------------------------------------------------------------------------
 describe("POST / submission", () => {
   it("submits a Soroban transaction (func+auth) and returns the result", async () => {
-    stubFetch({});
     submitSorobanTransaction.mockResolvedValueOnce({
       transactionId: "tx1",
       hash: "h1",
@@ -256,7 +275,7 @@ describe("POST / submission", () => {
         method: "POST",
         body: { func: "FUNC", auth: ["A1", "A2"] },
       }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
 
@@ -281,7 +300,7 @@ describe("POST / submission", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { xdr: "XDR" } }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
 
@@ -301,7 +320,7 @@ describe("POST / submission", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
 
@@ -320,7 +339,7 @@ describe("POST / submission", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
 
@@ -336,7 +355,7 @@ describe("POST / submission", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: seededKV() }),
+      makeEnv(),
       ctx()
     );
 
@@ -345,6 +364,21 @@ describe("POST / submission", () => {
       success: false,
       error: "boom",
     });
+  });
+
+  it("returns 500 when the API key cannot be obtained", async () => {
+    const res = await worker.fetch(
+      makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
+      makeEnv({ do: makeApiKeyDO({ key: null }) }),
+      ctx()
+    );
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      success: false,
+      error: "Could not obtain API key. Service may be misconfigured.",
+    });
+    expect(submitSorobanTransaction).not.toHaveBeenCalled();
   });
 });
 
@@ -360,7 +394,7 @@ describe("POST / testnet retry", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: seededKV(), network: "testnet" }),
+      makeEnv({ network: "testnet" }),
       ctx()
     );
 
@@ -385,7 +419,7 @@ describe("POST / testnet retry", () => {
 
     const res = await worker.fetch(
       makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: seededKV(), network: "mainnet" }),
+      makeEnv({ network: "mainnet" }),
       ctx()
     );
 
@@ -398,94 +432,59 @@ describe("POST / testnet retry", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Per-IP API key lifecycle
+// ApiKeyStore Durable Object — serialized get-or-create
 // ---------------------------------------------------------------------------
-describe("API key lifecycle", () => {
-  it("mints a key from the Relayer /gen endpoint when none exists", async () => {
-    const kv = createKV();
-    const fetchMock = stubFetch({
-      gen: () => okJson({ apiKey: "sk_generatedkey1234" }),
-    });
-    submitSorobanTransaction.mockResolvedValueOnce({
-      transactionId: "tx",
-      hash: "h",
-      status: "ok",
-    });
+describe("ApiKeyStore (Durable Object)", () => {
+  it("returns the stored key without minting", async () => {
+    const state = fakeState("sk_stored_key_1234567");
+    const fetchMock = stubFetch({ gen: () => okJson({ apiKey: "sk_unused" }) });
+    const store = new ApiKeyStore(state, makeEnv());
 
-    const res = await worker.fetch(
-      makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv }),
-      ctx()
-    );
-
+    const res = await store.fetch(new Request("https://do/get"));
     expect(res.status).toBe(200);
+    expect((await res.text()).trim()).toBe("sk_stored_key_1234567");
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/gen"))).toBe(
-      true
+      false
     );
-    const stored = JSON.parse(kv.store.get(KV_KEY)!);
-    expect(stored.apiKey).toBe("sk_generatedkey1234");
-    expect(typeof stored.createdAt).toBe("number");
   });
 
-  it("returns 500 when a key cannot be minted", async () => {
+  it("mints from /gen and stores when absent", async () => {
+    const state = fakeState();
+    stubFetch({ gen: () => okJson({ apiKey: "sk_minted_key_1234567" }) });
+    const store = new ApiKeyStore(state, makeEnv());
+
+    const res = await store.fetch(new Request("https://do/get"));
+    expect(res.status).toBe(200);
+    expect((await res.text()).trim()).toBe("sk_minted_key_1234567");
+    expect(state._store.get("apiKey")).toBe("sk_minted_key_1234567");
+  });
+
+  it("returns 502 when minting fails", async () => {
+    const state = fakeState();
     stubFetch({ gen: () => notOk(500, "denied") });
+    const store = new ApiKeyStore(state, makeEnv());
 
-    const res = await worker.fetch(
-      makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv: createKV() }),
-      ctx()
-    );
-
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toEqual({
-      success: false,
-      error: "Could not obtain API key. Service may be misconfigured.",
-    });
-    expect(submitSorobanTransaction).not.toHaveBeenCalled();
+    const res = await store.fetch(new Request("https://do/get"));
+    expect(res.status).toBe(502);
+    expect(state._store.get("apiKey")).toBeUndefined();
   });
 
-  it("migrates a legacy plain-text KV value to the JSON record", async () => {
-    const legacyKey = "sk_plaintextkey12345";
-    const kv = createKV({ [KV_KEY]: legacyKey });
-    stubFetch({});
-    submitSorobanTransaction.mockResolvedValueOnce({
-      transactionId: "tx",
-      hash: "h",
-      status: "ok",
-    });
-
-    const res = await worker.fetch(
-      makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv }),
-      ctx()
+  it("/peek reports presence without minting", async () => {
+    const present = new ApiKeyStore(
+      fakeState("sk_present_key_123456"),
+      makeEnv()
     );
+    const fetchMock = stubFetch({ gen: () => okJson({ apiKey: "sk_unused" }) });
+    const res = await present.fetch(new Request("https://do/peek"));
+    await expect(res.json()).resolves.toEqual({ hasKey: true });
 
-    expect(res.status).toBe(200);
-    // Reused the legacy key (no /gen call) and rewrote it as a JSON record.
-    const stored = JSON.parse(kv.store.get(KV_KEY)!);
-    expect(stored.apiKey).toBe(legacyKey);
-    expect(typeof stored.createdAt).toBe("number");
-  });
+    const absent = new ApiKeyStore(fakeState(), makeEnv());
+    const res2 = await absent.fetch(new Request("https://do/peek"));
+    await expect(res2.json()).resolves.toEqual({ hasKey: false });
 
-  it("migrates a legacy JSON-string KV value to the JSON record", async () => {
-    const legacyKey = "sk_jsonstringkey1234";
-    const kv = createKV({ [KV_KEY]: JSON.stringify(legacyKey) });
-    stubFetch({});
-    submitSorobanTransaction.mockResolvedValueOnce({
-      transactionId: "tx",
-      hash: "h",
-      status: "ok",
-    });
-
-    const res = await worker.fetch(
-      makeRequest("/", { method: "POST", body: { func: "F", auth: ["A"] } }),
-      makeEnv({ kv }),
-      ctx()
+    expect(fetchMock.mock.calls.some(([u]) => String(u).includes("/gen"))).toBe(
+      false
     );
-
-    expect(res.status).toBe(200);
-    const stored = JSON.parse(kv.store.get(KV_KEY)!);
-    expect(stored.apiKey).toBe(legacyKey);
   });
 });
 
@@ -494,11 +493,7 @@ describe("API key lifecycle", () => {
 // ---------------------------------------------------------------------------
 describe("GET /status", () => {
   it("returns client IP, network, and key presence", async () => {
-    const res = await worker.fetch(
-      makeRequest("/status"),
-      makeEnv({ kv: seededKV() }),
-      ctx()
-    );
+    const res = await worker.fetch(makeRequest("/status"), makeEnv(), ctx());
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
       success: true,
@@ -506,7 +501,6 @@ describe("GET /status", () => {
         clientIP: CLIENT_IP,
         network: "testnet",
         hasKey: true,
-        keyCreatedAt: 1000,
       },
     });
   });

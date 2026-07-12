@@ -86,14 +86,26 @@ pub extern "C" fn on_close() {
         }
     }
 
-    // Pass 2 — ingest signer events from trusted wallets only. Event names are
-    // matched as raw `ScVal::Symbol` values (deterministic structural byte
-    // comparison) rather than via soroban `Symbol` equality, which for >9-char
-    // symbols routes through env object comparison.
+    // Pass 2 — fold signer events from trusted wallets into one pending state
+    // per (address, key). Event names are matched as raw `ScVal::Symbol` values
+    // (deterministic structural byte comparison) rather than via soroban
+    // `Symbol` equality, which for >9-char symbols routes through env object
+    // comparison.
+    //
+    // Folding is load-bearing (review M4): host db writes commit only AFTER
+    // `on_close`, so a db_read inside this loop cannot observe this close's own
+    // writes. Handling each event with its own read+write would let two
+    // lifecycle events on the same key in one ledger corrupt the index — an
+    // add+remove would leave the signer `active=true` forever, and two updates
+    // would insert duplicate rows. Collapsing to a single write per key (in the
+    // flush pass below) fixes both. This mirrors the in-memory `trusted` cache
+    // the wallets table already uses for the same reason.
     let sym_added = sym_scval("signer_added");
     let sym_updated = sym_scval("signer_updated");
     let sym_removed = sym_scval("signer_removed");
     let sym_upgraded = sym_scval("upgraded");
+
+    let mut pending: Vec<PendingSigner> = Vec::new();
 
     for event in env.reader().pretty().soroban_events() {
         let topic0 = match event.topics.get(0) {
@@ -124,9 +136,8 @@ pub extern "C" fn on_close() {
                 Some(key) => key.clone(),
                 None => continue,
             };
-            match env.try_from_scval::<SignerAddedData>(&event.data) {
-                Ok(data) => ingest_signer(&env, address, key, data.val, data.storage),
-                Err(_) => continue,
+            if let Ok(data) = env.try_from_scval::<SignerAddedData>(&event.data) {
+                fold_upsert(&mut pending, &env, address, key, data.val, data.storage);
             }
         } else if topic0 == &sym_updated {
             let key = match event.topics.get(1) {
@@ -137,9 +148,8 @@ pub extern "C" fn on_close() {
             // `SignerUpdatedData` but needs no separate handling: the index
             // keeps one row per (wallet, key) and rewrites `storage` in place,
             // so a durability flip is captured by the new `storage` alone.
-            match env.try_from_scval::<SignerUpdatedData>(&event.data) {
-                Ok(data) => ingest_signer(&env, address, key, data.val, data.storage),
-                Err(_) => continue,
+            if let Ok(data) = env.try_from_scval::<SignerUpdatedData>(&event.data) {
+                fold_upsert(&mut pending, &env, address, key, data.val, data.storage);
             }
         } else if topic0 == &sym_removed {
             let key = match event.topics.get(1) {
@@ -147,16 +157,21 @@ pub extern "C" fn on_close() {
                 None => continue,
             };
             // Decode to validate the v1 `signer_removed` data shape (Map{storage}).
-            if env.try_from_scval::<SignerRemovedData>(&event.data).is_err() {
-                continue;
+            if env.try_from_scval::<SignerRemovedData>(&event.data).is_ok() {
+                fold_remove(&mut pending, address, key);
             }
-            deactivate_signer(&env, address, key);
         } else {
             // `upgraded`: refresh the (already-trusted) wallet's WASM hash.
             if let Ok(data) = env.try_from_scval::<UpgradedData>(&event.data) {
                 refresh_wallet_hash(&env, &address, env.to_scval(data.new_hash));
             }
         }
+    }
+
+    // Pass 3 — flush each key's net state: one prior-ledger existence read and
+    // one write per (address, key).
+    for signer in pending {
+        flush_signer(&env, signer);
     }
 }
 
@@ -199,8 +214,53 @@ fn refresh_wallet_hash(env: &EnvClient, address: &ScVal, wasm_hash: ScVal) {
         .unwrap();
 }
 
-/// Decode a signer value into its indexable columns and upsert the row.
-fn ingest_signer(
+/// The folded net state of one (address, key) signer across a single ledger
+/// close (review M4). Written exactly once, in `flush_signer`.
+struct PendingSigner {
+    address: ScVal,
+    key: ScVal,
+    /// Columns from the last add/update seen this close. `None` when only
+    /// removals were seen — the row, if any, lives in a prior ledger and only
+    /// its `active` flag is flipped.
+    cols: Option<SignerCols>,
+    active: bool,
+}
+
+struct SignerCols {
+    val: ScVal,
+    limits: ScVal,
+    exp: i64,
+    storage: ScVal,
+}
+
+/// Get the pending entry for (address, key), creating it if absent. Linear scan
+/// is fine: the number of distinct signers touched in one ledger is tiny.
+fn pending_entry<'a>(
+    pending: &'a mut Vec<PendingSigner>,
+    address: &ScVal,
+    key: &ScVal,
+) -> &'a mut PendingSigner {
+    if let Some(i) = pending
+        .iter()
+        .position(|p| &p.address == address && &p.key == key)
+    {
+        &mut pending[i]
+    } else {
+        pending.push(PendingSigner {
+            address: address.clone(),
+            key: key.clone(),
+            cols: None,
+            active: false,
+        });
+        let last = pending.len() - 1;
+        &mut pending[last]
+    }
+}
+
+/// Fold an add/update into the pending state: last write wins on columns, and
+/// the signer becomes active.
+fn fold_upsert(
+    pending: &mut Vec<PendingSigner>,
     env: &EnvClient,
     address: ScVal,
     key: ScVal,
@@ -208,76 +268,80 @@ fn ingest_signer(
     storage: SignerStorage,
 ) {
     let (public_key, expiration, limits) = signer_val.into_parts();
-    let val = match public_key {
-        Some(public_key) => env.to_scval(public_key),
-        None => ScVal::Void,
+    let cols = SignerCols {
+        val: match public_key {
+            Some(public_key) => env.to_scval(public_key),
+            None => ScVal::Void,
+        },
+        limits: env.to_scval(limits),
+        exp: expiration.0.map(|t| t as i64).unwrap_or(EXP_NEVER),
+        storage: env.to_scval(storage),
     };
-    let exp = expiration.0.map(|t| t as i64).unwrap_or(EXP_NEVER);
-    upsert_signer(
-        env,
-        address,
-        key,
-        val,
-        env.to_scval(limits),
-        exp,
-        env.to_scval(storage),
-    );
+    let entry = pending_entry(pending, &address, &key);
+    entry.cols = Some(cols);
+    entry.active = true;
 }
 
-fn upsert_signer(
-    env: &EnvClient,
-    address: ScVal,
-    key: ScVal,
-    val: ScVal,
-    limits: ScVal,
-    exp: i64,
-    storage: ScVal,
-) {
-    let existing: Vec<SignerKeyOnly> = env
-        .read_filter()
-        .column_equal_to_xdr("address", &address)
-        .column_equal_to_xdr("key", &key)
-        .read()
-        .unwrap();
-    if existing.is_empty() {
-        env.put(&Signer {
-            address,
-            key,
-            val,
-            limits,
-            exp,
-            storage,
-            active: true,
-        });
-    } else {
-        env.update()
-            .column_equal_to_xdr("address", &address)
-            .column_equal_to_xdr("key", &key)
-            .execute(&SignerMutation {
-                val,
-                limits,
-                exp,
-                storage,
-                active: true,
-            })
-            .unwrap();
+/// Fold a removal into the pending state: the signer becomes inactive. Any
+/// columns from an earlier same-close add/update are retained so a
+/// same-close add+remove still writes a complete (inactive) row.
+fn fold_remove(pending: &mut Vec<PendingSigner>, address: ScVal, key: ScVal) {
+    pending_entry(pending, &address, &key).active = false;
+}
+
+/// Commit one folded signer with a single existence read + single write.
+fn flush_signer(env: &EnvClient, signer: PendingSigner) {
+    let exists = signer_exists(env, &signer.address, &signer.key);
+    match signer.cols {
+        Some(cols) => {
+            if exists {
+                env.update()
+                    .column_equal_to_xdr("address", &signer.address)
+                    .column_equal_to_xdr("key", &signer.key)
+                    .execute(&SignerMutation {
+                        val: cols.val,
+                        limits: cols.limits,
+                        exp: cols.exp,
+                        storage: cols.storage,
+                        active: signer.active,
+                    })
+                    .unwrap();
+            } else {
+                env.put(&Signer {
+                    address: signer.address,
+                    key: signer.key,
+                    val: cols.val,
+                    limits: cols.limits,
+                    exp: cols.exp,
+                    storage: cols.storage,
+                    active: signer.active,
+                });
+            }
+        }
+        // Only removals seen this close (so `active` is false). Deactivate an
+        // existing prior-ledger row; nothing to do if none exists.
+        None => {
+            if exists {
+                env.update()
+                    .column_equal_to_xdr("address", &signer.address)
+                    .column_equal_to_xdr("key", &signer.key)
+                    .execute(&SignerActiveMutation {
+                        active: signer.active,
+                    })
+                    .unwrap();
+            }
+        }
     }
 }
 
-fn deactivate_signer(env: &EnvClient, address: ScVal, key: ScVal) {
-    let existing: Vec<SignerKeyOnly> = env
+fn signer_exists(env: &EnvClient, address: &ScVal, key: &ScVal) -> bool {
+    let rows: Vec<SignerKeyOnly> = env
         .read_filter()
-        .column_equal_to_xdr("address", &address)
-        .column_equal_to_xdr("key", &key)
+        .column_equal_to_xdr("address", address)
+        .column_equal_to_xdr("key", key)
         .read()
         .unwrap();
-    if !existing.is_empty() {
-        env.update()
-            .column_equal_to_xdr("address", &address)
-            .column_equal_to_xdr("key", &key)
-            .execute(&SignerActiveMutation { active: false })
-            .unwrap();
-    }
+    !rows.is_empty()
 }
 
 // ---------------------------------------------------------------------------
@@ -316,6 +380,12 @@ pub extern "C" fn get_signers_by_address() {
     let SignersByAddressRequest { address } = env.read_request_body();
     let now = env.soroban().ledger().timestamp();
 
+    // Validate the wallet C-address before building it: `address_from_str`
+    // panics on malformed input and this profile aborts on panic (review LOW).
+    if stellar_strkey::Contract::from_string(&address).is_err() {
+        env.conclude::<Vec<SignerResponse>>(Vec::new());
+        return;
+    }
     let address = env.to_scval(address_from_str(&env, address.as_str()));
     let active_true = bincode::serialize(&true).unwrap();
 
@@ -388,16 +458,29 @@ pub extern "C" fn get_addresses_by_signer() {
     let AddressBySignerRequest { key, kind } = env.read_request_body();
     let now = env.soroban().ledger().timestamp();
 
+    // Parse caller-supplied key material fallibly: unparseable input concludes
+    // empty rather than panicking (which would abort under panic=abort). (LOW)
     let key_scval = match kind.as_str() {
-        "Policy" => env.to_scval(SignerKey::Policy(address_from_str(&env, key.as_str()))),
-        "Ed25519" => {
-            let raw = stellar_strkey::ed25519::PublicKey::from_string(&key).unwrap().0;
-            env.to_scval(SignerKey::Ed25519(BytesN::from_array(env.soroban(), &raw)))
+        "Policy" if is_valid_address_str(&key) => {
+            env.to_scval(SignerKey::Policy(address_from_str(&env, key.as_str())))
         }
-        "Secp256r1" => {
-            let raw = URL_SAFE_NO_PAD.decode(key).unwrap();
-            env.to_scval(SignerKey::Secp256r1(Bytes::from_slice(env.soroban(), &raw)))
-        }
+        "Ed25519" => match stellar_strkey::ed25519::PublicKey::from_string(&key) {
+            Ok(public_key) => env.to_scval(SignerKey::Ed25519(BytesN::from_array(
+                env.soroban(),
+                &public_key.0,
+            ))),
+            Err(_) => {
+                env.conclude::<Vec<WalletMatch>>(Vec::new());
+                return;
+            }
+        },
+        "Secp256r1" => match URL_SAFE_NO_PAD.decode(&key) {
+            Ok(raw) => env.to_scval(SignerKey::Secp256r1(Bytes::from_slice(env.soroban(), &raw))),
+            Err(_) => {
+                env.conclude::<Vec<WalletMatch>>(Vec::new());
+                return;
+            }
+        },
         _ => {
             env.conclude::<Vec<WalletMatch>>(Vec::new());
             return;
@@ -429,6 +512,13 @@ pub extern "C" fn get_addresses_by_signer() {
 }
 
 // --- read helpers -----------------------------------------------------------
+
+/// Whether a string is a valid Stellar address strkey (contract or ed25519).
+/// Guards `address_from_str`, which panics on invalid input.
+fn is_valid_address_str(s: &str) -> bool {
+    stellar_strkey::Contract::from_string(s).is_ok()
+        || stellar_strkey::ed25519::PublicKey::from_string(s).is_ok()
+}
 
 fn storage_string(storage: SignerStorage) -> String {
     match storage {

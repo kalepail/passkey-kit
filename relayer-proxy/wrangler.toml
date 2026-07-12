@@ -3,17 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
-# KV namespace for storing one Relayer API key per client IP.
-# Provision before the first deploy and paste the returned id below:
-#   wrangler kv namespace create API_KEYS
-# (This repo ships a placeholder id — replace it; NO deploys happen from the
-# services todo.)
-[[kv_namespaces]]
-binding = "API_KEYS"
-id = "REPLACE_WITH_TESTNET_KV_NAMESPACE_ID"
-# For `wrangler dev` you can add a preview namespace:
-#   wrangler kv namespace create API_KEYS --preview
-# preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+# Per-IP Relayer API key custody. A Durable Object (one instance per client IP)
+# serializes get-or-create so concurrent first-requests mint at most ONE key —
+# the atomic get-or-create KV cannot provide (no CAS). No namespace id to
+# provision; the class is bound directly.
+[[durable_objects.bindings]]
+name = "API_KEY_DO"
+class_name = "ApiKeyStore"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ApiKeyStore"]
 
 # Raise the CPU limit for testnet's Friendbot-funding retry loop (up to 5
 # minutes). Network wait time (fetch) does not count toward CPU time. Mainnet
@@ -35,6 +35,10 @@ name = "passkey-kit-relayer-proxy-mainnet"
 NETWORK = "mainnet"
 RELAYER_BASE_URL = "https://channels.openzeppelin.com"
 
-[[env.production.kv_namespaces]]
-binding = "API_KEYS"
-id = "REPLACE_WITH_MAINNET_KV_NAMESPACE_ID"
+[[env.production.durable_objects.bindings]]
+name = "API_KEY_DO"
+class_name = "ApiKeyStore"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["ApiKeyStore"]
