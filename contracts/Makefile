@@ -13,9 +13,9 @@ build:
 	rm -rf out/
 	stellar contract build --package smart-wallet --out-dir out
 
-# Tests import sample_policy.wasm (cross-contract fixture), so build it first.
+# Self-sufficient: smart-wallet's build.rs builds the wasm fixtures tests
+# import (native builds only — contract builds skip it).
 test:
-	stellar contract build --package sample-policy
 	cargo test
 
 upload:

@@ -14,8 +14,9 @@ publish = false
 soroban-sdk = "27.0.0"
 serde = { version = "1.0", default-features = false }
 serde-json-core = { version = "0.6", default-features = false }
-sha256 = { version = "1.6" }
 ed25519-dalek = { version = "2.2" }
+p256 = { version = "0.13", features = ["ecdsa"] }
+sha2 = "0.10"
 base64 = "0.22"
 stellar-strkey = { version = "0.0.13" }
 smart-wallet = { path = "smart-wallet" }

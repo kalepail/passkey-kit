@@ -25,10 +25,8 @@ mod signer;
 mod storage;
 mod verify;
 
-#[path = "./tests/test.rs"]
-mod test;
-#[path = "./tests/test_extra.rs"]
-mod test_extra;
+#[cfg(test)]
+mod tests;
 
 contractmeta!(key = "binver", val = env!("CARGO_PKG_VERSION"));
 

@@ -23,7 +23,8 @@ serde-json-core = { workspace = true }
 soroban-sdk = { workspace = true, features = ["testutils"] }
 stellar-strkey = { workspace = true }
 ed25519-dalek = { workspace = true }
+p256 = { workspace = true }
+sha2 = { workspace = true }
 base64 = { workspace = true }
-sha256 = { workspace = true }
 sample-policy = { workspace = true, features = ["testutils"] }
 example-contract = { workspace = true, features = ["testutils"] }
