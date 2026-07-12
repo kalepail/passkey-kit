@@ -76,7 +76,7 @@
       <label for="to">Destination</label>
       <div class="row">
         <input id="to" placeholder="G… or C…" bind:value={to} style="flex:1" data-testid="transfer-to" />
-        <button class="ghost sm" onclick={useFundAddress}>use fund addr</button>
+        <button class="ghost sm" data-testid="use-fund-addr" onclick={useFundAddress}>use fund addr</button>
       </div>
     </div>
     <div class="field">

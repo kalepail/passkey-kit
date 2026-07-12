@@ -66,9 +66,9 @@
       Transfer 1
     </button>
     {#if signer.kind === "Secp256r1" && isAdmin(signer) && !active}
-      <button class="sm ghost" disabled={busy} onclick={() => setActiveSigner(signer.value)}>Set active</button>
+      <button class="sm ghost" disabled={busy} data-testid="signer-set-active" onclick={() => setActiveSigner(signer.value)}>Set active</button>
     {/if}
-    <button class="sm ghost" disabled={busy} onclick={startEdit}>Update</button>
+    <button class="sm ghost" disabled={busy} data-testid="signer-update" onclick={startEdit}>Update</button>
     <button class="sm ghost danger" disabled={busy} data-testid="signer-remove" onclick={() => removeSigner(signer)}>
       Remove
     </button>
@@ -92,7 +92,7 @@
       </div>
       <LimitsBuilder bind:spec={editLimits} />
       <div class="row">
-        <button class="primary sm" disabled={busy} onclick={saveEdit}>Save update</button>
+        <button class="primary sm" disabled={busy} data-testid="signer-update-save" onclick={saveEdit}>Save update</button>
         <button class="ghost sm" onclick={() => (editing = false)}>Cancel</button>
       </div>
     </div>

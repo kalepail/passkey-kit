@@ -14,7 +14,7 @@
     <button class="ghost sm" onclick={() => (app.log = [])}>clear</button>
   </div>
 
-  <div class="log">
+  <div class="log" data-testid="log-box">
     {#each app.log as entry (entry.id)}
       <div class="log-entry {entry.level}">
         <div class="row spread">
@@ -25,9 +25,13 @@
         {#if entry.hash}
           <div class="log-detail">
             tx
-            <a href={explorerTx(entry.hash)} target="_blank" rel="noreferrer" data-testid="tx-hash">
-              {shortId(entry.hash, 8)}
-            </a>
+            <a
+              href={explorerTx(entry.hash)}
+              target="_blank"
+              rel="noreferrer"
+              data-testid="tx-hash"
+              data-hash={entry.hash}>{shortId(entry.hash, 8)}</a
+            >
           </div>
         {/if}
       </div>

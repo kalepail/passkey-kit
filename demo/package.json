@@ -7,7 +7,11 @@
     "start": "vite",
     "build": "svelte-check --tsconfig ./tsconfig.json && vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "e2e:webauthn": "node ../scripts/e2e/agent-browser-webauthn-helper.mjs",
+    "e2e:probe": "MODE=probe bash ../scripts/e2e/testnet-passkey-smoke.sh",
+    "e2e:smoke": "MODE=audit bash ../scripts/e2e/testnet-passkey-smoke.sh",
+    "e2e:audit": "MODE=audit bash ../scripts/e2e/testnet-passkey-smoke.sh"
   },
   "devDependencies": {
     "@stellar/stellar-sdk": "16.0.1",
