@@ -181,43 +181,51 @@ is exposed for parity with `get_signers_by_address`.
 
 ---
 
-## Deploy (Mercury testnet) — tooling status (audit F2)
+## Deploy (Mercury) — tooling status (audit F2 / F2b, re-verified 2026-07-12)
 
-**Re-verified against current upstream (2026-07): the published deploy tooling
-is deprecated and does not work as documented.**
+**The published self-serve standard-Zephyr flow this program targets is RETIRED
+on Mercury's current backend. `passkey_kit_indexer.wasm` builds clean but cannot
+be deployed/queried via public tooling today.** Live read-only probes:
 
-- The published `mercury-cli` (crates.io `0.2.1`, the latest) hardcodes the base
-  `https://api.mercurydata.app` and POSTs to `/zephyr_table_new` and
-  `/zephyr_upload`. Both return **404** — upstream removed those endpoints (see
-  rs-zephyr-toolkit commit *"flag the legacy Zephyr CLI — its server-side
-  commands target removed backend endpoints; deprecate catchup"*, 2026-07-06).
-  Note the CLI still prints `Successfully deployed Zephyr program.` after the
-  404s — its exit code and message are **not** trustworthy.
-- The current testnet backend has moved under `…/rest`
-  (`GET https://api.mercurydata.app/rest/health` → `{"service":"up",…}`). The
-  newer `mercury-cli` that targets it takes a `--base …/rest` flag but is **not
-  published** to crates.io and is not in a public repo at the time of writing.
+- `POST …/zephyr/execute` (the serverless-function query path) → **404 even with
+  a valid JWT** (the JWT is good: `POST …/rest/retroshade/query {"query":"SELECT 1"}`
+  → `200 [{"?column?":1}]`). Standard-Zephyr `execute` is gone.
+- Old deploy routes `/zephyr_upload`, `/zephyr_table_new` → **404**. Published
+  `mercury-cli 0.2.1` (crates.io, latest) hardcodes these and is dead (it still
+  prints `Successfully deployed` after the 404s — its exit code is NOT
+  trustworthy).
+- The current backend is under `…/rest` (testnet `https://testnet.mercurydata.app/rest`
+  == `https://api.mercurydata.app/rest`; mainnet `https://mainnet.mercurydata.app/rest`).
+  The live self-serve model is **Retroshades** (`POST /rest/retroshade/deploy`,
+  query via `POST /rest/retroshade/query` SQL) — a different programming model
+  than this program (`on_close` + `DatabaseDerive` tables + `env.conclude`
+  serverless functions).
+- The `--base`-capable `mercury-cli` (`mercury-cli --base …/rest deploy …`) is
+  **source-built and not in any public repo** (the `MercuryTechnologies/mercury-cli`
+  on GitHub is Mercury's unrelated *banking* CLI). Obtaining it needs Mercury.
 
-**Historical command (for reference; currently 404s):**
+### Mercury now hosts a Smart Account Indexer (but not passkey-kit — yet)
 
-```sh
-export MERCURY_JWT="…"    # from repo-root .env: MERCURY_TESTNET_JWT — NEVER print/commit
-mercury-cli --jwt "$MERCURY_JWT" --local false --mainnet false deploy
-```
+`GET {base}/rest/smart-account-indexer` is a free, no-auth, hosted reverse-lookup
+service on both networks: `GET /api/lookup/:credentialId` (passkey keyId →
+wallets), `GET /api/lookup/address/:address` (Ed25519/Policy signer → wallets),
+`GET /api/contract/:contractId` (a wallet's signers). **It indexes OpenZeppelin
+smart-account-kit, NOT passkey-kit** — a real passkey-kit wallet/signer returns
+`count:0` (verified). passkey-kit's `signer_added/updated/removed/upgraded`
+events are a different schema/wasm.
 
-**Current deploy path:** the Mercury web dashboard (`test.mercurydata.app`,
-"custom ingestion") or a `--base`-capable `mercury-cli` built from Mercury's
-current source. This is an outward, account-touching step; the orchestrator
-runs it at the verify/endgame gate. Tables are created from `zephyr.toml`
-(program name `passkey-kit-indexer`); the wasm above is uploaded as-is.
+### How to get passkey-kit indexed on Mercury (all paths are USER / Mercury-gated)
 
-Secrets rule: the Mercury JWT comes from the repo-root `.env`
-(`MERCURY_TESTNET_JWT` / `MERCURY_MAINNET_JWT`) via shell substitution only —
-never printed, logged, or committed.
+1. **Preferred — ask Mercury to add passkey-kit to the hosted Smart Account
+   Indexer** (same product they already run). Give them the v1 wasm hash
+   `84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319` (+ legacy
+   `e45c42b9…`). Then NO deploy — the SDK just queries the `/api/lookup/*` routes
+   above. Contact: xyclooLabs Discord / Telegram.
+2. **Self-host** via the current `--base` CLI (from Mercury) or the dashboard
+   (`test.mercurydata.app/custom-ingestion`, browser login) — likely requires
+   migrating this program to Retroshades (SQL query) and reconciling the SDK's
+   `mercury.ts` accordingly.
 
-### Data catchup / backfill
-
-Standard execution (new ledger closes) needs no subscription. Historical
-backfill needs a contract-event subscription (via the dashboard) plus a
-`mercury-cli catchup` scoped by contracts/topics; the old catchup flow was
-deprecated on 2026-07-06. Backfill is optional and orthogonal to live indexing.
+Secrets rule: Mercury JWTs come from the repo-root `.env` (`MERCURY_TESTNET_JWT`
+/ `MERCURY_MAINNET_JWT`) via shell substitution only — never printed or
+committed. Full research + probe evidence: Solo todo 967 comment.
