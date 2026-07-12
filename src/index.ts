@@ -78,6 +78,17 @@ export {
   type ContractErrorInfo,
 } from "./contract-errors.js";
 
+// Indexer abstraction: browser-safe types + the pure retry helper. The concrete
+// token-holding backends are exported from `passkey-kit/server`.
+export {
+  lookupWithRetry,
+  type SignerIndexer,
+  type WalletSigner,
+  type IndexerHealth,
+  type SignerStatus,
+  type SignerStorageClass,
+} from "./indexer/index.js";
+
 // Events
 export {
   PasskeyEventEmitter,

@@ -43,6 +43,15 @@ export {
   type RelayerSubmitOptions,
 } from "./relayer.js";
 
+// Token-holding indexer backends (server-side only).
+export {
+  MercuryIndexer,
+  StellarIndexerBackend,
+  indexerForConfig,
+  type MercuryIndexerConfig,
+  type StellarIndexerConfig,
+} from "./indexer/index.js";
+
 /** Mercury indexer (Zephyr) configuration. */
 export interface MercuryConfig {
   /** Mercury base URL (e.g. https://api.mercurydata.app). */
