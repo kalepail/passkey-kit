@@ -38,6 +38,7 @@ await check("passkey-kit", [
   "PasskeyEventEmitter",
   "deriveContractAddress",
   "buildTokenTransferHostFunction",
+  "MercuryIndexer",
 ]);
 await check("passkey-kit/storage", [
   "MemoryStorage",

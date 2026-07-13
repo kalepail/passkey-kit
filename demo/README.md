@@ -5,7 +5,7 @@ Stellar testnet smart wallets: passkey create / reconnect, add / update / remove
 signers (secp256r1 passkeys, Ed25519 keys, policy signers), Persistent and
 Temporary storage, per-signer `SignerLimits`, admin rotation, multisig and
 per-signer transfers, non-native SAC support, relayer-sponsored submission, and
-signer discovery through both indexer backends.
+signer discovery via Mercury's hosted passkey-indexer.
 
 ## Zero secrets in the bundle
 
@@ -14,19 +14,19 @@ Nothing here holds a secret. The client builds and **signs** transactions, then:
 - **submits** them through a server-side **relayer-proxy worker**
   (`VITE_relayerProxyUrl`) that holds the relayer key (keyless per-IP minting),
   and
-- **discovers** signers through a server-side **indexer proxy**
-  (`VITE_indexerProxyUrl`) that holds the Mercury / Stellar Indexer credentials.
+- **discovers** signers by calling Mercury's hosted **passkey-indexer** directly
+  — it's keyless, so no proxy and no token (the SDK's `MercuryIndexer`, resolved
+  per network).
 
-`passkey-kit/server` (which carries those secrets) is never imported. Passkey →
-wallet records are persisted with the SDK's `LocalStorageAdapter`, not hand-rolled
-`localStorage`.
+`passkey-kit/server` is never imported. Passkey → wallet records are persisted
+with the SDK's `LocalStorageAdapter`, not hand-rolled `localStorage`.
 
 ## Configure
 
 ```sh
 cp .env.example .env.local
-# fill in the public values; leave the *ProxyUrl vars unset to run the core
-# flows without a live worker (submission/discovery then show "pending backend").
+# fill in the public values; leave VITE_relayerProxyUrl unset to run the core
+# flows without a live worker (submission then shows "no relayer proxy").
 ```
 
 Every `.env` value is public — see `.env.example`. Set `VITE_samplePolicyId` to a

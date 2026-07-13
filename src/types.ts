@@ -62,29 +62,6 @@ export enum SignerStore {
 }
 
 // ============================================================================
-// Indexer row (renamed from the old `Signer` to avoid colliding with the
-// bindings' `Signer` union — #599)
-// ============================================================================
-
-/**
- * A signer row as returned by an indexer backend (Mercury or Stellar Indexer).
- *
- * Renamed from the old `Signer` type, which name-collided with the generated
- * bindings' `Signer` union. The richer cross-backend shape lives in
- * `indexer/types.ts` (`WalletSigner`); this remains the wire-row shape the
- * current server helpers return.
- */
-export interface IndexedSigner {
-  kind: string;
-  key: string;
-  val: string;
-  expiration: number | null;
-  storage: "Persistent" | "Temporary";
-  limits: string;
-  evicted?: boolean;
-}
-
-// ============================================================================
 // Stored passkey records
 // ============================================================================
 

@@ -1,47 +1,34 @@
 /**
- * Mercury (Zephyr) indexer backend.
+ * Mercury hosted passkey-indexer backend.
  *
- * Calls the deployed Zephyr program's serverless functions
- * (`get_signers_by_address`, `get_addresses_by_signer`) via
- * `POST {url}/zephyr/execute`. Expiration is treated as a UNIX timestamp
- * (seconds), per the reworked contract (#602).
+ * Queries Mercury's public, **keyless** passkey-indexer REST API — no JWT, no
+ * API key — which indexes passkey-kit smart-wallet signers on both networks with
+ * full history across both signer generations (legacy `("sw_v1", …)` tuple
+ * events and the v1 typed `#[contractevent]`s). The endpoint returns fully
+ * decoded signer rows, so this backend maps JSON straight onto {@link WalletSigner}
+ * with no XDR round-trip.
  *
- * ⚠️ RECONCILIATION NOTE — the query endpoint is STALE (F2b, todo 967).
- * F2 (todo 959 c2502) confirmed `POST /zephyr/execute` returns **404** on the
- * current Mercury `/rest` backend, and Mercury's current docs no longer document
- * the Zephyr execute route at all — custom-program querying moved to
- * "Retroshades" (`POST /rest/retroshade/query` with SQL, e.g.
- * `SELECT * FROM retroshade.program_<id>_<table>`), which requires the reworked
- * `passkey-kit-indexer` program to be deployed (its deploy path is the blocked
- * opus-services workstream).
+ * Base URLs (see {@link mercuryPasskeyIndexerUrl}):
+ *   `https://{testnet,mainnet}.mercurydata.app/rest/passkey-indexer`
+ *     GET /                              -> `{ service, status }` health
+ *     GET /api/wallet/:contractId        -> signers (this backend's getSigners)
+ *     GET /api/lookup/:credentialId      -> wallets by passkey keyId (hex)
+ *     GET /api/lookup/address/:address   -> wallets by ed25519 (G…) / policy (C…)
+ *     GET /api/stats                     -> indexer statistics
  *
- * Separately, Mercury now ships a **public, no-auth Smart Account Indexer** for
- * passkey wallets on BOTH networks:
- *   `https://{testnet,mainnet}.mercurydata.app/rest/smart-account-indexer`
- *     GET /api/contract/:contractId        -> signers (this backend's getSigners)
- *     GET /api/lookup/:credentialId        -> wallets by passkey keyId (findWallets)
- *     GET /api/lookup/address/:address     -> wallets by signer address
- * That likely obviates the custom Zephyr deploy entirely. It is NOT wired here
- * yet because (a) its `GET /api/contract/:contractId` signer response schema is
- * not published, and (b) its data model (context rules; native/external/
- * delegated signers; policies) may not map 1:1 onto this backend's v1
- * `SignerKey`/`SignerVal`/`SignerLimits`/durability/status. Reconciling needs a
- * captured live response + a model-mapping decision — coordinated with
- * opus-services' deploy characterization on todo 967.
- *
- * Because A-vs-B is a pending USER decision, this backend is NOT re-pointed at
- * either surface. Instead it is GATED: unless {@link MercuryIndexerConfig.zephyrExecuteConfirmed}
- * is set, every query throws a clear "pending" error (todo 967) rather than
- * firing at the dead `/zephyr/execute` route — honest failure, no silent 404.
+ * Docs: https://docs.mercurydata.app/smart-wallet-indexers/introduction-1
  *
  * @packageDocumentation
  */
 
-import { xdr } from "@stellar/stellar-sdk";
+import { Networks } from "@stellar/stellar-sdk";
 import { Durability, type Server } from "@stellar/stellar-sdk/rpc";
-import { SignerKey } from "../types.js";
+import { SignerKey, type SignerLimits } from "../types.js";
 import { IndexerError, PasskeyKitErrorCode } from "../errors.js";
-import { DEFAULT_INDEXER_TIMEOUT_MS } from "../constants.js";
+import {
+  DEFAULT_INDEXER_TIMEOUT_MS,
+  MERCURY_PASSKEY_INDEXER_URLS,
+} from "../constants.js";
 import { getSigner } from "../kit/wallet-ops.js";
 import { contractDataExists } from "../rpc-data.js";
 import base64url from "../base64url.js";
@@ -49,114 +36,144 @@ import type {
   FindWalletsHardeningDeps,
   IndexerHealth,
   SignerIndexer,
-  SignerStorageClass,
   WalletSigner,
 } from "./types.js";
-import {
-  buildWalletSigner,
-  decodeSignerVal,
-  deriveStatus,
-  signerKeyToContractScVal,
-  walletSpec,
-} from "./codec.js";
+import { signerKeyToContractScVal, walletSpec } from "./codec.js";
 import { deriveContractAddress } from "../utils.js";
 
-/** A raw signer row returned by the Zephyr program (documented shape). */
-export interface MercurySignerRow {
-  kind: "Secp256r1" | "Ed25519" | "Policy";
-  /** Signer key: base64url keyId (Secp256r1), hex pubkey (Ed25519), or address. */
-  key: string;
-  /** Base64 XDR of the stored SignerVal. */
-  val: string;
-  /** Storage durability. */
-  storage: "Persistent" | "Temporary";
-  evicted?: boolean;
+/**
+ * Resolve the hosted passkey-indexer base URL for a network. Mercury indexes
+ * both testnet and mainnet; any other network returns `undefined` (no hosted
+ * endpoint — pass an explicit `url` to point at a self-hosted instance).
+ */
+export function mercuryPasskeyIndexerUrl(
+  networkPassphrase: string
+): string | undefined {
+  if (networkPassphrase === Networks.PUBLIC)
+    return MERCURY_PASSKEY_INDEXER_URLS.mainnet;
+  if (networkPassphrase === Networks.TESTNET)
+    return MERCURY_PASSKEY_INDEXER_URLS.testnet;
+  return undefined;
+}
+
+/** A signer key as rendered by the passkey-indexer JSON. */
+interface PasskeyIndexerKeyJson {
+  type: "secp256r1" | "ed25519" | "policy";
+  /**
+   * Lowercase hex credential id (secp256r1), `G…` strkey (ed25519), or `C…`
+   * strkey (policy).
+   */
+  value: string;
+}
+
+/** A signer row from `GET /api/wallet/:contractId`. */
+interface PasskeyIndexerSignerJson {
+  key: PasskeyIndexerKeyJson;
+  /** 65-byte SEC-1 uncompressed secp256r1 pubkey, lowercase hex (secp only). */
+  publicKey?: string;
+  /** Raw on-chain expiration; unit per `expiration_unit`. Absent = never. */
+  expiration?: number;
+  /** `"unix"` (v1, seconds) or `"ledger"` (legacy, ledger sequence). */
+  expiration_unit?: "unix" | "ledger";
+  /**
+   * Per-contract limits. Absent = unlimited (contract `None`); `{}` = deny-all
+   * (contract `Some(empty)`); `{ "C…": null }` = any key on that contract;
+   * `{ "C…": [key, …] }` = scoped to those keys.
+   */
+  limits?: Record<string, PasskeyIndexerKeyJson[] | null>;
+  storage: "persistent" | "temporary";
+  status: "live" | "expired" | "removed";
+}
+
+/** Response from `GET /api/wallet/:contractId`. */
+interface PasskeyIndexerWalletResponse {
+  contractId: string;
+  generation: "legacy" | "v1";
+  signers: PasskeyIndexerSignerJson[];
+}
+
+/** A wallet row from a `GET /api/lookup/*` response. */
+interface PasskeyIndexerWalletRef {
+  contract_id: string;
+  generation: "legacy" | "v1";
+  signer_count: number;
+}
+
+/** Response from either `GET /api/lookup/*` route. */
+interface PasskeyIndexerLookupResponse {
+  wallets: PasskeyIndexerWalletRef[];
+  count: number;
 }
 
 export interface MercuryIndexerConfig {
-  url: string;
-  projectName: string;
-  jwt?: string;
-  apiKey?: string;
-  /** RPC server — enables the temporary-signer eviction probe + findWallets hardening. */
-  rpc?: Server;
-  /** Deps that let findWallets confirm candidates by deterministic derivation. */
-  hardening?: FindWalletsHardeningDeps;
-  /** Clock source (seconds); injectable for tests. Defaults to `Date.now()`. */
-  now?: () => number;
   /**
-   * OPT-IN to the (currently non-functional) `POST /zephyr/execute` query path.
-   *
-   * The Mercury query integration is PENDING a strategy decision the USER owns
-   * (todo 967): the SDK's assumed `/zephyr/execute` route is RETIRED — it 404s
-   * even with a valid JWT (F2b, todo 959 c2502/2504). The two unresolved options:
-   *   A. Mercury's hosted Smart Account Indexer REST surface
-   *      (`/rest/smart-account-indexer/api/lookup/*`) — the same product
-   *      smart-account-kit uses; would need Mercury to index passkey-kit's wasm.
-   *   B. Keep this self-deployed zephyr program model and obtain the current
-   *      Mercury deploy + query tooling.
-   * Until that lands the backend is GATED: unless this is `true`, every query
-   * throws a clear "pending" {@link IndexerError} instead of silently 404-ing.
-   * Set it to `true` only once strategy B has a live endpoint at `url`.
+   * Hosted passkey-indexer base URL, e.g.
+   * `https://testnet.mercurydata.app/rest/passkey-indexer`. Keyless (public
+   * REST). Prefer {@link MercuryIndexer.forNetwork} to resolve this per network.
    */
-  zephyrExecuteConfirmed?: boolean;
+  url: string;
+  /**
+   * RPC server — enables the temporary-signer eviction probe and lets
+   * `findWallets` confirm reverse-lookup candidates on-chain.
+   */
+  rpc?: Server;
+  /**
+   * Deps that let `findWallets` confirm a candidate by deterministic derivation
+   * from the keyId, skipping an RPC round-trip.
+   */
+  hardening?: FindWalletsHardeningDeps;
+  /** Injectable fetch (tests / non-global runtimes). Defaults to global `fetch`. */
+  fetch?: typeof fetch;
 }
 
 export class MercuryIndexer implements SignerIndexer {
   constructor(private readonly config: MercuryIndexerConfig) {
-    if (!config.url || !config.projectName) {
+    if (!config.url) {
       throw new IndexerError(
-        "MercuryIndexer requires url and projectName",
+        "MercuryIndexer requires a url",
         PasskeyKitErrorCode.INDEXER_NOT_CONFIGURED
       );
     }
   }
 
-  private nowSeconds(): number {
-    return this.config.now ? this.config.now() : Math.floor(Date.now() / 1000);
+  /**
+   * Null-tolerant factory: resolve the hosted base URL for `networkPassphrase`
+   * (unless `url` is given), returning `null` when the network has no hosted
+   * endpoint and no explicit `url` — callers treat `null` as "discovery
+   * disabled".
+   */
+  static forNetwork(
+    config: Omit<MercuryIndexerConfig, "url"> & { url?: string },
+    networkPassphrase: string
+  ): MercuryIndexer | null {
+    const url = config.url ?? mercuryPasskeyIndexerUrl(networkPassphrase);
+    if (!url) return null;
+    return new MercuryIndexer({ ...config, url });
   }
 
-  private async execute<T>(fname: string, args: unknown): Promise<T> {
-    // Gate: the `/zephyr/execute` route is retired (404) and the replacement is
-    // a pending user decision (todo 967). Fail loud + actionable rather than
-    // firing a request that just 404s. `health()` catches this → `{ ok: false }`.
-    if (!this.config.zephyrExecuteConfirmed) {
-      throw new IndexerError(
-        "Mercury query integration is pending a strategy decision (todo 967): the assumed " +
-          "POST /zephyr/execute route is retired (404 with a valid JWT). Resolve strategy A " +
-          "(hosted Smart Account Indexer /rest/smart-account-indexer) vs B (self-deployed zephyr " +
-          "program + current tooling), then wire the chosen endpoint. Set " +
-          "zephyrExecuteConfirmed:true to force the legacy path once B has a live endpoint.",
-        PasskeyKitErrorCode.INDEXER_NOT_CONFIGURED
-      );
-    }
-
+  /**
+   * GET a passkey-indexer route. Returns the parsed JSON, or `null` on a `404`
+   * (a genuine "not found" is an answer, not a failure). Any other non-2xx, a
+   * timeout, or a transport error throws an {@link IndexerError}.
+   */
+  private async get<T>(path: string): Promise<T | null> {
+    const doFetch = this.config.fetch ?? fetch;
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
       DEFAULT_INDEXER_TIMEOUT_MS
     );
     try {
-      const response = await fetch(`${this.config.url}/zephyr/execute`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: this.config.jwt
-            ? `Bearer ${this.config.jwt}`
-            : this.config.apiKey ?? "",
-        },
-        body: JSON.stringify({
-          project_name: this.config.projectName,
-          mode: { Function: { fname, arguments: JSON.stringify(args) } },
-        }),
+      const response = await doFetch(`${this.config.url}${path}`, {
         signal: controller.signal,
       });
+      if (response.status === 404) return null;
       if (!response.ok) {
         const body = await response.text().catch(() => "");
         throw new IndexerError(
-          `Mercury ${fname} failed (${response.status}): ${body.slice(0, 200)}`,
+          `Mercury passkey-indexer GET ${path} failed (${response.status}): ${body.slice(0, 200)}`,
           PasskeyKitErrorCode.INDEXER_REQUEST_FAILED,
-          { fname, status: response.status }
+          { path, status: response.status }
         );
       }
       return (await response.json()) as T;
@@ -164,9 +181,11 @@ export class MercuryIndexer implements SignerIndexer {
       if (err instanceof IndexerError) throw err;
       const aborted = err instanceof Error && err.name === "AbortError";
       throw new IndexerError(
-        aborted ? `Mercury ${fname} timed out` : String(err),
+        aborted
+          ? `Mercury passkey-indexer GET ${path} timed out`
+          : String(err),
         PasskeyKitErrorCode.INDEXER_REQUEST_FAILED,
-        { fname },
+        { path },
         err instanceof Error ? err : undefined
       );
     } finally {
@@ -174,71 +193,62 @@ export class MercuryIndexer implements SignerIndexer {
     }
   }
 
-  private rowToWalletSigner(row: MercurySignerRow): WalletSigner {
-    const key = signerKeyFromRow(row);
-    const decoded = decodeSignerVal(
-      xdr.ScVal.fromXDR(Buffer.from(row.val, "base64"))
-    );
-    const storage: SignerStorageClass =
-      row.storage === "Temporary" ? "temporary" : "persistent";
-    const status = deriveStatus({
-      expiration: decoded.expiration,
-      evicted: row.evicted,
-      nowSeconds: this.nowSeconds(),
-    });
-    return buildWalletSigner(key, decoded, storage, status);
-  }
-
   async getSigners(wallet: string): Promise<WalletSigner[]> {
-    const rows = await this.execute<MercurySignerRow[]>(
-      "get_signers_by_address",
-      { address: wallet }
+    const res = await this.get<PasskeyIndexerWalletResponse>(
+      `/api/wallet/${wallet}`
     );
+    if (!res) return []; // 404: the wallet has no indexed signers
 
-    // Eviction probe: Mercury cannot observe temporary-entry eviction, so
-    // confirm temporary signers still exist on-chain (per #598 F6).
+    const signers = res.signers.map(jsonToWalletSigner);
+
+    // Eviction probe: the indexer derives `status` from signer add/update/remove
+    // events and cannot observe temporary-entry TTL eviction, so confirm each
+    // live temporary signer still exists on-chain (#598 F6 / audit H2). A genuine
+    // not-found => evicted; a transport error leaves the reported status intact.
     if (this.config.rpc) {
-      for (const row of rows) {
-        if (row.storage === "Temporary" && !row.evicted) {
+      for (const signer of signers) {
+        if (signer.storage === "temporary" && signer.status === "live") {
           try {
-            row.evicted = !(await this.entryExists(wallet, row));
+            if (!(await this.entryExists(wallet, signer.key))) {
+              signer.status = "evicted";
+            }
           } catch {
-            // Transport error (429/5xx/timeout): eviction is undeterminable, so
-            // leave the row as the indexer reported it rather than
-            // false-evicting a live signer.
+            // Transport error (429/5xx/timeout): eviction undeterminable — keep
+            // the row as the indexer reported it rather than false-evicting.
           }
         }
       }
     }
 
-    return rows.map((row) => this.rowToWalletSigner(row));
+    return signers;
   }
 
   /**
    * Whether the signer's temporary ledger entry still exists on-chain. Probes by
    * the `SignerKey` ScVal — the exact key the contract stores the entry under
-   * (`storage().temporary().set::<SignerKey, SignerVal>`), NOT the raw keyId
-   * bytes — so it actually matches. Throws on a transport error (caller decides
-   * eviction only from a genuine not-found).
+   * (`storage().temporary().set::<SignerKey, SignerVal>`) — so it actually
+   * matches. Throws on a transport error (caller decides eviction only from a
+   * genuine not-found).
    */
-  private async entryExists(
-    wallet: string,
-    row: MercurySignerRow
-  ): Promise<boolean> {
+  private async entryExists(wallet: string, key: SignerKey): Promise<boolean> {
     return contractDataExists(
       this.config.rpc!,
       wallet,
-      signerKeyToContractScVal(signerKeyFromRow(row)),
+      signerKeyToContractScVal(key),
       Durability.Temporary
     );
   }
 
   async findWallets(key: SignerKey): Promise<string[]> {
-    const args = signerToReverseArgs(key);
-    const candidates = await this.execute<string[]>(
-      "get_addresses_by_signer",
-      args
-    );
+    // Secp256r1 keys are looked up by hex credential id; ed25519/policy keys by
+    // their strkey address. The SDK carries the Secp256r1 keyId as base64url, so
+    // convert to the hex the credential-id route expects.
+    const path =
+      key.key === "Secp256r1"
+        ? `/api/lookup/${base64url.toBuffer(key.value).toString("hex")}`
+        : `/api/lookup/address/${key.value}`;
+    const res = await this.get<PasskeyIndexerLookupResponse>(path);
+    const candidates = res?.wallets.map((w) => w.contract_id) ?? [];
     return this.confirmCandidates(candidates, key);
   }
 
@@ -279,10 +289,13 @@ export class MercuryIndexer implements SignerIndexer {
 
   async health(): Promise<IndexerHealth> {
     try {
-      await this.execute<unknown>("get_signers_by_address", {
-        address: "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
-      });
-      return { ok: true, backend: "mercury" };
+      const res = await this.get<{ status?: string; service?: string }>("/");
+      if (res?.status === "ok") return { ok: true, backend: "mercury" };
+      return {
+        ok: false,
+        backend: "mercury",
+        detail: `unexpected health payload: ${JSON.stringify(res)}`,
+      };
     } catch (err) {
       return {
         ok: false,
@@ -293,20 +306,57 @@ export class MercuryIndexer implements SignerIndexer {
   }
 }
 
-function signerKeyFromRow(row: MercurySignerRow): SignerKey {
-  switch (row.kind) {
-    case "Secp256r1":
-      return SignerKey.Secp256r1(row.key);
-    case "Ed25519":
-      return SignerKey.Ed25519(row.key);
-    case "Policy":
-      return SignerKey.Policy(row.key);
+/** Map a passkey-indexer JSON signer key onto the SDK-side {@link SignerKey}. */
+function keyFromJson(k: PasskeyIndexerKeyJson): SignerKey {
+  switch (k.type) {
+    case "secp256r1":
+      // The indexer renders the credential id as lowercase hex; the SDK carries
+      // it as base64url (matches StoredPasskey.keyId and the contract SignerKey).
+      return SignerKey.Secp256r1(
+        Buffer.from(k.value, "hex").toString("base64url")
+      );
+    case "ed25519":
+      return SignerKey.Ed25519(k.value); // already a `G…` strkey
+    case "policy":
+      return SignerKey.Policy(k.value); // already a `C…` strkey
   }
 }
 
-function signerToReverseArgs(key: SignerKey): {
-  key: string;
-  kind: "Secp256r1" | "Ed25519" | "Policy";
-} {
-  return { key: key.value, kind: key.key };
+/** Decode the JSON limits object into the SDK's {@link SignerLimits}. */
+function limitsFromJson(
+  limits: PasskeyIndexerSignerJson["limits"]
+): SignerLimits {
+  if (limits === undefined) return undefined; // unlimited (contract `None`)
+  // `{}` -> an empty Map: a scoped-but-empty limit set = deny-all, matching the
+  // contract's fail-closed `Some(empty)` semantics.
+  const out: SignerLimits = new Map();
+  for (const [contract, keys] of Object.entries(limits)) {
+    out.set(contract, keys === null ? undefined : keys.map(keyFromJson));
+  }
+  return out;
+}
+
+/** Map a fully-decoded passkey-indexer signer row onto a {@link WalletSigner}. */
+function jsonToWalletSigner(json: PasskeyIndexerSignerJson): WalletSigner {
+  const publicKey = json.publicKey
+    ? new Uint8Array(Buffer.from(json.publicKey, "hex"))
+    : undefined;
+
+  // WalletSigner.expiration is contract-typed as UNIX seconds. Only carry it
+  // when the indexer reports the `unix` (v1) unit; a legacy `ledger`-sequence
+  // expiration is conveyed through the indexer-derived `status`, never smuggled
+  // into the seconds field where a consumer would misread it as a timestamp.
+  const expiration =
+    json.expiration != null && json.expiration_unit !== "ledger"
+      ? json.expiration
+      : undefined;
+
+  return {
+    key: keyFromJson(json.key),
+    ...(publicKey ? { publicKey } : {}),
+    ...(expiration != null ? { expiration } : {}),
+    limits: limitsFromJson(json.limits),
+    storage: json.storage,
+    status: json.status,
+  };
 }

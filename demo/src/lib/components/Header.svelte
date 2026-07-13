@@ -24,8 +24,8 @@
     {#if !relayer.configured}
       <span class="badge bad" title="Set VITE_relayerProxyUrl">no relayer proxy</span>
     {/if}
-    {#if !indexer.configured}
-      <span class="badge" title="Set VITE_indexerProxyUrl">no indexer proxy</span>
+    {#if !indexer}
+      <span class="badge" title="Mercury indexes testnet + mainnet only">no indexer</span>
     {/if}
   </div>
 </header>

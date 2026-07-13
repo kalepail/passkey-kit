@@ -1,8 +1,7 @@
 /**
- * Indexer abstraction: one interface, two interchangeable backends (Mercury and
- * Stellar Indexer). Both resolve the same {@link WalletSigner} shape so a signer
- * added through the demo is discoverable through either backend and asserted
- * equal in the F2 cross-backend e2e.
+ * Indexer abstraction: one {@link SignerIndexer} interface, resolved by the
+ * keyless {@link MercuryIndexer} backend into the {@link WalletSigner} shape so a
+ * signer added through the demo is discoverable and asserted in the browser e2e.
  *
  * @packageDocumentation
  */
@@ -45,7 +44,7 @@ export interface WalletSigner {
 export interface IndexerHealth {
   /** Whether the backend answered a health probe. */
   ok: boolean;
-  /** Backend identifier (e.g. "mercury", "stellar-indexer"). */
+  /** Backend identifier (e.g. "mercury"). */
   backend: string;
   /** Optional human-readable detail. */
   detail?: string;

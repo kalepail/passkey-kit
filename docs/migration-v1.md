@@ -16,7 +16,7 @@ v1 is a ground-up overhaul of the contract, SDK, and services. It has **no backw
 - [Indexer & discovery](#indexer--discovery)
 - [Packaging & imports](#packaging--imports)
 - [Removed exports](#removed-exports)
-- [A/B gap analysis](#ab-gap-analysis)
+- [Gap analysis](#gap-analysis)
 - [Contract-side changes](#contract-side-changes)
 - [Behavior changes](#behavior-changes)
 
@@ -136,11 +136,11 @@ new PasskeyServer({
   networkPassphrase,                                  // NEW: now required
   rpcUrl,
   relayer: { baseUrl, apiKey, adminSecret?, timeout? },
-  mercury: { url, projectName, jwt?, apiKey? },       // supply jwt OR apiKey
+  mercury: { url? },                                  // keyless; url defaults to the network's hosted endpoint
 });
 ```
 
-`networkPassphrase` is required. `relayer.baseUrl`/`apiKey` replace `relayerUrl`/`relayerApiKey`; `mercury.url`/`projectName`/`jwt`/`apiKey` replace the `mercury*` keys (`mercuryKey` → `mercury.apiKey`).
+`networkPassphrase` is required. `relayer.baseUrl`/`apiKey` replace `relayerUrl`/`relayerApiKey`. The old `mercury*` keys (`mercuryProjectName`/`mercuryJwt`/`mercuryKey`) are **gone** — Mercury's hosted passkey-indexer is keyless, so `mercury` is now just an optional `{ url? }` that defaults to the network's hosted endpoint (omit it entirely to use the default).
 
 ## Signer model & expiration
 
@@ -162,9 +162,9 @@ const kit = new PasskeyKit({ /* … */, storage: new IndexedDBStorage() });
 
 ## Indexer & discovery
 
-- `PasskeyServer.getSigners` / `getContractId` keep their signatures, but the return row (the old `Signer` type) is renamed **`IndexedSigner`** (it collided with the bindings' `Signer` union).
-- A new `SignerIndexer` abstraction (`passkey-kit/server`: `MercuryIndexer`, `StellarIndexerBackend`; browser-safe types + `lookupWithRetry` from `passkey-kit`) replaces the Mercury-only coupling.
-- **The live Mercury query path is gated pending a decision** — see the [gap analysis](#ab-gap-analysis) below and [zephyr/README.md](../zephyr/README.md).
+- `PasskeyServer.getSigners` now returns the richer **`WalletSigner[]`** (from the `SignerIndexer` abstraction); the old flat `IndexedSigner` row type is **removed**. `getContractId` keeps its `{ keyId | publicKey | policy }` signature.
+- A `SignerIndexer` abstraction resolved by the keyless `MercuryIndexer` — exported from the main `passkey-kit` entry (browser-safe; no token), alongside the browser-safe types + `lookupWithRetry`.
+- **Live Mercury discovery is on by default** via Mercury's hosted, **keyless** passkey-indexer (both networks, full history, both signer generations). `MercuryConfig` collapsed to an optional `{ url? }`; the old `projectName`/`jwt`/`apiKey` and the interim `zephyrExecuteConfirmed` gate are gone. Resolve per network with `MercuryIndexer.forNetwork(...)`.
 
 ## Packaging & imports
 
@@ -185,23 +185,23 @@ import { PasskeyServer } from "passkey-kit/server"; // server-only
 
 - **`passkey-factory-sdk`** — never a real package; the factory design it referenced was abandoned before v1. Remove it from imports and bundler config.
 - **`PasskeyServer` from the package root** — moved to `passkey-kit/server`.
-- **`mercuryKey` config key** — use `mercury.apiKey`.
-- The `Signer` **row type** exported for indexer results is renamed **`IndexedSigner`** (the name `Signer` now refers to the signing-pipeline interface).
+- **The old indexer row type** (`Signer` / `IndexedSigner`) — **removed**. `PasskeyServer.getSigners` and the `MercuryIndexer` return the richer `WalletSigner` shape (`SignerIndexer` abstraction). The name `Signer` now refers only to the signing-pipeline interface.
+- **`StellarIndexerBackend` / `StellarIndexerConfig` / `indexerForConfig`** — removed; `MercuryIndexer` (keyless, both networks) is the one backend. `MercuryIndexer` moved from `passkey-kit/server` to the main `passkey-kit` entry.
 
-## A/B gap analysis
+## Gap analysis
 
-An explicit accounting of capabilities the pre-1.0 version had that v1 changes, drops, or defers — and what to use instead.
+An explicit accounting of capabilities the pre-1.0 version had that v1 changes or drops — and what to use instead.
 
 | Old capability | v1 status | What to do instead |
 |---|---|---|
 | `connectWallet({ walletPublicKey })` — resolve/connect a wallet by an Ed25519 `G…` key | **Removed.** `connectWallet` is passkey-ownership-based by design: it verifies the connecting `keyId` is a live secp256r1 signer. | For reverse lookup by an Ed25519 or policy signer, use `server.getContractId({ publicKey })` / `{ policy }`, then operate on that address. There is no "connect as an Ed25519 identity" — sign with an `Ed25519Signer` against a passkey-connected wallet. |
 | `sign(xdrString \| Tx)` — sign a raw XDR string or `Tx` | **Removed** (lossy fallback). | `AssembledTransaction.fromXDR(...)` first, then `sign(txn)`. |
 | Per-call `rpId` on `sign` / `connectWallet` | **Moved to the constructor.** | Set `rpId` once on `new PasskeyKit({ rpId })`. |
-| **Live signer discovery via Mercury** (`getSigners` / `getContractId`) | **Deferred** — the code path exists but the self-serve Zephyr query route Mercury exposed is retired; the backend is gated behind `zephyrExecuteConfirmed` pending a user decision (host on Mercury's Smart Account Indexer vs. self-deploy). | Reconnect via the deterministic `connectWallet()` path — it re-derives the address from the keyId and verifies ownership on-chain, needing **no** indexer, and is more robust than the old reverse-lookup. Full enumeration/reverse-lookup returns live data once the Mercury path is confirmed (see [zephyr/README.md](../zephyr/README.md)). |
-| Legacy `("sw_v1", …)` tuple events | **Replaced** by typed `#[contractevent]` events. | Consume the new `signer_added`/`signer_updated`/`signer_removed`/`upgraded` schema; the rewritten zephyr program already does. |
+| **Live signer discovery via Mercury** (`getSigners` / `getContractId`) | **Live.** Rewired onto Mercury's hosted, **keyless** [passkey-indexer](https://docs.mercurydata.app/smart-wallet-indexers/introduction-1) — both networks (incl. testnet), full history, both signer generations. | Enumerate with `server.getSigners(contractId)` (returns `WalletSigner[]`) and reverse-lookup with `server.getContractId({ keyId \| publicKey \| policy })`, or use `MercuryIndexer.forNetwork(...)` directly. The deterministic `connectWallet()` path still covers the common reconnect case with **no** indexer. |
+| Legacy `("sw_v1", …)` tuple events | **Replaced** by typed `#[contractevent]` events. | Consume the new `signer_added`/`signer_updated`/`signer_removed`/`upgraded` schema; Mercury's hosted passkey-indexer already does (and still indexes the legacy tuples for older wallets). |
 | Raw-TypeScript package (import internal source files) | **Removed** — ships compiled `dist/`. | Use the public entry points (`.`, `./storage`, `./server`). |
 
-**Net:** v1 is a superset of the old *contract* surface (adds `upgrade` wrapping + `get_signer`), and a superset of the old *SDK* surface except for the three intentional API-shape changes above. The one true regression is **live server-side discovery**, which is deferred (not lost) pending a user-owned Mercury integration decision; the deterministic reconnect path covers the common case in the meantime.
+**Net:** v1 is a superset of the old *contract* surface (adds `upgrade` wrapping + `get_signer`), and a superset of the old *SDK* surface except for the three intentional API-shape changes above — and server-side discovery is now backed by Mercury's keyless hosted passkey-indexer on both networks (`getSigners` returns the richer `WalletSigner` shape instead of the old `IndexedSigner` row).
 
 ## Contract-side changes
 

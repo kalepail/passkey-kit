@@ -5,9 +5,10 @@
  * PUBLIC-ONLY demo configuration.
  *
  * Every value here is safe to ship in the browser bundle. There are deliberately
- * NO secrets: the relayer API key and indexer JWTs live only in the server-side
- * proxy worker (todo 954), which the demo reaches over `VITE_relayerProxyUrl` /
- * `VITE_indexerProxyUrl`. Never add a `VITE_`-prefixed secret here.
+ * NO secrets: the relayer API key lives only in the server-side relayer-proxy
+ * worker, which the demo reaches over `VITE_relayerProxyUrl`. Signer discovery
+ * hits Mercury's keyless hosted passkey-indexer directly. Never add a
+ * `VITE_`-prefixed secret here.
  */
 interface ImportMetaEnv {
   /** Stellar RPC URL (e.g. https://soroban-testnet.stellar.org). */
@@ -34,11 +35,6 @@ interface ImportMetaEnv {
    * key. When unset, submission is disabled with a "pending backend" notice.
    */
   readonly VITE_relayerProxyUrl?: string;
-  /**
-   * Indexer-proxy base URL (signer discovery). The worker holds the Mercury /
-   * Stellar Indexer credentials. When unset, discovery shows "pending backend".
-   */
-  readonly VITE_indexerProxyUrl?: string;
 }
 
 interface ImportMeta {

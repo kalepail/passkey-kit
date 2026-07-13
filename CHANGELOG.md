@@ -1,6 +1,22 @@
 # Changelog
 
-All notable changes to `passkey-kit` are recorded here. The entry below covers the ground-up **v1 overhaul** of the contract, SDK, bindings, and services.
+All notable changes to `passkey-kit` are recorded here. The `0.13.0` entry covers the ground-up **v1 overhaul** of the contract, SDK, bindings, and services; `0.13.1` wires live signer discovery onto Mercury's hosted indexer.
+
+## 0.13.1 — 2026-07-13
+
+### Indexing — live Mercury discovery
+
+Rewires the `MercuryIndexer` onto Mercury's hosted, **keyless** passkey-indexer, now live on both networks. This resolves the *"indexer live-query pending a decision"* limitation noted in 0.13.0. No contract change — the bindings (`passkey-kit-sdk` `0.7.3`, `sac-sdk` `0.4.3`) and the canonical WASM hash `84924c53…` are unchanged.
+
+- **Keyless hosted endpoint.** `MercuryIndexer` now queries Mercury's public passkey-indexer REST API (`https://{testnet,mainnet}.mercurydata.app/rest/passkey-indexer`, `GET /api/wallet/:id` + `/api/lookup/*`) — **no JWT / API key**. It covers **testnet and mainnet** with full history across both signer generations (legacy `("sw_v1", …)` tuples and the v1 `#[contractevent]`s). The endpoint returns fully-decoded signers, so the client maps JSON straight onto `WalletSigner` with no XDR round-trip. New `MercuryIndexer.forNetwork(config, networkPassphrase)` resolves the base URL per network (returns `null` off testnet/mainnet); new `mercuryPasskeyIndexerUrl(passphrase)` helper + `MERCURY_PASSKEY_INDEXER_URLS` constant.
+- **`MercuryIndexer` is now browser-safe.** Because the endpoint is keyless, `MercuryIndexer` (+ `MercuryIndexerConfig`, `mercuryPasskeyIndexerUrl`, `MERCURY_PASSKEY_INDEXER_URLS`) is exported from the **main `passkey-kit` entry** instead of `passkey-kit/server` — call it directly from the browser, no proxy. The demo now does exactly this (the `indexer-proxy` indirection is gone).
+- **Stellar Indexer backend removed.** `StellarIndexerBackend` (Creit Tech, `POST /v1/contract-data`) is dropped along with `indexerForConfig`: it was mainnet-only and never had a live testnet path, and Mercury now covers both networks keylessly. `SignerIndexer` has one implementation.
+- **Hardening preserved.** With an `rpc`, temporary signers are still confirmed on-chain (evicted TTL entries flagged `status: "evicted"` — the indexer can't observe eviction), and reverse-lookup candidates are still confirmed by deterministic derivation or on-chain signer presence before being trusted (#598 F3/F6, audit H2).
+- **`PasskeyServer` consolidation.** `getSigners` / `getContractId` now delegate to a single `MercuryIndexer` — the duplicated `POST /zephyr/execute` client is gone. `getSigners` returns `WalletSigner[]`.
+- **`zephyr/` removed.** The self-hosted Zephyr indexer program and its docs are dropped; Mercury's hosted indexer replaces it entirely.
+
+> [!IMPORTANT]
+> **Breaking (pre-1.0).** `StellarIndexerBackend` / `StellarIndexerConfig` / `indexerForConfig` and the `IndexedSigner` type are **removed** (`PasskeyServer.getSigners` now returns `WalletSigner[]`). `MercuryIndexer` moved from `passkey-kit/server` to the main `passkey-kit` entry. `MercuryConfig` collapses to an optional `{ url? }` (defaults to the network's hosted endpoint); `MercuryConfig`/`MercuryIndexerConfig` no longer take `projectName` / `jwt` / `apiKey`, and the interim `zephyrExecuteConfirmed` gate is gone.
 
 ## 0.13.0 — 2026-07-12
 
@@ -50,7 +66,7 @@ A ground-up rewrite of the monolithic client into dependency-injected managers, 
 - **Address credentials V2.** The kit builds `SOROBAN_CREDENTIALS_ADDRESS` V2 auth (CAP-0071-02), which binds the wallet address into the payload — closing a cross-wallet replay hole for shared Ed25519 signers. All Protocol-27 probe/feature-detection shims are deleted; the kit targets `@stellar/stellar-sdk >= 16`.
 - **Ownership-verifying `connectWallet`.** Resolution is derivation → storage → injected indexer lookup, and then the resolved wallet is **verified**: the keyId must be a live signer (`getSigner`). A transport error surfaces as-is (a flaky RPC never masquerades as an ownership mismatch); only a definitive not-found throws `WalletOwnershipError`. Optional `verifyWasmHash` also checks the on-chain executable hash.
 - **Configurable deployer.** `deploySource` replaces the hard-coded deployer keypair; the default still derives from the canonical `"kalepail"` seed to preserve address determinism (documented as load-bearing for discovery).
-- **Indexer abstraction.** A `SignerIndexer` interface (`getSigners` / `findWallets` / `health`) with two interchangeable backends — `MercuryIndexer` and `StellarIndexerBackend` — plus a browser-safe `lookupWithRetry` poll helper. Concrete backends are exported only from `passkey-kit/server`. See [Known limitations](#known-limitations).
+- **Indexer abstraction.** A `SignerIndexer` interface (`getSigners` / `findWallets` / `health`) with two interchangeable backends — `MercuryIndexer` and `StellarIndexerBackend` — plus a browser-safe `lookupWithRetry` poll helper. Concrete backends are exported only from `passkey-kit/server`. See [Known limitations](#known-limitations). *(0.13.1: `StellarIndexerBackend` removed; the keyless `MercuryIndexer` moved to the main `passkey-kit` entry.)*
 - **Storage adapters.** New `passkey-kit/storage` subpath: `MemoryStorage`, `LocalStorageAdapter`, `IndexedDBStorage` over a `StorageAdapter` interface. The kit no longer relies on apps hand-rolling `localStorage`.
 - **Client-side validation** (`validateAddress`, `validateAmount`, `validateExpiration`, `validateSecp256r1PublicKey`) and a typed `PasskeyEventEmitter` (`walletCreated` / `walletConnected` / `walletDisconnected`).
 - **Crypto helpers.** `generateChallenge` is now a random 32 bytes (was a hard-coded string); `extractPublicKeyFromAttestation` gains a WebCrypto SPKI path; `deriveContractAddress` and `compactSignature` are exported.
@@ -65,7 +81,7 @@ A ground-up rewrite of the monolithic client into dependency-injected managers, 
 
 ### Services
 
-- **`zephyr/` Mercury indexer — full rewrite** on the current `zephyr-sdk`, consuming the new `#[contractevent]` schema with consistent UNIX-timestamp expiration semantics and a **WASM-hash allowlist** on ingestion (only events from known passkey-kit wallets are indexed). See [`zephyr/README.md`](./zephyr/README.md).
+- **`zephyr/` Mercury indexer — full rewrite** on the current `zephyr-sdk`, consuming the new `#[contractevent]` schema with consistent UNIX-timestamp expiration semantics and a **WASM-hash allowlist** on ingestion (only events from known passkey-kit wallets are indexed). *(Superseded in 0.13.1 — the `zephyr/` program was removed in favor of Mercury's hosted keyless passkey-indexer.)*
 - **`relayer-proxy/` — new** top-level Cloudflare Worker adapted from smart-account-kit. It fronts the OpenZeppelin Relayer Channels service and **mints one API key per client IP** (keyless, cached in a per-IP Durable Object), so the browser submits fee-sponsored transactions with **zero secrets in the bundle** — fixing passkey-kit's prior defect of inlining the relayer key into client JS. See [`relayer-proxy/README.md`](./relayer-proxy/README.md).
 - **`RelayerClient`** wraps `@openzeppelin/relayer-plugin-channels ^0.20` with tolerant, never-throwing typed results; `submitSorobanTransaction` (`{ func, auth }`) is preferred for wallet invocations and `submitTransaction` (`{ xdr }`) fee-bumps deploys / source-account auth.
 
@@ -75,6 +91,6 @@ A ground-up rewrite of the monolithic client into dependency-injected managers, 
 
 ### Known limitations
 
-- **Indexer live-query paths are pending a decision.** Both indexer backends are code-complete and unit-tested, but neither has a live query path yet: Mercury retired the self-serve Zephyr `POST /zephyr/execute` route the `MercuryIndexer` targets (the backend is gated behind `zephyrExecuteConfirmed` until a path is chosen), and the Stellar Indexer indexes mainnet only. The deterministic `connectWallet` reconnect path needs no indexer and works today. See [`README.md`](./README.md#discovery-indexer) and [`zephyr/README.md`](./zephyr/README.md).
+- **Indexer live-query paths are pending a decision.** Both indexer backends are code-complete and unit-tested, but neither has a live query path yet: Mercury retired the self-serve Zephyr `POST /zephyr/execute` route the `MercuryIndexer` targets (the backend is gated behind `zephyrExecuteConfirmed` until a path is chosen), and the Stellar Indexer indexes mainnet only. The deterministic `connectWallet` reconnect path needs no indexer and works today. See [`README.md`](./README.md#discovery-indexer). *(Mercury resolved in 0.13.1 — a hosted keyless passkey-indexer went live on both networks.)*
 - **The v1 contract is deployed to testnet only;** mainnet upload is a gated release step, recorded in a follow-up deployments manifest.
 - **The contract has not been reviewed by a third-party security firm** — only the internal adversarial review noted above.

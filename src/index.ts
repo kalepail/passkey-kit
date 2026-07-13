@@ -33,13 +33,12 @@ export {
   type WebAuthnAuthenticator,
 } from "./signers.js";
 
-// Signer-key helpers, indexer row, storage + result types
+// Signer-key helpers, storage + result types
 export {
   SignerKey,
   SignerStore,
   type SignerKeyTag,
   type SignerLimits,
-  type IndexedSigner,
   type StoredPasskey,
   type StorageAdapter,
   type CreateWalletResult,
@@ -78,15 +77,20 @@ export {
   type ContractErrorInfo,
 } from "./contract-errors.js";
 
-// Indexer abstraction: browser-safe types + the pure retry helper. The concrete
-// token-holding backends are exported from `passkey-kit/server`.
+// Indexer abstraction. Mercury's hosted passkey-indexer is keyless, so the
+// `MercuryIndexer` backend is browser-safe and exported here (no `/server` gate).
 export {
+  MercuryIndexer,
+  mercuryPasskeyIndexerUrl,
+  MERCURY_PASSKEY_INDEXER_URLS,
   lookupWithRetry,
+  type MercuryIndexerConfig,
   type SignerIndexer,
   type WalletSigner,
   type IndexerHealth,
   type SignerStatus,
   type SignerStorageClass,
+  type FindWalletsHardeningDeps,
 } from "./indexer/index.js";
 
 // Events

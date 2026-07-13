@@ -9,12 +9,13 @@
 # Runs inside testnet-passkey-smoke.sh (a live agent-browser session with a
 # virtual WebAuthn authenticator). Layers gate automatically: if the demo header
 # shows "no relayer proxy" the on-chain layers are skipped (explicitly, never a
-# silent pass); discovery is skipped when "no indexer proxy" is shown.
+# silent pass); discovery is skipped when "no indexer" is shown (network with no
+# hosted passkey-indexer).
 #
 # Distinct exit code per layer:
 #   10 setup   20 create   21 reconnect   30 fund   31 transfer
 #   40 add-secp 41 add-ed25519 42 add-policy 43 update 44 per-signer-transfer 45 remove
-#   50 discover-mercury 51 discover-stellar-indexer 52 reverse-lookup
+#   50 discover   51 reverse-lookup
 
 set -euo pipefail
 
@@ -150,7 +151,7 @@ case "$SKIP_ONCHAIN" in
   *) printf '%s\n' "$HEADER" | grep -q "no relayer proxy" && ONCHAIN=0 ;;
 esac
 INDEXER=1
-printf '%s\n' "$HEADER" | grep -q "no indexer proxy" && INDEXER=0
+printf '%s\n' "$HEADER" | grep -q "no indexer" && INDEXER=0
 
 if (( ONCHAIN == 0 )); then
   echo
@@ -285,39 +286,32 @@ fi
 ########################################################################
 if (( INDEXER == 0 )); then
   echo
-  echo "discovery layers SKIPPED: indexer proxy not configured."
-  echo "Set VITE_indexerProxyUrl in demo/.env.local to run Mercury + Stellar"
-  echo "Indexer discovery live (F2)."
+  echo "discovery layers SKIPPED: no hosted passkey-indexer for this network"
+  echo "(Mercury covers testnet + mainnet; discovery is keyless — no proxy)."
   echo
   echo "On-chain audit passed for contract $CONTRACT_ID"
   exit 0
 fi
 
-# lookupWithRetry: indexers lag the ledger, so poll until a signer is discovered.
-discover_backend() {
-  local backend="$1" code="$2"
-  layer "discover-$backend" "$code"
-  click_tid "backend-$backend"
-  local ok=""
-  for _ in $(seq 1 20); do
-    before="$(log_line_count)"
-    ab click '[data-testid="discover"]' >/dev/null 2>&1 || fail "discover control missing"
-    if wait_new_log "$before" "Discovered [1-9][0-9]* signer\(s\) via $backend" "Discover via $backend failed" 6; then
-      ok=1
-      break
-    fi
-    sleep 3
-  done
-  [[ -n "$ok" ]] || fail "no signers discovered via $backend after retries"
-  [[ "$(ab get count '[data-testid="discovered-list"] .signer' 2>/dev/null | tr -d '[:space:]')" != "0" ]] \
-    || fail "discovered list empty for $backend"
-  echo "  ✓ discovery via $backend returned signers"
-}
+# lookupWithRetry: the indexer lags the ledger, so poll until a signer shows up.
+layer "discover" 50
+echo "Discover signers via Mercury"
+discover_ok=""
+for _ in $(seq 1 20); do
+  before="$(log_line_count)"
+  ab click '[data-testid="discover"]' >/dev/null 2>&1 || fail "discover control missing"
+  if wait_new_log "$before" "Discovered [1-9][0-9]* signer\(s\) via Mercury" "Discover failed" 6; then
+    discover_ok=1
+    break
+  fi
+  sleep 3
+done
+[[ -n "$discover_ok" ]] || fail "no signers discovered after retries"
+[[ "$(ab get count '[data-testid="discovered-list"] .signer' 2>/dev/null | tr -d '[:space:]')" != "0" ]] \
+  || fail "discovered list empty"
+echo "  ✓ discovery returned signers"
 
-discover_backend "mercury" 50
-discover_backend "stellar-indexer" 51
-
-layer "reverse-lookup" 52
+layer "reverse-lookup" 51
 echo "Reverse lookup keyId → wallet(s)"
 before="$(log_line_count)"
 click_tid "reverse-lookup"

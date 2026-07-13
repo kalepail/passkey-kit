@@ -47,9 +47,9 @@ The package ships **compiled ESM + type declarations** from `dist/` (not raw Typ
 
 | Import | Contents | Where it runs |
 |---|---|---|
-| `passkey-kit` | `PasskeyKit`, signers, types, errors, validation, crypto helpers, browser-safe indexer types | Browser or server |
+| `passkey-kit` | `PasskeyKit`, signers, types, errors, validation, crypto helpers, the keyless `MercuryIndexer` + indexer types | Browser or server |
 | `passkey-kit/storage` | `MemoryStorage`, `LocalStorageAdapter`, `IndexedDBStorage` | Browser (persistence) |
-| `passkey-kit/server` | `PasskeyServer`, `RelayerClient`, `MercuryIndexer`, `StellarIndexerBackend` — **holds secrets** | Server only |
+| `passkey-kit/server` | `PasskeyServer`, `RelayerClient` — **holds the relayer secret** | Server only |
 
 ```ts
 // Browser
@@ -272,10 +272,10 @@ Server-only facade (`passkey-kit/server`). Holds the relayer/indexer secrets —
 | `networkPassphrase` | `string` | Yes | Network passphrase. |
 | `rpcUrl` | `string` | No | Stellar RPC URL. Enables the temporary-signer eviction probe in `getSigners`. |
 | `relayer` | `RelayerClientConfig` | No | Fee-sponsored submission (below). |
-| `mercury` | `MercuryConfig` | No | Mercury (Zephyr) indexer (below). |
+| `mercury` | `MercuryConfig` | No | Mercury's keyless hosted passkey-indexer (below). |
 
 `RelayerClientConfig`: `{ baseUrl: string, apiKey: string, adminSecret?: string, timeout?: number }` (default timeout 6 min).
-`MercuryConfig`: `{ url: string, projectName: string, jwt?: string, apiKey?: string }` (supply a `jwt` **or** `apiKey`).
+`MercuryConfig`: `{ url?: string }` — the keyless passkey-indexer base URL; **defaults to the network's hosted endpoint** (`https://{testnet,mainnet}.mercurydata.app/rest/passkey-indexer`), so it can be omitted.
 
 ### Methods
 
@@ -283,13 +283,10 @@ Server-only facade (`passkey-kit/server`). Holds the relayer/indexer secrets —
 |---|---|---|
 | `send(input, options?)` | `TransactionResult` | Submit an `AssembledTransaction \| Transaction \| string` via the relayer. Picks the `{ func, auth }` Soroban path for wallet invocations and the `{ xdr }` fee-bump path for deploys / source-account auth. **Never throws.** |
 | `getTransaction(transactionId)` | `TransactionResult` | Poll a `skipWait` submission by its relayer id. |
-| `getSigners(contractId)` | `IndexedSigner[]` | Enumerate a wallet's signers via the indexer (flags evicted temporary signers when `rpcUrl` is set). |
+| `getSigners(contractId)` | `WalletSigner[]` | Enumerate a wallet's signers via the indexer (flags evicted temporary signers when `rpcUrl` is set). |
 | `getContractId(options, index?)` | `string \| undefined` | Reverse lookup: the wallet address for a signer. `options` = exactly one of `{ keyId }`, `{ publicKey }`, `{ policy }`. |
 
-`options` for `send`/`getTransaction` is `{ skipWait?: boolean, fundRelayerId?: string }`.
-
-> [!NOTE]
-> The `mercury`-backed `getSigners`/`getContractId` query path is pending an integration decision — see [Discovery (indexer)](#discovery-indexer).
+`options` for `send`/`getTransaction` is `{ skipWait?: boolean, fundRelayerId?: string }`. `getSigners`/`getContractId` delegate to a [`MercuryIndexer`](#discovery-indexer) over the keyless hosted endpoint.
 
 ## Submission (relayer)
 
@@ -308,23 +305,18 @@ The relayer API key is a secret, so a browser must never hold it. The [`relayer-
 
 Because every wallet address is derived deterministically from its passkey credential id (see [Deterministic derivation](#deterministic-derivation)), the primary "reconnect" path needs no indexer — `connectWallet` re-derives the address and confirms ownership on-chain. An indexer is for **richer discovery**: enumerating a wallet's full signer set, and reverse-looking-up which wallets a given signer belongs to.
 
-The SDK abstracts discovery behind a `SignerIndexer` interface (`getSigners` / `findWallets` / `health`) with two interchangeable backends, both re-exported from `passkey-kit/server`:
+The SDK abstracts discovery behind a `SignerIndexer` interface (`getSigners` / `findWallets` / `health`), implemented by the **keyless** `MercuryIndexer` — exported from the main `passkey-kit` entry (no secret, so it runs in the browser):
 
 | Backend | Config | Wire | Status |
 |---|---|---|---|
-| `MercuryIndexer` | `MercuryIndexerConfig` (`url`, `projectName`, `jwt`/`apiKey`) | Zephyr `POST /zephyr/execute` | **Code-complete; live query pending a decision** (below). |
-| `StellarIndexerBackend` | `StellarIndexerConfig` (`url`, `accessToken`) | Creit Tech `POST /v1/contract-data` (JSON-ScVal) | **Code-complete; mainnet-only** — decodes live JSON-ScVal; use `StellarIndexerBackend.forNetwork(...)` (returns `null` off mainnet). |
+| `MercuryIndexer` | `MercuryIndexerConfig` (`url?`, `rpc?`) | Keyless REST (`GET /api/wallet/*`, `/api/lookup/*`) | **Live on testnet + mainnet** — both signer generations, full history. Resolve with `MercuryIndexer.forNetwork(...)`. |
 
-> [!IMPORTANT]
-> **Indexer status (pending decision).** Both backends are code-complete and unit-tested, but neither has a live testnet query path today:
->
-> - **Mercury:** the self-serve Zephyr `POST /zephyr/execute` route the `MercuryIndexer` targets is **retired** on Mercury's current backend (returns 404 even with a valid JWT). The backend is therefore **gated** — it throws a clear "pending" error unless `zephyrExecuteConfirmed: true` is set. Resolving this is a user-owned decision between (A) asking Mercury to index passkey-kit's v1 WASM in their hosted **Smart Account Indexer** (then the SDK just queries `/rest/smart-account-indexer/api/lookup/*` — no self-deploy), or (B) obtaining Mercury's current custom-indexing deploy + query tooling for the self-hosted [`zephyr/`](./zephyr) program. See [zephyr/README.md](./zephyr/README.md).
-> - **Stellar Indexer** indexes **mainnet only**; testnet contracts return 0 entries. Live validation needs a mainnet v1 wallet (an endgame step).
->
-> Until a live path is chosen, use the deterministic `connectWallet` reconnect path (which needs no indexer). `PasskeyServer.getSigners`/`getContractId` return live data only once the Mercury path is confirmed.
+> [!NOTE]
+> Mercury's hosted passkey-indexer is public and **keyless**, covering **testnet and mainnet** with full history across both signer generations (legacy `("sw_v1", …)` tuples and the v1 typed `#[contractevent]`s). It returns fully-decoded signers, so the client maps JSON straight onto `WalletSigner`. Resolve the base URL per network with `MercuryIndexer.forNetwork({ rpc? }, networkPassphrase)` (returns `null` off testnet/mainnet); passing an `rpc` lets it flag evicted temporary signers and confirm reverse-lookup candidates on-chain.
 
 ```ts
-const wallets = await lookupWithRetry(() => indexer.findWallets(SignerKey.Secp256r1(keyId)));
+const indexer = MercuryIndexer.forNetwork({ rpc }, networkPassphrase);
+const wallets = await lookupWithRetry(() => indexer!.findWallets(SignerKey.Secp256r1(keyId)));
 ```
 
 `lookupWithRetry(fn, { attempts?, delayMs?, predicate? })` (browser-safe) polls a lookup until it returns a non-empty result — useful right after a write, while the indexer catches up to the ledger.
@@ -499,7 +491,6 @@ This tuple is normative and must never change. See [`docs/deployments-testnet-20
 | `packages/passkey-kit-sdk` | Generated smart-wallet contract bindings (do not hand-edit — see [releasing](./docs/releasing.md)). |
 | `packages/sac-sdk` | Generated SEP-41 SAC bindings. |
 | `contracts/` | Rust Soroban contracts: `smart-wallet`, `smart-wallet-interface`, `sample-policy`, `example-contract`. |
-| `zephyr/` | Mercury (Zephyr) indexer program. |
 | `relayer-proxy/` | Cloudflare Worker for keyless, fee-sponsored submission. |
 | `demo/` | Svelte 5 demo exercising the full client API. |
 

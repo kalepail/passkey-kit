@@ -12,6 +12,7 @@ import {
   Ed25519Signer,
   PasskeySigner,
   PolicySigner,
+  SignerKey,
   SignerStore,
   type Signer,
   type TransactionResult,
@@ -28,7 +29,6 @@ import {
 import { submit } from "./submit";
 import { app, isConnected, pushLog } from "./state.svelte";
 import { describeError } from "./format";
-import type { IndexerBackend } from "./indexer-proxy";
 import {
   buildSignerLimits,
   describeLimits,
@@ -178,11 +178,12 @@ export async function connect(keyId?: string): Promise<void> {
     app.status = "connecting";
     const { keyIdBase64, contractId } = await account.connectWallet({
       keyId,
-      getContractId: (kid) =>
-        indexer
-          .findWallets({ kind: "Secp256r1", value: kid }, app.discoverBackend)
-          .then((ids) => ids[0])
-          .catch(() => undefined),
+      getContractId: async (kid) => {
+        const ids = await indexer
+          ?.findWallets(SignerKey.Secp256r1(kid))
+          .catch(() => [] as string[]);
+        return ids?.[0];
+      },
     });
 
     setConnected(keyIdBase64, contractId);
@@ -500,37 +501,35 @@ export async function selectToken(contractId: string): Promise<void> {
   await refreshBalance();
 }
 
-// -- Discovery (both indexer backends) ----------------------------------------
+// -- Discovery (Mercury hosted passkey-indexer, keyless) ----------------------
 
-export async function discover(backend: IndexerBackend): Promise<void> {
+export async function discover(): Promise<void> {
   if (!app.contractId) return;
-  app.discoverBackend = backend;
-  if (!indexer.configured) {
-    pushLog("info", `Discovery pending: set VITE_indexerProxyUrl to query ${backend}`);
+  const idx = indexer;
+  if (!idx) {
+    pushLog("info", "Discovery unavailable: no hosted indexer for this network");
     return;
   }
-  await run(`Discover via ${backend}`, async () => {
-    const rows = await indexer.getSigners(app.contractId!, backend);
+  await run("Discover signers", async () => {
+    const rows = await idx.getSigners(app.contractId!);
     app.discovered = rows;
-    pushLog("success", `Discovered ${rows.length} signer(s) via ${backend}`, {
-      detail: rows.map((r) => `${r.key.kind}:${r.status}`).join(", ") || "none",
+    pushLog("success", `Discovered ${rows.length} signer(s) via Mercury`, {
+      detail: rows.map((r) => `${r.key.key}:${r.status}`).join(", ") || "none",
     });
   });
 }
 
-export async function reverseLookup(backend: IndexerBackend): Promise<void> {
+export async function reverseLookup(): Promise<void> {
   if (!app.keyId) return;
-  if (!indexer.configured) {
-    pushLog("info", `Reverse lookup pending: set VITE_indexerProxyUrl`);
+  const idx = indexer;
+  if (!idx) {
+    pushLog("info", "Reverse lookup unavailable: no hosted indexer for this network");
     return;
   }
-  await run(`Reverse lookup via ${backend}`, async () => {
-    const ids = await indexer.findWallets(
-      { kind: "Secp256r1", value: app.keyId! },
-      backend,
-    );
+  await run("Reverse lookup keyId", async () => {
+    const ids = await idx.findWallets(SignerKey.Secp256r1(app.keyId!));
     const match = ids.includes(app.contractId ?? "");
-    pushLog(match ? "success" : "info", `keyId → ${ids.length} wallet(s) via ${backend}`, {
+    pushLog(match ? "success" : "info", `keyId → ${ids.length} wallet(s) via Mercury`, {
       detail: ids.length
         ? `${ids.map((i) => i.slice(0, 8) + "…").join(", ")}${match ? " · matches connected ✓" : ""}`
         : "none",

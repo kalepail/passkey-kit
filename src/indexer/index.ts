@@ -1,10 +1,11 @@
 /**
  * Indexer abstraction barrel.
  *
- * The {@link SignerIndexer} interface + {@link WalletSigner} types and the pure
- * {@link lookupWithRetry} helper are browser-safe. The concrete backends
- * ({@link MercuryIndexer}, {@link StellarIndexerBackend}) take server-side
- * tokens, so they are re-exported from the `passkey-kit/server` entrypoint.
+ * The {@link SignerIndexer} interface + {@link WalletSigner} types, the pure
+ * {@link lookupWithRetry} helper, and the {@link MercuryIndexer} backend are all
+ * browser-safe — Mercury's hosted passkey-indexer is keyless, so nothing here
+ * holds a secret — and the whole module is re-exported from the main
+ * `passkey-kit` entry.
  *
  * @packageDocumentation
  */
@@ -20,45 +21,10 @@ export type {
 
 export {
   MercuryIndexer,
+  mercuryPasskeyIndexerUrl,
   type MercuryIndexerConfig,
-  type MercurySignerRow,
 } from "./mercury.js";
-export {
-  StellarIndexerBackend,
-  type StellarIndexerConfig,
-  type StellarIndexerEntry,
-  MAX_CONTRACTS_PER_QUERY,
-  STELLAR_INDEXER_NETWORK,
-  jsonScValToXdr,
-} from "./stellar-indexer.js";
-
-export {
-  signerKeyToContractScVal,
-  signerKeyToIndexerJson,
-  scValToSignerKey,
-  decodeSignerVal,
-  deriveStatus,
-} from "./codec.js";
-
-import type { SignerIndexer } from "./types.js";
-import { MercuryIndexer, type MercuryIndexerConfig } from "./mercury.js";
-import {
-  StellarIndexerBackend,
-  type StellarIndexerConfig,
-} from "./stellar-indexer.js";
-
-/**
- * Null-tolerant factory: returns the configured backend, or `null` when no
- * indexer is configured (callers treat `null` as "discovery disabled").
- */
-export function indexerForConfig(config?: {
-  mercury?: MercuryIndexerConfig;
-  stellarIndexer?: StellarIndexerConfig;
-}): SignerIndexer | null {
-  if (config?.mercury) return new MercuryIndexer(config.mercury);
-  if (config?.stellarIndexer) return new StellarIndexerBackend(config.stellarIndexer);
-  return null;
-}
+export { MERCURY_PASSKEY_INDEXER_URLS } from "../constants.js";
 
 /**
  * Poll a lookup until it satisfies `predicate` (defaults to "non-empty"), for

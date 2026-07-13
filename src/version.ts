@@ -6,5 +6,5 @@
 // This file is auto-generated. Do not edit manually.
 // Run `pnpm run sync-version` (or `pnpm build`) to update.
 
-export const VERSION = "0.13.0";
+export const VERSION = "0.13.1";
 export const NAME = "passkey-kit";

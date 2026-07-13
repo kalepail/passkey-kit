@@ -1,16 +1,16 @@
 /**
  * `PasskeyServer` — the SERVER-ONLY counterpart to {@link PasskeyKit}.
  *
- * It holds secrets (the relayer API key, indexer JWTs) and therefore must never
- * run in a browser bundle: it is exported exclusively from the
- * `passkey-kit/server` subpath so a bundler can't pull it into client code, and
- * its config must come from server-side environment variables (never
- * `VITE_`-prefixed).
+ * It holds the relayer API key and therefore must never run in a browser
+ * bundle: it is exported exclusively from the `passkey-kit/server` subpath so a
+ * bundler can't pull it into client code, and its config must come from
+ * server-side environment variables (never `VITE_`-prefixed).
  *
  * Responsibilities: fee-sponsored submission via {@link RelayerClient} and
- * signer discovery via an indexer. The indexer methods here are a server-side
- * Mercury port; B5 (todo 952) replaces them with the `SignerIndexer` abstraction
- * over both Mercury and Stellar Indexer backends.
+ * convenience signer-discovery helpers that delegate to a {@link MercuryIndexer}
+ * over Mercury's keyless hosted passkey-indexer. (`MercuryIndexer` itself is
+ * keyless and browser-safe — exported from the main `passkey-kit` entry; these
+ * server methods are a thin convenience over it.)
  *
  * @packageDocumentation
  */
@@ -20,7 +20,7 @@ import {
   TransactionBuilder,
   type Transaction,
 } from "@stellar/stellar-sdk";
-import { Durability, Server } from "@stellar/stellar-sdk/rpc";
+import { Server } from "@stellar/stellar-sdk/rpc";
 import { AssembledTransaction } from "@stellar/stellar-sdk/contract";
 import { RelayerClient, type RelayerClientConfig, type RelayerSubmitOptions } from "./relayer.js";
 import {
@@ -30,11 +30,10 @@ import {
   PasskeyKitErrorCode,
 } from "./errors.js";
 import { failedTransaction } from "./contract-errors.js";
-import { contractDataExists } from "./rpc-data.js";
-import { signerKeyToContractScVal } from "./indexer/codec.js";
-import { DEFAULT_INDEXER_TIMEOUT_MS } from "./constants.js";
+import { MercuryIndexer } from "./indexer/index.js";
+import type { WalletSigner } from "./indexer/index.js";
 import { SignerKey } from "./types.js";
-import type { IndexedSigner, TransactionResult } from "./types.js";
+import type { TransactionResult } from "./types.js";
 
 // Re-export the relayer surface so `passkey-kit/server` is the single
 // server-only entrypoint (secrets never reach the browser bundle).
@@ -44,25 +43,14 @@ export {
   type RelayerSubmitOptions,
 } from "./relayer.js";
 
-// Token-holding indexer backends (server-side only).
-export {
-  MercuryIndexer,
-  StellarIndexerBackend,
-  indexerForConfig,
-  type MercuryIndexerConfig,
-  type StellarIndexerConfig,
-} from "./indexer/index.js";
-
-/** Mercury indexer (Zephyr) configuration. */
+/** Mercury hosted passkey-indexer configuration (keyless). */
 export interface MercuryConfig {
-  /** Mercury base URL (e.g. https://api.mercurydata.app). */
-  url: string;
-  /** Deployed Zephyr project name. */
-  projectName: string;
-  /** Bearer JWT (server-side secret). Prefer this over `apiKey`. */
-  jwt?: string;
-  /** Raw API key (server-side secret). */
-  apiKey?: string;
+  /**
+   * Passkey-indexer base URL. Defaults to the network's hosted endpoint
+   * (`https://{testnet,mainnet}.mercurydata.app/rest/passkey-indexer`); set it
+   * only to point at a self-hosted instance.
+   */
+  url?: string;
 }
 
 /** Configuration for a {@link PasskeyServer}. */
@@ -97,18 +85,6 @@ function toBuiltTransaction(
   return input;
 }
 
-/** Map an indexer row's `{ kind, key }` to the SDK-side {@link SignerKey}. */
-function indexedSignerToKey(signer: IndexedSigner): SignerKey {
-  switch (signer.kind) {
-    case "Ed25519":
-      return SignerKey.Ed25519(signer.key);
-    case "Policy":
-      return SignerKey.Policy(signer.key);
-    default:
-      return SignerKey.Secp256r1(signer.key);
-  }
-}
-
 /** Whether any invokeHostFunction op carries source-account auth. */
 function hasSourceAccountAuth(transaction: Transaction): boolean {
   for (const op of transaction.operations) {
@@ -127,7 +103,7 @@ export class PasskeyServer {
   readonly rpc?: Server;
 
   private readonly relayer?: RelayerClient;
-  private readonly mercury?: MercuryConfig;
+  private readonly mercury?: MercuryIndexer;
 
   constructor(config: PasskeyServerConfig) {
     if (!config.networkPassphrase) {
@@ -145,13 +121,17 @@ export class PasskeyServer {
       this.relayer = new RelayerClient(config.relayer);
     }
     if (config.mercury) {
-      if (!config.mercury.jwt && !config.mercury.apiKey) {
+      const mercury = MercuryIndexer.forNetwork(
+        { url: config.mercury.url, rpc: this.rpc },
+        this.networkPassphrase
+      );
+      if (!mercury) {
         throw new ConfigurationError(
-          "Mercury config requires a jwt or apiKey",
+          "Mercury has no hosted passkey-indexer for this network; pass mercury.url to point at a self-hosted instance",
           PasskeyKitErrorCode.INVALID_CONFIG
         );
       }
-      this.mercury = config.mercury;
+      this.mercury = mercury;
     }
   }
 
@@ -218,106 +198,31 @@ export class PasskeyServer {
     return this.relayer.getTransaction(transactionId);
   }
 
-  // -- Indexer (server-side Mercury; superseded by SignerIndexer in B5) --------
+  // -- Indexer (convenience delegation to the keyless Mercury passkey-indexer) --
 
-  private async mercuryExecute<T>(fname: string, args: unknown): Promise<T> {
+  private requireMercury(): MercuryIndexer {
     if (!this.mercury) {
       throw new IndexerError(
-        "Mercury indexer is not configured",
+        "Mercury indexer is not configured on this PasskeyServer",
         PasskeyKitErrorCode.INDEXER_NOT_CONFIGURED
       );
     }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(
-      () => controller.abort(),
-      DEFAULT_INDEXER_TIMEOUT_MS
-    );
-
-    try {
-      const response = await fetch(`${this.mercury.url}/zephyr/execute`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: this.mercury.jwt
-            ? `Bearer ${this.mercury.jwt}`
-            : this.mercury.apiKey!,
-        },
-        body: JSON.stringify({
-          project_name: this.mercury.projectName,
-          mode: { Function: { fname, arguments: JSON.stringify(args) } },
-        }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const body = await response.text().catch(() => "");
-        throw new IndexerError(
-          `Mercury request failed (${response.status}): ${body.slice(0, 200)}`,
-          PasskeyKitErrorCode.INDEXER_REQUEST_FAILED,
-          { fname, status: response.status }
-        );
-      }
-
-      return (await response.json()) as T;
-    } catch (err) {
-      if (err instanceof IndexerError) throw err;
-      if (err instanceof Error && err.name === "AbortError") {
-        throw new IndexerError(
-          "Mercury request timed out",
-          PasskeyKitErrorCode.INDEXER_REQUEST_FAILED,
-          { fname }
-        );
-      }
-      throw new IndexerError(
-        err instanceof Error ? err.message : String(err),
-        PasskeyKitErrorCode.INDEXER_REQUEST_FAILED,
-        { fname },
-        err instanceof Error ? err : undefined
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
+    return this.mercury;
   }
 
   /**
-   * Enumerate a wallet's signers via Mercury, flagging temporary signers whose
-   * ledger entry has been evicted (Mercury can't observe eviction directly).
+   * Enumerate a wallet's signers via Mercury. Temporary signers whose ledger
+   * entry has been evicted are flagged `status: "evicted"` when this server was
+   * given an `rpcUrl` (the indexer can't observe TTL eviction directly).
    */
-  async getSigners(contractId: string): Promise<IndexedSigner[]> {
-    const signers = await this.mercuryExecute<IndexedSigner[]>(
-      "get_signers_by_address",
-      { address: contractId }
-    );
-
-    if (this.rpc) {
-      for (const signer of signers) {
-        if (signer.storage === "Temporary" && !signer.evicted) {
-          try {
-            // Probe by the SignerKey ScVal the contract stores the entry under,
-            // NOT the raw keyId bytes (audit H2). A genuine not-found means
-            // evicted; a transport error is left as reported.
-            const exists = await contractDataExists(
-              this.rpc,
-              contractId,
-              signerKeyToContractScVal(indexedSignerToKey(signer)),
-              Durability.Temporary
-            );
-            if (!exists) signer.evicted = true;
-          } catch {
-            // Transport error (429/5xx/timeout): eviction undeterminable.
-          }
-        }
-      }
-    }
-
-    return signers;
+  getSigners(contractId: string): Promise<WalletSigner[]> {
+    return this.requireMercury().getSigners(contractId);
   }
 
   /**
    * Reverse lookup: find the wallet(s) a signer belongs to via Mercury.
    *
-   * @returns the address at `index`, or `undefined` if there are none.
+   * @returns the confirmed address at `index`, or `undefined` if there are none.
    */
   async getContractId(
     options: { keyId?: string; publicKey?: string; policy?: string },
@@ -333,16 +238,12 @@ export class PasskeyServer {
       );
     }
 
-    let args: { key: string; kind: "Secp256r1" | "Ed25519" | "Policy" };
-    if (options.keyId) args = { key: options.keyId, kind: "Secp256r1" };
-    else if (options.publicKey) args = { key: options.publicKey, kind: "Ed25519" };
-    else args = { key: options.policy!, kind: "Policy" };
+    let key: SignerKey;
+    if (options.keyId) key = SignerKey.Secp256r1(options.keyId);
+    else if (options.publicKey) key = SignerKey.Ed25519(options.publicKey);
+    else key = SignerKey.Policy(options.policy!);
 
-    const addresses = await this.mercuryExecute<string[]>(
-      "get_addresses_by_signer",
-      args
-    );
-
-    return addresses[index];
+    const wallets = await this.requireMercury().findWallets(key);
+    return wallets[index];
   }
 }

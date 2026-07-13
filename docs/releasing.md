@@ -14,7 +14,7 @@ The versions checked into each `package.json` are authoritative; `npm view` is t
 |---|---|
 | `passkey-kit-sdk` | `0.7.3` |
 | `sac-sdk` | `0.4.3` |
-| `passkey-kit` | `0.13.0` (v1 release — see [CHANGELOG](../CHANGELOG.md)) |
+| `passkey-kit` | `0.13.1` (v1 release + live Mercury discovery — see [CHANGELOG](../CHANGELOG.md)) |
 
 > [!IMPORTANT]
 > Publishing is an **outward-facing, user-gated** step. Bump the versions intentionally, and have the person with npm access run the publish commands (they hold the credentials and the OTP device).
@@ -113,6 +113,6 @@ Use a **fresh** OTP for each publish (codes expire in ~30s). npm package version
 Publishing the npm packages does **not** deploy contracts, the indexer, or the workers. Those are separate, gated steps:
 
 - **Contract WASM** (smart-wallet upload, sample-policy deploy) and the canonical hashes: [`deployments-testnet-2026-07-11.md`](./deployments-testnet-2026-07-11.md). Every user wallet deploys its own instance via the SDK; the smart-wallet WASM is uploaded, never run as a singleton.
-- **Mercury (Zephyr) indexer** deploy/query tooling status (self-serve Zephyr retired; pending a hosting decision): [`zephyr/README.md`](../zephyr/README.md).
+- **Mercury passkey-indexer** — hosted and **keyless**; nothing to deploy. The SDK's `MercuryIndexer` queries `https://{testnet,mainnet}.mercurydata.app/rest/passkey-indexer` (both networks, full history). Mercury ingests the canonical v1 WASM hash from the [deployments manifest](./deployments-testnet-2026-07-11.md).
 - **Relayer-proxy worker** (Cloudflare): [`relayer-proxy/README.md`](../relayer-proxy/README.md) (`pnpm deploy` / `pnpm deploy:production`).
 - **Demo** (Cloudflare Pages): root `wrangler.toml`, `pnpm run deploy:demo` / `deploy:demo:prod`.

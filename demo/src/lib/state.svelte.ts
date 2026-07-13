@@ -6,9 +6,8 @@
  * singletons in `config.ts`.
  */
 
-import type { StoredPasskey } from "passkey-kit";
+import type { StoredPasskey, WalletSigner } from "passkey-kit";
 import type { LocalSigner } from "./signers";
-import type { DiscoveredSigner, IndexerBackend } from "./indexer-proxy";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected";
 export type LogLevel = "info" | "success" | "error";
@@ -42,8 +41,7 @@ export interface AppState {
   /** Selected token for transfers/balance. */
   selectedToken: string;
   /** Discovery results from the last indexer query. */
-  discovered: DiscoveredSigner[];
-  discoverBackend: IndexerBackend;
+  discovered: WalletSigner[];
   /** Runtime-generated ephemeral Ed25519 keypair (demo only; never persisted). */
   ed25519Secret?: string;
   ed25519Public?: string;
@@ -60,7 +58,6 @@ export const app = $state<AppState>({
   balances: {},
   selectedToken: "",
   discovered: [],
-  discoverBackend: "mercury",
   busy: null,
   log: [],
 });

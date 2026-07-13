@@ -1,9 +1,9 @@
 # passkey-kit v1 contract build + testnet deployment — 2026-07-11
 
 This manifest is THE canonical hash source for the passkey-kit v1 contract
-set. The Makefile, SDK configuration, `verify:bindings` drift guard, and the
-zephyr (Mercury) ingestion allowlist must all consume the hashes recorded
-here — never a locally rebuilt hash.
+set. The Makefile, SDK configuration, `verify:bindings` drift guard, and
+Mercury's hosted passkey-indexer ingestion allowlist must all consume the
+hashes recorded here — never a locally rebuilt hash.
 
 > **Status: post-audit-gate (FINAL for testnet).** These are the reworked v1
 > contracts AFTER the independent 3-way audit (Fable + gpt-5.6-sol + terra)

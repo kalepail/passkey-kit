@@ -1,8 +1,0 @@
-# Modern stable toolchain that builds the current (P27) zephyr-sdk graph. The
-# old pin (stable-2024-09-05 / rustc 1.81) predates stellar-xdr 27, which
-# rs-zephyr-common now pulls in. `wasm32-unknown-unknown` is the Zephyr VM
-# target (built with the +multivalue / stack-size flags in .cargo/config.toml).
-[toolchain]
-channel = "1.93.0"
-targets = ["wasm32-unknown-unknown"]
-components = ["rustc", "cargo", "rustfmt", "clippy", "rust-src"]

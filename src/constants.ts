@@ -120,6 +120,18 @@ export const CHANNELS_TESTNET_URL = "https://channels.openzeppelin.com/testnet";
 /** Default indexer request timeout, in milliseconds. */
 export const DEFAULT_INDEXER_TIMEOUT_MS = 10_000;
 
+/**
+ * Mercury's hosted, keyless passkey-indexer base URLs, per network. Public REST
+ * (no API key / JWT); covers both the legacy `("sw_v1", …)` and v1
+ * `#[contractevent]` signer generations with full history.
+ *
+ * @see https://docs.mercurydata.app/smart-wallet-indexers/introduction-1
+ */
+export const MERCURY_PASSKEY_INDEXER_URLS = {
+  testnet: "https://testnet.mercurydata.app/rest/passkey-indexer",
+  mainnet: "https://mainnet.mercurydata.app/rest/passkey-indexer",
+} as const;
+
 // ============================================================================
 // Networks
 // ============================================================================

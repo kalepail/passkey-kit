@@ -3,46 +3,28 @@
   import { app } from "../state.svelte";
   import { discover, reverseLookup } from "../actions";
   import { shortId } from "../format";
-  import { INDEXER_BACKENDS, type IndexerBackend } from "../indexer-proxy";
 
   const busy = $derived(Boolean(app.busy));
-
-  function setBackend(b: IndexerBackend) {
-    app.discoverBackend = b;
-  }
 </script>
 
 <section class="panel col" data-testid="discovery-panel">
   <h2>Signer discovery</h2>
 
-  {#if !indexer.configured}
+  {#if !indexer}
     <div class="pending" data-testid="discovery-pending">
-      Indexer proxy not configured — set <code>VITE_indexerProxyUrl</code> to query Mercury / Stellar
-      Indexer. (Both backends are verified live in the F2 e2e.)
+      No hosted passkey-indexer for this network (Mercury covers testnet + mainnet).
     </div>
+  {:else}
+    <p class="hint">
+      Via Mercury's hosted passkey-indexer — keyless, queried directly from the browser.
+    </p>
   {/if}
 
-  <div>
-    <span class="label">Backend</span>
-    <div class="row" style="margin-top:4px">
-      <div class="seg" data-testid="backend-toggle">
-        {#each INDEXER_BACKENDS as b}
-          <button
-            type="button"
-            class:active={app.discoverBackend === b.id}
-            data-testid={`backend-${b.id}`}
-            onclick={() => setBackend(b.id)}>{b.label}</button
-          >
-        {/each}
-      </div>
-    </div>
-  </div>
-
   <div class="row">
-    <button disabled={busy} data-testid="discover" onclick={() => discover(app.discoverBackend)}>
+    <button disabled={busy || !indexer} data-testid="discover" onclick={() => discover()}>
       Discover signers
     </button>
-    <button class="ghost" disabled={busy} data-testid="reverse-lookup" onclick={() => reverseLookup(app.discoverBackend)}>
+    <button class="ghost" disabled={busy || !indexer} data-testid="reverse-lookup" onclick={() => reverseLookup()}>
       Reverse lookup keyId
     </button>
   </div>
@@ -52,7 +34,7 @@
       {#each app.discovered as row}
         <li class="signer">
           <div class="row spread">
-            <span class="badge">{row.key.kind}</span>
+            <span class="badge">{row.key.key}</span>
             <span
               class="badge"
               class:good={row.status === "live"}

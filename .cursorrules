@@ -14,7 +14,6 @@ when they and the code disagree, the code wins; fix the rule.
 - `contracts/` — Rust Soroban contracts (`soroban-sdk 27`, `wasm32v1-none`):
   `smart-wallet`, `smart-wallet-interface` (the single source of spec types),
   `sample-policy`, `example-contract`.
-- `zephyr/` — Mercury (Zephyr) indexer program.
 - `relayer-proxy/` — Cloudflare Worker for keyless, fee-sponsored submission.
 - `demo/` — Svelte 5 + Vite demo (isolated: `pnpm --ignore-workspace install`).
 

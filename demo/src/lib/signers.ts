@@ -2,8 +2,8 @@
  * Local signer model + `SignerLimits` construction.
  *
  * The demo keeps its own optimistic registry of the signers it has added, so the
- * core flows work before the indexer proxy is live; the Discovery panel then
- * cross-checks the registry against a real backend. A signer's `limits` are what
+ * core flows work without a round-trip; the Discovery panel then cross-checks the
+ * registry against Mercury's hosted indexer. A signer's `limits` are what
  * define "admin" vs "session": an UNLIMITED signer (`SignerLimits` = None) can
  * authorize anything (admin); a restricted or empty map is a scoped session key.
  */

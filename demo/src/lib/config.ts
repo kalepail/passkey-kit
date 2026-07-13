@@ -1,20 +1,20 @@
 /**
  * Public demo configuration + shared singletons.
  *
- * Everything constructed here is browser-safe. Submission and indexer discovery
- * go through server-side proxy workers (URLs below) so no relayer key or indexer
- * JWT is ever bundled. The old demo inlined the relayer API key + Mercury JWT and
- * a hard-coded Stellar secret seed into the client — all purged.
+ * Everything constructed here is browser-safe. Submission goes through a
+ * server-side relayer-proxy worker (so no relayer key is bundled); signer
+ * discovery hits Mercury's hosted passkey-indexer directly (keyless — no proxy,
+ * no token). The old demo inlined the relayer API key + Mercury JWT and a
+ * hard-coded Stellar secret seed into the client — all purged.
  */
 
 import { Buffer } from "buffer";
 import { Account, Keypair, StrKey } from "@stellar/stellar-sdk";
 import { Server } from "@stellar/stellar-sdk/rpc";
 import { basicNodeSigner } from "@stellar/stellar-sdk/contract";
-import { PasskeyKit, SACClient } from "passkey-kit";
+import { MercuryIndexer, PasskeyKit, SACClient } from "passkey-kit";
 import { LocalStorageAdapter } from "passkey-kit/storage";
 import { RelayerProxyClient } from "./relayer-proxy";
-import { IndexerProxyClient } from "./indexer-proxy";
 
 const env = import.meta.env;
 
@@ -53,7 +53,6 @@ export const config = {
   nativeContractId: env.VITE_nativeContractId,
   samplePolicyId: env.VITE_samplePolicyId?.trim() || undefined,
   relayerProxyUrl: env.VITE_relayerProxyUrl?.trim() || undefined,
-  indexerProxyUrl: env.VITE_indexerProxyUrl?.trim() || undefined,
   tokens: parseTokens(),
 };
 
@@ -91,8 +90,16 @@ export const sac = new SACClient({
 /** Server-side submission (fee-sponsored, keyless — worker mints the key). */
 export const relayer = new RelayerProxyClient(config.relayerProxyUrl);
 
-/** Server-side signer discovery (Mercury + Stellar Indexer behind the proxy). */
-export const indexer = new IndexerProxyClient(config.indexerProxyUrl);
+/**
+ * Signer discovery via Mercury's hosted passkey-indexer — **keyless**, called
+ * directly from the browser (no proxy). `forNetwork` returns `null` off
+ * testnet/mainnet (no hosted endpoint). Passing `rpc` lets it flag evicted
+ * temporary signers and confirm reverse-lookup candidates on-chain.
+ */
+export const indexer = MercuryIndexer.forNetwork(
+  { rpc },
+  config.networkPassphrase,
+);
 
 /**
  * An ephemeral testnet FUNDING source — a deterministic per-hour keypair kept
