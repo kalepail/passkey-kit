@@ -32,10 +32,11 @@ This repo is a **pnpm workspace** (`packages/**`); use `pnpm` for Node tasks.
 
 ## Hard rules
 
-- **Never commit secrets.** `.env` values (relayer keys, Mercury/Stellar Indexer
-  JWTs) are read via shell substitution only — never printed, hard-coded, or
-  `VITE_`-prefixed. The browser holds zero secrets: submission goes through
-  `relayer-proxy`, discovery through a server-side indexer/proxy.
+- **Never commit secrets.** The browser holds zero secrets: submission goes
+  through the keyless `relayer-proxy` worker (mints one OZ Relayer key per IP);
+  signer discovery hits Mercury's keyless hosted passkey-indexer **directly** (no
+  token, no proxy). Never hard-code or `VITE_`-prefix a secret; read any server
+  secret via shell substitution only.
 - **Never hand-edit generated bindings** in `packages/*/src`. Fix the contract,
   rebuild, re-pin the canonical WASM hash in `docs/deployments-*.md`, regenerate.
 - **The deterministic derivation tuple is load-bearing** (`salt = sha256(keyId)`,

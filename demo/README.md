@@ -48,11 +48,11 @@ is missing.
 ## Architecture
 
 - `src/lib/config.ts` — public config + singletons (`PasskeyKit`, `SACClient`,
-  storage adapter, relayer/indexer proxy clients).
+  storage adapter, relayer-proxy client, keyless `MercuryIndexer`).
 - `src/lib/actions.ts` — every flow that touches the SDK (thin components call in).
 - `src/lib/state.svelte.ts` — the reactive store (Svelte 5 runes).
-- `src/lib/{relayer-proxy,indexer-proxy,submit}.ts` — the browser↔worker seams.
+- `src/lib/{relayer-proxy,submit}.ts` — the browser↔relayer-worker seam.
 - `src/lib/components/` — one panel per concern.
 
-Live end-to-end verification (real `C…` ids, tx hashes, both indexer backends)
-runs through the e2e harness in the repo `scripts/` (todo 956).
+Live end-to-end verification (real `C…` ids, tx hashes, keyless Mercury discovery)
+runs through the e2e harness in the repo `scripts/`.

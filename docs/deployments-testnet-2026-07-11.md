@@ -84,7 +84,7 @@ be recorded in a follow-up manifest after the audit gate passes.
 ## Deterministic wallet address derivation (NORMATIVE)
 
 Every passkey-kit wallet address is derived from the WebAuthn credential id
-(`keyId`) alone — both indexer backends and `connectWallet` reverse lookup
+(`keyId`) alone — the Mercury indexer and `connectWallet` reverse lookup
 depend on this exact tuple. **None of these inputs may ever change:**
 
 ```text

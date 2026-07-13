@@ -3,7 +3,7 @@
 A TypeScript SDK for creating and using **smart-wallet accounts on Stellar with WebAuthn passkeys**. A wallet is a Soroban smart contract whose signers can be secp256r1 passkeys, Ed25519 keys, or policy contracts. The kit handles the WebAuthn ceremonies, deterministic wallet-address derivation, the flat multi-signer signing pipeline, fee-sponsored submission, and signer discovery.
 
 - **Client (`PasskeyKit`)** — runs in the browser: create/connect wallets, sign transactions, build signer-management transactions. Holds no secrets.
-- **Server (`PasskeyServer`)** — runs server-side: submits transactions through a relayer (fee sponsorship) and looks up signers through an indexer. Holds the relayer/indexer secrets.
+- **Server (`PasskeyServer`)** — runs server-side: submits transactions through a relayer (fee sponsorship), plus convenience signer-discovery helpers over the keyless Mercury indexer. Holds the relayer secret.
 
 > [!IMPORTANT]
 > **Security.** The v1 smart-wallet contract underwent an internal multi-reviewer adversarial review and remediation (see the [CHANGELOG](./CHANGELOG.md)), but it has **not** been reviewed by a third-party security firm. Review it yourself before holding meaningful value, and read [Caveats & footguns](#caveats--footguns).
@@ -56,7 +56,7 @@ The package ships **compiled ESM + type declarations** from `dist/` (not raw Typ
 import { PasskeyKit, PasskeySigner, Ed25519Signer, SACClient, SignerKey, SignerStore } from "passkey-kit";
 import { IndexedDBStorage } from "passkey-kit/storage";
 
-// Server ONLY (never import from browser code — it carries the relayer/indexer secrets)
+// Server ONLY (never import from browser code — it carries the relayer secret)
 import { PasskeyServer } from "passkey-kit/server";
 ```
 
@@ -263,7 +263,7 @@ await server.send(rm);
 
 ## `PasskeyServer` (server)
 
-Server-only facade (`passkey-kit/server`). Holds the relayer/indexer secrets — never import it from browser code.
+Server-only facade (`passkey-kit/server`). Holds the relayer secret — never import it from browser code.
 
 ### Configuration
 

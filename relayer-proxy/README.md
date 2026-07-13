@@ -6,7 +6,7 @@ secrets in the bundle**. It mints and caches one Relayer API key per client IP,
 so `PasskeyKit`/`PasskeyServer` never ship a relayer key to the client.
 
 This replaces passkey-kit's old defect of inlining `VITE_relayerApiKey` into the
-demo's client JS (audit #597/#598).
+demo's client JS.
 
 ## How it works
 
