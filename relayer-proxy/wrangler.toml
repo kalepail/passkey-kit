@@ -49,41 +49,6 @@ RATE_LIMIT_GLOBAL = "100"
 TESTNET_RETRY_BASE_DELAY_MS = "500"
 TESTNET_RETRY_MAX_DELAY_MS = "5000"
 
-# ============================================================================
-# Production environment (mainnet). Deploy: wrangler deploy --env production
-# ============================================================================
-[env.production]
-name = "passkey-kit-relayer-proxy-mainnet"
-
-[env.production.vars]
-NETWORK = "mainnet"
-RELAYER_BASE_URL = "https://channels.openzeppelin.com"
-STELLAR_RPC_URL = ""
-# Mainnet is fail-closed until operators explicitly populate these allowlists.
-ALLOWED_ORIGINS = ""
-ALLOWED_WALLET_CONTRACT_IDS = ""
-ALLOWED_WALLET_WASM_HASHES = ""
-ALLOWED_WALLET_FUNCTIONS = "add_signer,update_signer,remove_signer,upgrade"
-ALLOWED_DEPLOYER_ADDRESSES = ""
-MAX_RESOURCE_FEE_STROOPS = "1000000"
-RATE_LIMIT_WINDOW_SECONDS = "60"
-RATE_LIMIT_PER_IP = "10"
-RATE_LIMIT_GLOBAL = "100"
-TESTNET_RETRY_BASE_DELAY_MS = "500"
-TESTNET_RETRY_MAX_DELAY_MS = "5000"
-
-[[env.production.durable_objects.bindings]]
-name = "API_KEY_DO"
-class_name = "ApiKeyStore"
-
-[[env.production.durable_objects.bindings]]
-name = "RATE_LIMIT_DO"
-class_name = "RequestRateLimiter"
-
-[[env.production.migrations]]
-tag = "v1"
-new_sqlite_classes = ["ApiKeyStore"]
-
-[[env.production.migrations]]
-tag = "v2"
-new_sqlite_classes = ["RequestRateLimiter"]
+# Testnet-only by policy: no mainnet relayer proxy. (A previous `[env.production]`
+# / mainnet worker was intentionally removed — passkey-kit fee-sponsorship runs
+# on testnet only, through OpenZeppelin Channels.)
