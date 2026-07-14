@@ -154,7 +154,7 @@ fn truncated_authenticator_data() {
     );
 }
 
-/// A registration ceremony response replayed as an assertion must fail.
+/// A registration ceremony response submitted as an assertion must fail.
 #[test]
 fn wrong_webauthn_type() {
     let s = setup();
@@ -217,6 +217,43 @@ fn max_size_client_data_json() {
         &s.payload,
         WebAuthnOptions {
             json_pad_to: 1024,
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(check(&s, signature), Ok(()));
+}
+
+/// authenticatorData larger than the 1024-byte cap: typed error, rejected
+/// BEFORE hashing (this path is reachable without a valid signature, so it
+/// must not spend budget hashing oversized input).
+#[test]
+fn oversized_authenticator_data() {
+    let s = setup();
+    let signature = s.passkey.sign_with(
+        &s.env,
+        &s.payload,
+        WebAuthnOptions {
+            authenticator_data_pad_to: 1025,
+            ..Default::default()
+        },
+    );
+
+    assert_eq!(
+        check(&s, signature),
+        Err(Ok(Error::AuthenticatorDataTooLarge))
+    );
+}
+
+/// Exactly 1024 bytes of authenticatorData still verifies (boundary).
+#[test]
+fn max_size_authenticator_data() {
+    let s = setup();
+    let signature = s.passkey.sign_with(
+        &s.env,
+        &s.payload,
+        WebAuthnOptions {
+            authenticator_data_pad_to: 1024,
             ..Default::default()
         },
     );

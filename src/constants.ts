@@ -31,6 +31,16 @@ export const SECP256R1_CURVE_ORDER = BigInt(
   "0xffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551"
 );
 
+/** Field prime (p) of the secp256r1 (P-256) curve. */
+export const SECP256R1_FIELD_PRIME = BigInt(
+  "0xffffffff00000001000000000000000000000000ffffffffffffffffffffffff"
+);
+
+/** Curve coefficient `b` of secp256r1 (P-256): y² = x³ − 3x + b (mod p). */
+export const SECP256R1_B = BigInt(
+  "0x5ac635d8aa3a93e7b3ebbd55769886bc651d06b0cc53b0f63bce3c3e27d2604b"
+);
+
 // ============================================================================
 // WebAuthn configuration
 // ============================================================================

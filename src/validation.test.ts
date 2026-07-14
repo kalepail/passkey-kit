@@ -46,16 +46,23 @@ describe("validateAmount", () => {
 });
 
 describe("validateExpiration", () => {
-  it("accepts undefined and valid u32 values", () => {
+  it("accepts undefined and u64-range UNIX-second values", () => {
     expect(() => validateExpiration(undefined)).not.toThrow();
     expect(() => validateExpiration(0)).not.toThrow();
     expect(() => validateExpiration(0xffffffff)).not.toThrow();
+    // The contract types expiration as u64 UNIX seconds: post-2106
+    // timestamps beyond u32 are valid.
+    expect(() => validateExpiration(0x100000000)).not.toThrow();
+    expect(() => validateExpiration(Number.MAX_SAFE_INTEGER)).not.toThrow();
   });
 
-  it("rejects negatives, non-integers, and out-of-range values", () => {
+  it("rejects negatives, non-integers, and beyond-safe-integer values", () => {
     expect(() => validateExpiration(-1)).toThrow(ValidationError);
     expect(() => validateExpiration(1.5)).toThrow(ValidationError);
-    expect(() => validateExpiration(0x100000000)).toThrow(ValidationError);
+    expect(() => validateExpiration(Number.MAX_SAFE_INTEGER + 2)).toThrow(
+      ValidationError
+    );
+    expect(() => validateExpiration(Number.NaN)).toThrow(ValidationError);
   });
 });
 

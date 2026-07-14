@@ -20,6 +20,36 @@ pub enum Error {
     SignerAlreadyExists = 101,
     /// The signer's expiration timestamp is in the past.
     SignerExpired = 102,
+    /// The operation would remove — or demote via `update_signer` — the
+    /// wallet's LAST durable admin signer: a signer stored `Persistent`,
+    /// non-expiring (`SignerExpiration(None)`), and independently
+    /// admin-capable — either unlimited (`SignerLimits(None)`) or holding a
+    /// limits entry for the wallet's own address with no required co-signers
+    /// (`None` or an empty list). With zero such signers no `add_signer` or
+    /// `upgrade` could ever be authorized again, permanently locking the
+    /// wallet on an immutable network, so the transition is rejected.
+    /// To retire the last admin signer, add (or promote) a replacement
+    /// durable admin signer first.
+    ///
+    /// Case this guard CANNOT catch (statically undecidable): a POLICY
+    /// signer with an admin-shaped grant counts as an admin even if its
+    /// `policy__` rejects every request. If such a policy is your only
+    /// remaining admin, the wallet's admin surface is unrecoverable even
+    /// though the signer still exists. Keep a non-policy admin (or a second
+    /// admin) at all times.
+    LastAdminSigner = 103,
+    /// The operation would leave the wallet without any DURABLE signer — one
+    /// stored `Persistent` with `SignerExpiration(None)`, any limits. Fired
+    /// by `remove_signer` (removing the last durable signer), `update_signer`
+    /// (demoting it to `Temporary` storage or to an expiring value), and
+    /// `__constructor` (the wallet's first signer must be durable).
+    /// Non-durable signers can evict or expire with NO contract
+    /// call, so only a durable signer guarantees the wallet always keeps at
+    /// least one live signer; with zero live signers nothing — not even
+    /// `add_signer` — can ever be authorized again. This is the
+    /// classification-independent backstop beneath `LastAdminSigner`. To
+    /// retire the last durable signer, add a durable replacement first.
+    LastSigner = 104,
 
     /// No signer in the signatures map is permitted to authorize one of the
     /// requested auth contexts.
@@ -43,7 +73,7 @@ pub enum Error {
     InvalidAuthenticatorData = 124,
     /// The authenticator did not set the User Present (UP) flag.
     ///
-    /// UP-only is the deliberate default (audit FIX-7). Requiring UP keeps
+    /// UP-only is the deliberate default. Requiring UP keeps
     /// silent, non-interactive assertions out while staying compatible with
     /// authenticators that cannot do User Verification (UV — biometric/PIN).
     /// UV is therefore NOT required by this contract. A deployment that wants
@@ -52,6 +82,11 @@ pub enum Error {
     /// not a change to this check); the contract cannot upgrade UP-only
     /// signers to UV-required retroactively without such a flag.
     UserPresenceRequired = 125,
+    /// authenticatorData exceeds the 1024 byte cap (symmetric with
+    /// `ClientDataJsonTooLarge`). Real assertions are ~37 bytes; the cap
+    /// rejects oversized input BEFORE it is hashed, since this path is
+    /// reachable without a valid signature.
+    AuthenticatorDataTooLarge = 126,
 }
 
 /// Optional expiration for a signer as a UNIX timestamp in seconds, INCLUSIVE:
@@ -80,7 +115,7 @@ pub struct SignerExpiration(pub Option<u64>);
 ///   of contract `address` only if every listed key also APPROVES. The listed
 ///   keys are required CO-SIGNERS.
 ///
-/// ## Required co-signers are scope-independent approvers (audit FIX-5)
+/// ## Required co-signers are scope-independent approvers
 ///
 /// A required co-signer's OWN `SignerLimits` do NOT constrain its co-signer
 /// role — a key's limits govern only its INDEPENDENT authority (whether it can
@@ -106,7 +141,9 @@ pub struct SignerExpiration(pub Option<u64>);
 ///   for the wallet's own address doubled as deploy permission.)
 /// - A limited signer may ALWAYS authorize `remove_signer(its own key)` on
 ///   this wallet, regardless of its limits map, and without co-signer
-///   requirements. Self-removal is never escalation.
+///   requirements. Self-removal is never escalation. (Execution still
+///   rejects removing the wallet's last durable admin signer — see
+///   `Error::LastAdminSigner`.)
 /// - Granting a limits entry for the wallet's own address grants the wallet's
 ///   admin surface (`add_signer`, `update_signer`, `remove_signer`,
 ///   `upgrade`). A signer that can add signers can add an unlimited signer,

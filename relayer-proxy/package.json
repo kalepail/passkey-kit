@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@openzeppelin/relayer-plugin-channels": "^0.20.0",
+    "@stellar/stellar-sdk": "^16.0.1",
     "hono": "^4.12.11"
   },
   "devDependencies": {

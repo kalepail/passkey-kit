@@ -82,6 +82,24 @@ describe("RelayerClient.send", () => {
     }
   });
 
+  it('never reports "unsuccessful" as success (substring must not match the allowlist)', async () => {
+    const relayer = withChannels({
+      submitSorobanTransaction: vi.fn(async () => ({
+        transactionId: "tx-u",
+        hash: "hu",
+        status: "unsuccessful",
+      })),
+    });
+
+    const result = await relayer.send("FUNC", []);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toBeInstanceOf(RelayerError);
+      // Not in the failure denylist either, so it surfaces as non-terminal.
+      expect(result.error.code).toBe(PasskeyKitErrorCode.RELAYER_PENDING);
+    }
+  });
+
   it("never throws on a PluginClientError — maps it to a RelayerError", async () => {
     const relayer = withChannels({
       submitSorobanTransaction: vi.fn(async () => {

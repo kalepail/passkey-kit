@@ -18,6 +18,7 @@ ed25519-dalek = { version = "2.2" }
 p256 = { version = "0.13", features = ["ecdsa"] }
 sha2 = "0.10"
 base64 = "0.22"
+proptest = "1"
 stellar-strkey = { version = "0.0.13" }
 smart-wallet = { path = "smart-wallet" }
 smart-wallet-interface = { path = "smart-wallet-interface" }

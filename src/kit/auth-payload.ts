@@ -70,6 +70,35 @@ export function usesAddressBoundPayload(
 }
 
 /**
+ * Coerce a credentials union to an address-bound variant (CAP-0071-02).
+ *
+ * Legacy V1 `sorobanCredentialsAddress` credentials are upgraded to
+ * `sorobanCredentialsAddressV2` IN PLACE of the signed payload's semantics: the
+ * V2 preimage (`HashIdPreimageSorobanAuthorizationWithAddress`) binds the
+ * authorizing address into the hash the signer signs, so the same signer key on
+ * two different wallets can never produce interchangeable signatures. V1's
+ * preimage has no address field — signing it verbatim would produce a payload
+ * that is identical across wallets for a signer key installed on more than
+ * one wallet.
+ *
+ * Already-address-bound variants (V2, with-delegates) pass through unchanged.
+ *
+ * @throws {SigningError} If the credentials are not address-based.
+ */
+export function toAddressBoundCredentials(
+  credentials: xdr.SorobanCredentials
+): xdr.SorobanCredentials {
+  if (credentials.switch().name === "sorobanCredentialsAddress") {
+    return xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+      credentials.address()
+    );
+  }
+  // Anything else must already be address-bound (or is rejected here).
+  getAddressCredentials(credentials);
+  return credentials;
+}
+
+/**
  * Assert that a signature-expiration ledger is a valid `u32`.
  *
  * @throws {SigningError} If not a `u32` integer.

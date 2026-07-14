@@ -224,4 +224,5 @@ See the [CHANGELOG](../CHANGELOG.md#contract-smart-wallet-soroban-sdk-27) for th
 | Signer/signature expiration unit | ledger sequence | UNIX timestamp (seconds) |
 | WebAuthn challenge | fixed string | random 32 bytes |
 | `Signatures` map order | `localeCompare` | Soroban host ScVal order |
-| Address auth credentials | V1 | V2 (binds the wallet address; closes cross-wallet replay) |
+| Address auth credentials | V1 | V2 (CAP-0071-02; the wallet address is part of the signed payload). The kit refuses to sign non-address-bound entries. |
+| `updateSecp256r1` | `updateSecp256r1(keyId, publicKey, …)` | `updateSecp256r1(keyId, …)` — the public key is re-read from the ledger, never caller-supplied |

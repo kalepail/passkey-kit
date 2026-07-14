@@ -1,10 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { Keypair } from "@stellar/stellar-sdk";
 import type { Spec as ContractSpec } from "@stellar/stellar-sdk/contract";
-import { Client as PasskeyClient } from "passkey-kit-sdk";
+import { Client as PasskeyClient, type SignerVal } from "passkey-kit-sdk";
 import { SignerManager, type SignerManagerDeps } from "./signer-manager.js";
 import { SignerKey, SignerStore } from "../types.js";
-import { WalletNotConnectedError } from "../errors.js";
+import { SignerNotFoundError, WalletNotConnectedError } from "../errors.js";
+import { SIGNER_VAL_UDT } from "../kit/auth-payload.js";
 import base64url from "../base64url.js";
 
 const TESTNET = "Test SDF Network ; September 2015";
@@ -95,6 +96,90 @@ describe("SignerManager signer writes", () => {
     expect(() =>
       manager.addPolicy(CONTRACT, undefined, SignerStore.Persistent)
     ).toThrow(WalletNotConnectedError);
+  });
+});
+
+describe("SignerManager.updateSecp256r1", () => {
+  const ONCHAIN_PUBKEY = Buffer.concat([
+    Buffer.from([0x04]),
+    Buffer.alloc(64, 0xc1),
+  ]);
+
+  /** A ledger entry holding the encoded on-chain SignerVal for the passkey. */
+  function onchainSignerEntry() {
+    const signerVal: SignerVal = {
+      tag: "Secp256r1",
+      values: [ONCHAIN_PUBKEY, [undefined], [undefined]],
+    };
+    const scVal = realSpec().nativeToScVal(signerVal, SIGNER_VAL_UDT);
+    return { val: { contractData: () => ({ val: () => scVal }) } };
+  }
+
+  it("writes the publicKey read from the ledger — no caller/indexer key material", async () => {
+    const rpc = {
+      getLedgerEntries: vi.fn(async () => ({ entries: [onchainSignerEntry()] })),
+    };
+    const { deps, wallet } = makeDeps({ rpc: rpc as never });
+    const manager = new SignerManager(deps);
+    const keyId = base64url.encode(Buffer.alloc(16, 2));
+
+    await manager.updateSecp256r1(keyId, undefined, SignerStore.Persistent, 999);
+
+    expect(rpc.getLedgerEntries).toHaveBeenCalled(); // chain read happened
+    const [{ signer }] = wallet.update_signer.mock.calls[0]!;
+    expect(signer.tag).toBe("Secp256r1");
+    expect(Buffer.from(signer.values[0])).toEqual(base64url.toBuffer(keyId));
+    // The written key is exactly the on-chain one.
+    expect(Buffer.from(signer.values[1])).toEqual(ONCHAIN_PUBKEY);
+    expect(signer.values[2]).toEqual([999n]);
+  });
+
+  it("accepts a raw Uint8Array keyId", async () => {
+    const rpc = {
+      getLedgerEntries: vi.fn(async () => ({ entries: [onchainSignerEntry()] })),
+    };
+    const { deps, wallet } = makeDeps({ rpc: rpc as never });
+    const manager = new SignerManager(deps);
+
+    await manager.updateSecp256r1(
+      Buffer.alloc(16, 2),
+      undefined,
+      SignerStore.Persistent
+    );
+    expect(wallet.update_signer).toHaveBeenCalledTimes(1);
+  });
+
+  it("throws SignerNotFoundError when the signer is not on-chain", async () => {
+    const { deps, wallet } = makeDeps(); // default rpc: entries always empty
+    const manager = new SignerManager(deps);
+
+    await expect(
+      manager.updateSecp256r1(
+        base64url.encode(Buffer.alloc(16, 2)),
+        undefined,
+        SignerStore.Persistent
+      )
+    ).rejects.toBeInstanceOf(SignerNotFoundError);
+    expect(wallet.update_signer).not.toHaveBeenCalled();
+  });
+
+  it("propagates a transport error instead of writing anything", async () => {
+    const rpc = {
+      getLedgerEntries: vi.fn(async () => {
+        throw new Error("429 rate limited");
+      }),
+    };
+    const { deps, wallet } = makeDeps({ rpc: rpc as never });
+    const manager = new SignerManager(deps);
+
+    await expect(
+      manager.updateSecp256r1(
+        base64url.encode(Buffer.alloc(16, 2)),
+        undefined,
+        SignerStore.Persistent
+      )
+    ).rejects.toThrow("429");
+    expect(wallet.update_signer).not.toHaveBeenCalled();
   });
 });
 

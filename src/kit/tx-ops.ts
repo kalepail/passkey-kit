@@ -9,6 +9,9 @@
  *   `AssembledTransaction.fromXDR` first.
  * - The `Signatures` map is sorted with the host-order `compareScVal`, not the
  *   old `localeCompare` string approximation.
+ * - Signing is address-bound only: V1 address credentials are upgraded to
+ *   CAP-0071-02 V2 before the payload is hashed (`toAddressBoundCredentials`),
+ *   and there is no V1 signing path.
  *
  * @packageDocumentation
  */
@@ -26,7 +29,9 @@ import {
   getAddressCredentials,
   signatureToScVal,
   signerKeyToScVal,
+  toAddressBoundCredentials,
   upsertSignatureEntry,
+  usesAddressBoundPayload,
 } from "./auth-payload.js";
 import { SigningError, PasskeyKitError, PasskeyKitErrorCode } from "../errors.js";
 
@@ -77,6 +82,19 @@ export async function signAuthEntry(
   ) {
     throw new SigningError(
       "ADDRESS_WITH_DELEGATES auth entries are not supported by passkey signing",
+      PasskeyKitErrorCode.UNSUPPORTED_CREDENTIALS
+    );
+  }
+
+  // Address-bound credentials only (CAP-0071-02): a legacy V1 address entry is
+  // upgraded to V2 before anything is hashed, so the wallet address is bound
+  // into the signed preimage. There is deliberately NO V1 signing path — a V1
+  // payload hash is identical across wallets for an address-free invocation,
+  // so it does not bind the signature to this wallet.
+  entry.credentials(toAddressBoundCredentials(entry.credentials()));
+  if (!usesAddressBoundPayload(entry.credentials())) {
+    throw new SigningError(
+      `Refusing to sign a non-address-bound auth entry: ${entry.credentials().switch().name}`,
       PasskeyKitErrorCode.UNSUPPORTED_CREDENTIALS
     );
   }

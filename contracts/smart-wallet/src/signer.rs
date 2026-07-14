@@ -26,15 +26,16 @@ pub fn process_signer(signer: Signer) -> (SignerKey, SignerVal, SignerStorage) {
 }
 
 /// Store a signer entry. `update: false` requires the key to be new,
-/// `update: true` requires it to exist. Returns the previous storage
-/// durability when updating (for the `SignerUpdated` event's `old_storage`).
+/// `update: true` requires it to exist. Returns the previous entry when
+/// updating (for the `SignerUpdated` event's `old_storage` and the durable
+/// admin accounting).
 pub fn store_signer(
     env: &Env,
     signer_key: &SignerKey,
     signer_val: &SignerVal,
     signer_storage: &SignerStorage,
     update: bool,
-) -> Result<Option<SignerStorage>, Error> {
+) -> Result<Option<(SignerVal, SignerStorage)>, Error> {
     let previous = get_signer_val_storage(env, signer_key, false);
 
     match (&previous, update) {
@@ -77,7 +78,64 @@ pub fn store_signer(
         }
     }
 
-    Ok(previous.map(|(_, storage)| storage))
+    Ok(previous)
+}
+
+/// A DURABLE signer entry: `Persistent` storage AND non-expiring
+/// (`SignerExpiration(None)`), ANY limits. Durable entries can only leave
+/// storage through `remove_signer` or an `update_signer` demotion — both
+/// counter-tracked contract calls — never silently: persistent entries only
+/// archive (restorable), and a `None` expiration never lapses. Temporary
+/// entries EVICT and expiring entries go dead with NO contract call the
+/// counters could observe, so a counter including them drifts above the
+/// live-signer count — which is exactly the drift that lets a "guarded"
+/// removal reach zero live signers. Durability is therefore the widest
+/// predicate any storage-backed counter can soundly track.
+pub fn is_durable(signer_val: &SignerVal, signer_storage: &SignerStorage) -> bool {
+    matches!(signer_storage, SignerStorage::Persistent) && signer_expiration(signer_val).0.is_none()
+}
+
+/// A DURABLE ADMIN signer: one that (a) can never silently disappear and
+/// (b) can authorize the wallet's admin surface (`add_signer`/`upgrade`)
+/// entirely BY ITSELF.
+///
+/// (a) Durability = `is_durable` (Persistent + non-expiring) — see there for
+/// why nothing weaker is soundly countable.
+///
+/// (b) Independent admin capability = either of:
+/// - `SignerLimits(None)` — unlimited; or
+/// - a limits map containing an entry for THIS WALLET's own address with no
+///   required co-signers (`None`, or an EMPTY co-signer list, which
+///   `verify_signer_limit_keys` treats identically). Such an entry grants the
+///   wallet's full admin surface (see the `SignerLimits` docs) with no other
+///   party needed.
+///
+/// NOT admin-capable: a wallet-self entry WITH required co-signers (cannot
+/// authorize `add_signer` alone), and any limits map lacking a wallet-self
+/// entry (self-removal is the only wallet-self context it can ever cover).
+///
+/// Boundary note: a POLICY signer of admin-capable shape counts even though
+/// its `policy__` might reject in pass 2 — capability cannot be evaluated
+/// statically, and a wallet whose sole signer is a rejecting admin-shaped
+/// policy is unrecoverable whichever way the guard decides; counting it keeps
+/// the accounting sound for approving policies.
+pub fn is_durable_admin(env: &Env, signer_val: &SignerVal, signer_storage: &SignerStorage) -> bool {
+    if !is_durable(signer_val, signer_storage) {
+        return false;
+    }
+
+    match &signer_limits(signer_val).0 {
+        None => true,
+        Some(limits) => match limits.get(env.current_contract_address()) {
+            // Wallet-self grant with no required co-signers: full admin
+            // surface, single-handed.
+            Some(None) => true,
+            // An empty required-co-signers list imposes no requirement —
+            // functionally identical to `None`.
+            Some(Some(required_keys)) => required_keys.is_empty(),
+            None => false,
+        },
+    }
 }
 
 /// Look up a signer entry, checking Temporary before Persistent (invariant:

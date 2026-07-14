@@ -1,7 +1,20 @@
 # passkey-kit relayer-proxy local overrides.
 # Copy to .dev.vars only if you want to override the wrangler.toml [vars]
 # defaults during `wrangler dev`. No secrets are required — the worker mints
-# Relayer API keys itself via the keyless /gen endpoint.
+# Relayer API keys itself via the keyless /gen endpoint, but only after a
+# request passes the allowlist, signature, fee, and rate-limit checks.
 
 NETWORK="testnet"
 RELAYER_BASE_URL="https://channels.openzeppelin.com/testnet"
+STELLAR_RPC_URL="https://soroban-testnet.stellar.org"
+ALLOWED_ORIGINS="http://localhost:5173"
+ALLOWED_WALLET_CONTRACT_IDS=""
+ALLOWED_WALLET_WASM_HASHES="fdefad64b96837147e1c333e51f537b696eab925e9f147e63d597c04e3c903f0"
+ALLOWED_WALLET_FUNCTIONS="add_signer,update_signer,remove_signer,upgrade"
+ALLOWED_DEPLOYER_ADDRESSES="GC2C7AWLS2FMFTQAHW3IBUB4ZXVP4E37XNLEF2IK7IVXBB6CMEPCSXFO"
+MAX_RESOURCE_FEE_STROOPS="1000000"
+RATE_LIMIT_WINDOW_SECONDS="60"
+RATE_LIMIT_PER_IP="10"
+RATE_LIMIT_GLOBAL="100"
+TESTNET_RETRY_BASE_DELAY_MS="500"
+TESTNET_RETRY_MAX_DELAY_MS="5000"

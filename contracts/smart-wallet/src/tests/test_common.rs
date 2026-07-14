@@ -15,10 +15,10 @@ use soroban_sdk::{
     auth::{Context, ContractContext},
     testutils::EnvTestConfig,
     xdr::{
-        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits,
+        HashIdPreimage, HashIdPreimageSorobanAuthorization, InvokeContractArgs, Limits, ScVal,
         SorobanAuthorizedFunction, SorobanAuthorizedInvocation, ToXdr, VecM, WriteXdr,
     },
-    Address, Bytes, BytesN, Env, IntoVal, Symbol, Val, Vec,
+    Address, Bytes, BytesN, Env, IntoVal, Symbol, TryFromVal, Val, Vec,
 };
 
 use crate::{Contract, ContractClient};
@@ -98,6 +98,9 @@ pub struct WebAuthnOptions {
     pub json_type: &'static str,
     pub flags: u8,
     pub truncate_authenticator_data: bool,
+    /// Pad authenticatorData with trailing zero bytes (extensions-shaped) to
+    /// this total length; the signature is computed over the padded data.
+    pub authenticator_data_pad_to: usize,
     pub challenge_override: Option<std::string::String>,
     pub json_pad_to: usize,
     pub malformed_json: bool,
@@ -110,6 +113,7 @@ impl Default for WebAuthnOptions {
             // UP (0x01) + UV (0x04): what a real platform authenticator sets.
             flags: 0x05,
             truncate_authenticator_data: false,
+            authenticator_data_pad_to: 0,
             challenge_override: None,
             json_pad_to: 0,
             malformed_json: false,
@@ -205,6 +209,10 @@ impl Passkey {
 
         if options.truncate_authenticator_data {
             authenticator_data.truncate(36);
+        }
+
+        while authenticator_data.len() < options.authenticator_data_pad_to {
+            authenticator_data.push(0);
         }
 
         // The signed message per WebAuthn:
@@ -303,6 +311,26 @@ pub fn transfer_invocation(
             ]
             .try_into()
             .unwrap(),
+        }),
+        sub_invocations: VecM::default(),
+    }
+}
+
+/// Build the wallet-self `remove_signer(key)` `SorobanAuthorizedInvocation`
+/// for full-stack (address-credential) tests.
+pub fn remove_signer_invocation(
+    env: &Env,
+    wallet: &Address,
+    key: &SignerKey,
+) -> SorobanAuthorizedInvocation {
+    let key_val: Val = key.into_val(env);
+    let key_scval = ScVal::try_from_val(env, &key_val).unwrap();
+
+    SorobanAuthorizedInvocation {
+        function: SorobanAuthorizedFunction::ContractFn(InvokeContractArgs {
+            contract_address: wallet.clone().try_into().unwrap(),
+            function_name: "remove_signer".try_into().unwrap(),
+            args: std::vec![key_scval].try_into().unwrap(),
         }),
         sub_invocations: VecM::default(),
     }

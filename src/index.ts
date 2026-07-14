@@ -107,6 +107,7 @@ export {
   extractPublicKeyFromAttestation,
   compactSignature,
   generateChallenge,
+  isOnP256Curve,
 } from "./utils.js";
 
 // Client-side validation

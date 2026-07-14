@@ -56,6 +56,27 @@ export async function readContractData(
 }
 
 /**
+ * Whether a contract's instance entry exists on-chain.
+ *
+ * Returns `false` only on a genuine not-found; a transport error (429/5xx/
+ * timeout) throws. `connectWallet` uses this to confirm the deterministically
+ * derived wallet address: only an authoritative not-found may abandon the
+ * canonical derivation for the storage/indexer fallbacks — a flaky RPC must
+ * never reroute resolution away from the canonical derivation.
+ */
+export async function contractInstanceExists(
+  rpc: Server,
+  contractId: string
+): Promise<boolean> {
+  return contractDataExists(
+    rpc,
+    contractId,
+    xdr.ScVal.scvLedgerKeyContractInstance(),
+    Durability.Persistent
+  );
+}
+
+/**
  * Whether a contract-data entry exists in the given durability.
  *
  * Returns `false` only on a genuine not-found; a transport error throws (so
