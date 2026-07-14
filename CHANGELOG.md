@@ -2,9 +2,9 @@
 
 All notable changes to `passkey-kit` are recorded here. The `0.13.0` entry covers the ground-up **v1 overhaul** of the contract, SDK, bindings, and services; `0.13.1` wires live signer discovery onto Mercury's hosted indexer.
 
-## Unreleased
+## 0.14.0 — 2026-07-14
 
-Robustness, validation, and test-coverage improvements across the contract, SDK, and relayer-proxy. All changes are forward-only.
+Robustness, validation, and test-coverage improvements across the contract, SDK, and relayer-proxy. All changes are forward-only. Bindings package `passkey-kit-sdk` is bumped to `0.8.0`. **Breaking:** `updateSecp256r1` drops its `publicKey` parameter (`updateSecp256r1(keyId, limits, store, expiration?)`).
 
 ### Contract
 

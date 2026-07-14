@@ -35,7 +35,7 @@ RELAYER_BASE_URL = "https://channels.openzeppelin.com/testnet"
 STELLAR_RPC_URL = "https://soroban-testnet.stellar.org"
 # Empty origins fail closed. Set this to the exact deployed demo origin before
 # deployment (comma-separated when more than one origin is intentional).
-ALLOWED_ORIGINS = ""
+ALLOWED_ORIGINS = "https://passkey-kit-demo.pages.dev"
 # Explicit contract IDs are optional; approved instances are otherwise verified
 # by their on-chain WASM hash through STELLAR_RPC_URL.
 ALLOWED_WALLET_CONTRACT_IDS = ""
