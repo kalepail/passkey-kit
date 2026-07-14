@@ -58,8 +58,11 @@ export interface RelayerSubmitOptions {
  * on-chain inclusion counts as success — anything else is failure or still
  * pending. An allowlist (not a failure denylist) is deliberate: an unrecognized
  * or non-terminal status must never be mistaken for a confirmed transaction.
+ * Word-bounded so negated forms ("unsuccessful", "unconfirmed") and
+ * non-terminal forms ("confirming") never match. Keep identical to
+ * relayer-proxy/src/constants.ts.
  */
-const SUCCESS_STATUS = /confirm|success/i;
+const SUCCESS_STATUS = /\b(?:confirm(?:ed)?|success(?:ful)?)\b/i;
 
 /** Terminal-failure statuses. */
 const FAILURE_STATUS = /fail|error|revert|reject/i;

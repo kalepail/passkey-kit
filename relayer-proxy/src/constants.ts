@@ -46,6 +46,51 @@ export const MISSING_ACCOUNT_PATTERN = /Account not found:\s*(G[A-Z0-9]{55})/;
 /** How long to retry on testnet when channel accounts need funding (5 minutes) */
 export const TESTNET_RETRY_DURATION_MS = 5 * 60 * 1000;
 
+/** Initial delay between recoverable testnet submission attempts. */
+export const TESTNET_RETRY_BASE_DELAY_MS = 500;
+
+/** Maximum exponential-backoff delay between testnet submission attempts. */
+export const TESTNET_RETRY_MAX_DELAY_MS = 5_000;
+
+// ============================================================================
+// Abuse-prevention defaults
+// ============================================================================
+
+/** Fixed-window duration used when RATE_LIMIT_WINDOW_SECONDS is unset. */
+export const DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+/** Per-IP submissions per fixed window. */
+export const DEFAULT_RATE_LIMIT_PER_IP = 10;
+
+/** Global submissions per fixed window (also bounds IP rotation). */
+export const DEFAULT_RATE_LIMIT_GLOBAL = 100;
+
+/** Maximum resource fee, in stroops, when MAX_RESOURCE_FEE_STROOPS is unset. */
+export const DEFAULT_MAX_RESOURCE_FEE_STROOPS = 1_000_000n;
+
+/** Maximum JSON request size accepted by the Worker. */
+export const MAX_REQUEST_BODY_BYTES = 256 * 1024;
+
+/** Account used only to simulate the Relayer-built `{ func, auth }` request. */
+export const SIMULATION_SOURCE =
+  "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
+/** Smart-wallet entrypoints the proxy may sponsor by default. */
+export const DEFAULT_WALLET_FUNCTIONS = [
+  "add_signer",
+  "update_signer",
+  "remove_signer",
+  "upgrade",
+] as const;
+
+/**
+ * Terminal statuses mirrored from src/relayer.ts (keep identical). Success is
+ * word-bounded so negated forms ("unsuccessful", "unconfirmed") and
+ * non-terminal forms ("confirming") never match.
+ */
+export const SUCCESS_STATUS = /\b(?:confirm(?:ed)?|success(?:ful)?)\b/i;
+export const FAILURE_STATUS = /fail|error|revert|reject/i;
+
 // ============================================================================
 // HTTP Headers
 // ============================================================================

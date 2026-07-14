@@ -6,7 +6,7 @@ A TypeScript SDK for creating and using **smart-wallet accounts on Stellar with 
 - **Server (`PasskeyServer`)** — runs server-side: submits transactions through a relayer (fee sponsorship), plus convenience signer-discovery helpers over the keyless Mercury indexer. Holds the relayer secret.
 
 > [!IMPORTANT]
-> **Security.** The v1 smart-wallet contract underwent an internal multi-reviewer adversarial review and remediation (see the [CHANGELOG](./CHANGELOG.md)), but it has **not** been reviewed by a third-party security firm. Review it yourself before holding meaningful value, and read [Caveats & footguns](#caveats--footguns).
+> **Security.** Review the contract and SDK yourself before holding meaningful value, and read [Caveats](#caveats).
 
 > [!NOTE]
 > **Looking for context rules, thresholds, and spending-limit policies?** [smart-account-kit](https://github.com/kalepail/smart-account-kit) is a sibling SDK built on the audited [OpenZeppelin stellar-contracts](https://github.com/OpenZeppelin/stellar-contracts) account. It uses a different on-chain authorization model (context rules + an auth digest) than passkey-kit's flat `Signatures` map, so the two are not drop-in compatible — pick the model that fits your app.
@@ -26,7 +26,7 @@ A TypeScript SDK for creating and using **smart-wallet accounts on Stellar with 
 - [Storage adapters](#storage-adapters)
 - [Errors](#errors)
 - [Types](#types)
-- [Caveats & footguns](#caveats--footguns)
+- [Caveats](#caveats)
 - [Contract interface](#contract-interface)
 - [Repository layout & development](#repository-layout--development)
 - [Resources](#resources)
@@ -71,7 +71,7 @@ const kit = new PasskeyKit({
   rpcUrl: "https://soroban-testnet.stellar.org",
   networkPassphrase: "Test SDF Network ; September 2015",
   // Canonical v1 smart-wallet WASM hash (testnet); see docs/deployments-*.md
-  walletWasmHash: "84924c53a413318df2ce753e30de53ec651404c916d30e861718ad155c94b319",
+  walletWasmHash: "fdefad64b96837147e1c333e51f537b696eab925e9f147e63d597c04e3c903f0",
 });
 ```
 
@@ -229,7 +229,7 @@ Each method builds an `AssembledTransaction` (`WalletTx`) that wraps one contrac
 | Method | Wrapped contract fn | Description |
 |---|---|---|
 | `addSecp256r1(keyId, publicKey, limits, store, expiration?)` | `add_signer` | Add a passkey signer. |
-| `updateSecp256r1(keyId, publicKey, limits, store, expiration?)` | `update_signer` | Replace a passkey signer's value/storage. |
+| `updateSecp256r1(keyId, limits, store, expiration?)` | `update_signer` | Update a passkey signer's limits/storage/expiration. The public key is re-read from the ledger, never caller-supplied. |
 | `addEd25519(publicKey, limits, store, expiration?)` | `add_signer` | Add an Ed25519 signer (`publicKey` = `G…`). |
 | `updateEd25519(publicKey, limits, store, expiration?)` | `update_signer` | Update an Ed25519 signer. |
 | `addPolicy(policy, limits, store, expiration?)` | `add_signer` | Add a policy signer (`policy` = `C…`). Invokes the policy's `install` hook. |
@@ -246,6 +246,16 @@ Parameters:
 - `limits` — [`SignerLimits`](#signerlimits) (`undefined` = fully unlimited).
 - `store` — `SignerStore.Persistent` or `SignerStore.Temporary`.
 - `expiration` — optional UNIX-timestamp (seconds) after which the signer is invalid.
+
+> [!IMPORTANT]
+> **Signer key material comes from the ledger or the authenticator, not from
+> an indexer.** Indexer rows (`getSigners`, `WalletSigner.publicKey`) are for
+> display/lookup only. The kit's `updateSecp256r1` re-reads the key from the
+> ledger, and `addSecp256r1` should only ever receive the key from the
+> WebAuthn `createKey`/`connectWallet` attestation. If you build
+> `update_signer`/`add_signer` transactions yourself (e.g. via
+> `buildSecp256r1SignerTx`), source key material from the ledger
+> (`getSigner`) or the authenticator.
 
 ```ts
 import { SignerStore, SignerKey } from "passkey-kit";
@@ -430,19 +440,18 @@ const limits = new Map([["C…token", [SignerKey.Secp256r1(keyId)]]]);
 enum SignerStore { Persistent = "Persistent", Temporary = "Temporary" }
 ```
 
-`Temporary` entries are cheaper but **can be evicted** when their ledger TTL lapses — see [Caveats](#caveats--footguns).
+`Temporary` entries are cheaper but **can be evicted** when their ledger TTL lapses — see [Caveats](#caveats).
 
 ### Expiration
 
 Signer and signature expiration are **UNIX timestamps in seconds** (inclusive: valid while `now <= expiration`). Pre-1.0 these were ledger sequence numbers; timestamps don't drift as ledger close-time changes.
 
-## Caveats & footguns
+## Caveats
 
 > [!WARNING]
 > These are inherent to the wallet model. The SDK does not guard against them — handle them in your app.
 
-- **Don't remove your last usable signer → the wallet bricks.** The contract does not enforce a minimum signer count. If you remove (or let expire) every signer that can authorize admin functions, the wallet becomes permanently uncontrollable. Always keep at least one live, unlimited signer, and add the replacement *before* removing the old one.
-- **A sole `Temporary` signer can be evicted → the wallet bricks.** Temporary entries are reclaimed when their TTL lapses. Never let a wallet's only admin signer live in `Temporary` storage; keep at least one `Persistent` signer.
+- **Keep at least one durable admin signer.** The contract rejects any change that would remove or demote its last durable (`Persistent`, non-expiring) admin signer (`LastAdminSigner = 103`) or leave it without any durable signer (`LastSigner = 104`), so a wallet always retains one signer that cannot evict or expire. Signers outside that guard — `Temporary` storage or with an expiration — lapse on their own: add a replacement *before* removing or demoting an existing signer.
 - **The default deployer is a shared, public keypair.** It only pays fees and salts the deploy (it never controls the wallet), but its determinism is load-bearing for discovery. Overriding `deploySource` changes every derived address and breaks keyId → wallet lookup. See [Deterministic derivation](#deterministic-derivation).
 - **Deploy front-running.** Because the deployer is public and the WASM is not part of the address preimage, anyone who learns a `keyId` before the wallet is deployed could deploy other code at the derived address. `connectWallet` mitigates this by verifying the keyId is a live signer (and, with `verifyWasmHash: true`, checking the on-chain WASM hash) — never trust a bare derived/looked-up address without that check.
 - **WebAuthn requires User Presence (UP), not User Verification (UV).** The contract requires the UP flag but not UV (biometric/PIN), so it stays compatible with non-UV authenticators. Enforce UV at the client/relayer layer if you need it.
@@ -481,7 +490,7 @@ contractId = sha256(XDR(HashIdPreimage::EnvelopeTypeContractId {
 - The canonical deployer keypair is `Keypair.fromRawEd25519Seed(sha256("kalepail"))`. It only pays fees and salts the deploy — it never controls the wallet — but its determinism is **load-bearing**: overriding `deploySource` changes every derived address and breaks keyId → wallet discovery.
 - The WASM hash is deliberately **not** in the preimage, so an `upgrade` never moves a wallet's address.
 
-This tuple is normative and must never change. See [`docs/deployments-testnet-2026-07-11.md`](./docs/deployments-testnet-2026-07-11.md) for the canonical WASM hashes, the deployer `G…` address, and the full derivation spec (including the deploy-front-running consequence in [Caveats](#caveats--footguns)).
+This tuple is normative and must never change. See [`docs/deployments-testnet-2026-07-11.md`](./docs/deployments-testnet-2026-07-11.md) for the canonical WASM hashes, the deployer `G…` address, and the full derivation spec (including the deploy-front-running consequence in [Caveats](#caveats)).
 
 ## Repository layout & development
 

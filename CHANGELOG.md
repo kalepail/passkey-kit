@@ -2,6 +2,24 @@
 
 All notable changes to `passkey-kit` are recorded here. The `0.13.0` entry covers the ground-up **v1 overhaul** of the contract, SDK, bindings, and services; `0.13.1` wires live signer discovery onto Mercury's hosted indexer.
 
+## Unreleased
+
+Robustness, validation, and test-coverage improvements across the contract, SDK, and relayer-proxy. All changes are forward-only.
+
+### Contract
+
+- **Rebuilt canonical WASM.** The smart-wallet contract's canonical testnet hash is now `fdefad64b96837147e1c333e51f537b696eab925e9f147e63d597c04e3c903f0` (sample-policy `801b68fabf9f8746b10bfbc6d3da1b41462db0a38364ab8139d32dec3676ef39`), superseding `84924c53…` from 0.13.0/0.13.1 — see `docs/deployments-testnet-2026-07-11.md` for the re-pinned manifest and upload transactions. Bindings (`passkey-kit-sdk`) are regenerated from the new WASM.
+- **New contract error codes**, mirrored in `CONTRACT_ERROR_REGISTRY`: `LastAdminSigner = 103` (removing or demoting the wallet's last durable admin signer is rejected — add or promote a replacement admin first), `LastSigner = 104` (any operation that would leave the wallet without a durable — Persistent, non-expiring — signer is rejected, enforced at construction, removal, and update-demotion, so at least one signer that cannot evict or expire always exists), and `AuthenticatorDataTooLarge = 126` (authenticatorData capped at 1024 bytes). Policy invocations now run only after every other requirement of a signer's limits has passed, so a losing auth candidate never invokes a state-committing policy; a rejecting policy does not block its own removal.
+
+### SDK
+
+- **V2 address-bound signing.** `signAuthEntry` now upgrades V1 address credentials to V2 (`toAddressBoundCredentials`) before hashing and refuses to sign any non-address-bound entry — the CAP-0071-02 V2 preimage binds the wallet address into every signed payload, and there is **no V1 signing path**. A regression test pins that two wallets produce different payload hashes for a byte-identical address-free invocation, and that the signed payload equals the stellar-sdk's own `buildAuthorizationEntryPreimage` V2 hash.
+- **`updateSecp256r1` no longer accepts a `publicKey`.** Breaking: `updateSecp256r1(keyId, publicKey, limits, store, expiration?)` → `updateSecp256r1(keyId, limits, store, expiration?)`. `update_signer` replaces the whole on-chain signer value, so the kit now treats the ledger as the single source of truth for key material: it re-reads the authoritative public key on-chain and throws `SignerNotFoundError` if the signer is not found.
+- **`connectWallet` no longer treats RPC transport errors as not-found.** The derived-address instance read distinguishes an authoritative not-found (falls through to storage/indexer) from a transport error (429/5xx/timeout — propagates), so a flaky RPC never reroutes wallet resolution. New `contractInstanceExists` helper in `rpc-data`.
+- **Reverse lookup fails closed.** `MercuryIndexer.findWallets` now throws `IndexerError(INDEXER_NOT_CONFIGURED)` when candidates exist but no confirmation route does (no `rpc`, and `hardening` derivation only covers Secp256r1 keys) — unconfirmed indexer rows are never returned. Previously they were returned unfiltered when neither `rpc` nor `hardening` was configured.
+- **Failed `verifyWasmHash` disconnects.** A `connectWallet({ verifyWasmHash: true })` mismatch now clears `wallet`/`keyId` before throwing, so a subsequent `sign` cannot operate on the rejected contract.
+- **Input validation.** `compactSignature` validates the DER structure (tags, short-form lengths that exactly span the buffer, `r`/`s` in `[1, n-1]`) before any offset is read. `extractPublicKeyFromAttestation` verifies the COSE prefix/labels and bounds in place instead of trusting fixed offsets, and rejects any extracted key that is not a point on the P-256 curve — a wallet deployed from a mangled key could never verify a signature; new `isOnP256Curve` export. `validateExpiration` accepts the contract's full `u64` UNIX-seconds range instead of capping at `u32`.
+
 ## 0.13.1 — 2026-07-13
 
 ### Indexing — live Mercury discovery

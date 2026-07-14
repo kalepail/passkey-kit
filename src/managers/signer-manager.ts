@@ -20,11 +20,12 @@ import type { Client as PasskeyClient, SignerVal } from "passkey-kit-sdk";
 import type { Signer, SignerContext } from "../signers.js";
 import { PasskeySigner } from "../signers.js";
 import {
+  SignerKey,
   SignerStore,
-  type SignerKey,
   type SignerLimits,
 } from "../types.js";
-import { WalletNotConnectedError } from "../errors.js";
+import base64url from "../base64url.js";
+import { SignerNotFoundError, WalletNotConnectedError } from "../errors.js";
 import {
   signAuthEntry as signAuthEntryOp,
   sign as signOp,
@@ -119,14 +120,36 @@ export class SignerManager {
     return buildSecp256r1SignerTx(this.writeDeps(), "add_signer", keyId, publicKey, limits, store, expiration);
   }
 
-  updateSecp256r1(
+  /**
+   * Update a passkey signer's limits/storage/expiration.
+   *
+   * The signer's `publicKey` is deliberately NOT a parameter: `update_signer`
+   * replaces the whole on-chain `SignerVal`, so the ledger is treated as the
+   * single source of truth for key material — a limits-only update must never
+   * change the stored public key. The authoritative key
+   * is re-read from the ledger here, and only that value is written back.
+   *
+   * @throws {SignerNotFoundError} If the keyId is not a live on-chain signer.
+   */
+  async updateSecp256r1(
     keyId: string | Uint8Array,
-    publicKey: string | Uint8Array,
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
   ): Promise<WalletTx> {
-    return buildSecp256r1SignerTx(this.writeDeps(), "update_signer", keyId, publicKey, limits, store, expiration);
+    const keyIdBase64 =
+      typeof keyId === "string" ? keyId : base64url(Buffer.from(keyId));
+
+    const signerVal = await this.getSigner(SignerKey.Secp256r1(keyIdBase64));
+    if (!signerVal || signerVal.tag !== "Secp256r1") {
+      throw new SignerNotFoundError(
+        keyIdBase64,
+        "Cannot update a Secp256r1 signer that does not exist on-chain."
+      );
+    }
+    const [publicKey] = signerVal.values;
+
+    return buildSecp256r1SignerTx(this.writeDeps(), "update_signer", keyIdBase64, publicKey, limits, store, expiration);
   }
 
   addEd25519(

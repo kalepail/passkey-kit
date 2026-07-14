@@ -62,6 +62,8 @@ export const CONTRACT_ERROR_REGISTRY: Readonly<
     entry(100, "SignerNotFound", "SmartWallet", "The requested signer does not exist on this smart wallet."),
     entry(101, "SignerAlreadyExists", "SmartWallet", "add_signer was called with a signer key that already exists."),
     entry(102, "SignerExpired", "SmartWallet", "The signer's expiration timestamp is in the past."),
+    entry(103, "LastAdminSigner", "SmartWallet", "This change would remove or demote the wallet's last durable admin signer (persistent, non-expiring, independently admin-capable) and permanently lock the wallet's admin surface; add or promote a replacement admin signer first."),
+    entry(104, "LastSigner", "SmartWallet", "The operation would leave the wallet without any durable (Persistent, non-expiring) signer — thrown by remove_signer, update_signer demotions, and a __constructor with a non-durable first signer; keep or add a Persistent, non-expiring signer."),
     // 110-119: auth (__check_auth)
     entry(110, "MissingContext", "SmartWallet", "No signer in the signatures map is permitted to authorize one of the requested auth contexts."),
     entry(111, "SignatureKeyValueMismatch", "SmartWallet", "A signature's variant does not match the stored signer it claims to be for."),
@@ -72,6 +74,7 @@ export const CONTRACT_ERROR_REGISTRY: Readonly<
     entry(123, "InvalidWebAuthnType", "SmartWallet", 'clientDataJSON `type` is not "webauthn.get".'),
     entry(124, "InvalidAuthenticatorData", "SmartWallet", "authenticatorData is shorter than the WebAuthn minimum of 37 bytes."),
     entry(125, "UserPresenceRequired", "SmartWallet", "The authenticator did not set the User Present (UP) flag."),
+    entry(126, "AuthenticatorDataTooLarge", "SmartWallet", "authenticatorData exceeds the 1024-byte cap."),
 
     // --- Legacy (pre-1.0) 1-9 — kept so errors from legacy deployed wallets decode ---
     entry(1, "NotFound", "SmartWalletLegacy", "[legacy] The specified signer was not found."),

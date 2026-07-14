@@ -51,6 +51,7 @@ import {
   SubmissionManager,
 } from "./managers/index.js";
 import { resolveDeployer } from "./kit/deploy-ops.js";
+import { contractInstanceExists } from "./rpc-data.js";
 import type { WalletTx } from "./kit/wallet-ops.js";
 
 /** Configuration for a {@link PasskeyKit} client. */
@@ -275,14 +276,12 @@ export class PasskeyKit {
       keyId instanceof Uint8Array ? Buffer.from(keyId) : base64url.toBuffer(keyId);
 
     // 1) Deterministic derivation, confirmed by an on-chain instance read.
+    // Transport errors (429/5xx/timeout) propagate — only an authoritative
+    // not-found may abandon the canonical derivation for the less-trusted
+    // storage/indexer fallbacks.
     let contractId: string | undefined =
       this.submissionManager.deriveWalletAddress(keyIdBuffer);
-    try {
-      await this.rpc.getContractData(
-        contractId,
-        xdr.ScVal.scvLedgerKeyContractInstance()
-      );
-    } catch {
+    if (!(await contractInstanceExists(this.rpc, contractId))) {
       // 2) local storage, then 3) injected indexer lookup.
       contractId =
         (await this.credentialManager.lookupContractId(keyIdBase64)) ??
@@ -330,8 +329,16 @@ export class PasskeyKit {
     }
 
     // 4) Optional wasm-hash check (opt-in; upgraded wallets differ by design).
+    // A failed check must leave the kit disconnected — otherwise a subsequent
+    // sign() would operate on the contract the caller just rejected.
     if (options?.verifyWasmHash) {
-      await this.assertWalletWasmHash(contractId);
+      try {
+        await this.assertWalletWasmHash(contractId);
+      } catch (err) {
+        this.wallet = undefined;
+        this.keyId = undefined;
+        throw err;
+      }
     }
 
     this.events.emit("walletConnected", { contractId, keyId: keyIdBase64 });
@@ -405,14 +412,17 @@ export class PasskeyKit {
   ): Promise<WalletTx> {
     return this.signerManager.addSecp256r1(keyId, publicKey, limits, store, expiration);
   }
+  /**
+   * Update a passkey signer's limits/storage/expiration. The public key is
+   * re-read from the ledger — never caller- or indexer-supplied.
+   */
   updateSecp256r1(
     keyId: string | Uint8Array,
-    publicKey: string | Uint8Array,
     limits: SignerLimits,
     store: SignerStore,
     expiration?: number
   ): Promise<WalletTx> {
-    return this.signerManager.updateSecp256r1(keyId, publicKey, limits, store, expiration);
+    return this.signerManager.updateSecp256r1(keyId, limits, store, expiration);
   }
   addEd25519(
     publicKey: string,

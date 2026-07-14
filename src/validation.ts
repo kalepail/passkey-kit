@@ -70,10 +70,12 @@ export function validateAmount(amount: number, fieldName = "amount"): void {
 /**
  * Validate a signer expiration.
  *
- * Must be a non-negative integer within `u32` bounds when provided; `undefined`
- * means "no expiration". (Unix-second timestamps fit in `u32` through the year
- * 2106, so this bound holds whether the contract interprets the value as a
- * ledger sequence or a UNIX timestamp.)
+ * The contract types signer expiration as `Option<u64>` UNIX seconds, so the
+ * accepted range here is the `u64`-compatible safe-integer range: a
+ * non-negative integer up to `Number.MAX_SAFE_INTEGER` (the kit carries the
+ * value as a JS number before converting to `BigInt`). `undefined` means "no
+ * expiration". Capping at `u32` (the old bound) would reject post-2106
+ * timestamps the contract accepts.
  *
  * @throws {ValidationError} If the expiration is out of range.
  */
@@ -85,10 +87,10 @@ export function validateExpiration(
   if (
     !Number.isInteger(expiration) ||
     expiration < 0 ||
-    expiration > 0xffffffff
+    expiration > Number.MAX_SAFE_INTEGER
   ) {
     throw new ValidationError(
-      `${fieldName} must be a non-negative integer within u32 bounds`,
+      `${fieldName} must be a non-negative integer (u64 UNIX seconds, within JS safe-integer range)`,
       PasskeyKitErrorCode.INVALID_INPUT,
       { field: fieldName, value: expiration }
     );

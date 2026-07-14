@@ -1,32 +1,32 @@
 //! Sample policy: a CUMULATIVE rolling-window spending allowance.
 //!
-//! It is a reference others copy, so it models every hardening the audit
-//! asked for and — critically — is safe even though `Signature::Policy`
+//! It is a reference others copy, so it models the full set of hardening
+//! practices for policies and is safe even though `Signature::Policy`
 //! carries no secret (anyone can submit it):
 //!
-//! - **Cumulative allowance (FIX-3b).** A per-transfer cap is NOT a spending
-//!   limit: because policy signatures are secretless, a per-transfer cap is
-//!   trivially bypassed by repeating capped transfers to drain the wallet.
+//! - **Cumulative allowance.** A per-transfer cap is NOT a spending
+//!   limit: because policy signatures are secretless, repeated capped
+//!   transfers can move the wallet's full balance.
 //!   This policy instead tracks cumulative spend per wallet within a rolling
 //!   time window and rejects once the window's total would exceed the cap, so
 //!   the most anyone can move through it is `WINDOW_ALLOWANCE` per
 //!   `WINDOW_SECONDS` — a genuine, bounded rate limit.
-//! - **Caller authentication (FIX-2).** `policy__` is publicly callable with
-//!   an attacker-chosen `source`. Because this policy keeps per-wallet state,
+//! - **Caller authentication.** `policy__` is publicly callable with
+//!   any caller-chosen `source`. Because this policy keeps per-wallet state,
 //!   it calls `source.require_auth()` first. During a real `__check_auth` the
 //!   wallet is the direct invoker of `policy__`, so invoker auth satisfies
 //!   this; an external caller cannot satisfy it for a wallet it does not
 //!   control.
-//! - **Deny-by-default (FIX-3).** Every context is rejected unless it is a
+//! - **Deny-by-default.** Every context is rejected unless it is a
 //!   `transfer` of a positive amount to a contract other than the wallet.
 //!   Any other function, any non-contract context, a missing/mistyped amount,
 //!   a non-positive amount, or a context targeting the wallet's own admin
 //!   surface all FAIL CLOSED.
-//! - **TTL renewal (FIX-4).** `install` and every successful `policy__`
+//! - **TTL renewal.** `install` and every successful `policy__`
 //!   extend this policy's instance/code TTL and the per-wallet state keys, so
 //!   a policy participating in a wallet's authorization cannot silently
 //!   archive into a wallet lock.
-//! - **Permissionless self-clean (FIX-1).** The wallet does NOT call
+//! - **Permissionless self-clean.** The wallet does NOT call
 //!   `uninstall` on removal. Anyone may call it; it clears per-wallet state
 //!   only after confirming (via the wallet's own `get_signer`) that this
 //!   policy is genuinely no longer a signer on that wallet.
@@ -36,6 +36,18 @@
 //! an authenticated cryptographic co-signer, so that the bounded amount still
 //! requires a real signature to move. The allowance bounds worst-case loss;
 //! the co-signer removes the "anyone" from "anyone can spend up to the cap".
+//!
+//! - **Single-charge accounting.** This policy COMMITS spend in
+//!   `policy__`. That is safe against multi-charging because the v1 wallet
+//!   invokes limit-key policies only after every side-effect-free requirement
+//!   of the candidate signer has already passed (co-signer presence, stored
+//!   policy expiration), so a losing candidate never charges the allowance.
+//!   Two caveats a copied policy inherits: never combine multiple
+//!   state-committing policies in one required-keys list (an earlier
+//!   policy's commit survives a later one's rejection if the auth succeeds
+//!   through another candidate), and do not use one state-committing policy
+//!   both as a `Signature::Policy` entry and as a required limit key in the
+//!   same authorization (it is invoked — and commits — in both roles).
 
 #![no_std]
 

@@ -8,7 +8,8 @@ import {
   MercuryIndexer,
   mercuryPasskeyIndexerUrl,
 } from "./mercury.js";
-import { signerKeyToContractScVal } from "./codec.js";
+import { signerKeyToContractScVal, walletSpec } from "./codec.js";
+import { SIGNER_VAL_UDT } from "../kit/auth-payload.js";
 
 const TESTNET = Networks.TESTNET;
 const DEPLOYER = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 9)).publicKey();
@@ -278,7 +279,7 @@ describe("MercuryIndexer.findWallets", () => {
     expect(mock).toHaveBeenCalledTimes(1);
   });
 
-  it("looks up an Ed25519 key by its strkey address", async () => {
+  it("looks up an Ed25519 key by its strkey address, confirmed on-chain", async () => {
     const mock = stubFetch((url) => {
       expect(url).toContain(`/api/lookup/address/${ED25519}`);
       return {
@@ -290,12 +291,51 @@ describe("MercuryIndexer.findWallets", () => {
       };
     });
 
-    // No rpc + no hardening => candidates returned unfiltered.
+    // rpc confirms the candidate still holds the signer entry on-chain.
+    const signerVal = walletSpec().nativeToScVal(
+      { tag: "Ed25519", values: [[undefined], [undefined]] },
+      SIGNER_VAL_UDT
+    );
+    const present = { contractData: () => ({ val: () => signerVal }) };
+    const indexer = new MercuryIndexer({
+      url: BASE,
+      rpc: fakeRpc(vi.fn(async () => ({ entries: [{ val: present }] }))),
+    });
+    const wallets = await indexer.findWallets(SignerKey.Ed25519(ED25519));
+    expect(wallets).toEqual([OTHER_WALLET]);
+    expect(mock).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails CLOSED when candidates exist but no confirmation route does", async () => {
+    stubFetch(() => ({
+      body: {
+        signerAddress: ED25519,
+        wallets: [{ contract_id: OTHER_WALLET, generation: "v1", signer_count: 1 }],
+        count: 1,
+      },
+    }));
+
+    // No rpc + no hardening: unconfirmed rows must never be returned.
+    await expect(
+      new MercuryIndexer({ url: BASE }).findWallets(SignerKey.Ed25519(ED25519))
+    ).rejects.toBeInstanceOf(IndexerError);
+
+    // hardening only derives Secp256r1 — an Ed25519 lookup still has no
+    // confirmation route, and must throw rather than silently drop.
+    await expect(
+      new MercuryIndexer({
+        url: BASE,
+        hardening: { networkPassphrase: TESTNET, deployerPublicKey: DEPLOYER },
+      }).findWallets(SignerKey.Ed25519(ED25519))
+    ).rejects.toBeInstanceOf(IndexerError);
+  });
+
+  it("returns [] without a confirmation route when there are no candidates", async () => {
+    stubFetch(() => ({ body: { wallets: [], count: 0 } }));
     const wallets = await new MercuryIndexer({ url: BASE }).findWallets(
       SignerKey.Ed25519(ED25519)
     );
-    expect(wallets).toEqual([OTHER_WALLET]);
-    expect(mock).toHaveBeenCalledTimes(1);
+    expect(wallets).toEqual([]);
   });
 
   it("returns [] on a 404 lookup", async () => {

@@ -339,12 +339,11 @@ export async function updateSigner(
     const limits = buildSignerLimits(input.limits);
     let at: WalletWriteTx;
     switch (signer.kind) {
-      case "Secp256r1": {
-        const publicKey = await resolvePublicKey(signer);
-        if (!publicKey) throw new Error("Missing public key for this passkey (cannot update)");
-        at = await account.updateSecp256r1(signer.value, publicKey, limits, input.store, input.expiration);
+      case "Secp256r1":
+        // The kit re-reads the signer's publicKey from the ledger;
+        // indexer-sourced key material never reaches an on-chain write.
+        at = await account.updateSecp256r1(signer.value, limits, input.store, input.expiration);
         break;
-      }
       case "Ed25519":
         at = await account.updateEd25519(signer.value, limits, input.store, input.expiration);
         break;
@@ -554,12 +553,6 @@ export function ensureEd25519(): Keypair {
 async function signAndSubmit(label: string, at: WalletWriteTx): Promise<boolean> {
   const signed = await account.sign(at, adminSigner());
   return reportResult(label, await submit(signed));
-}
-
-async function resolvePublicKey(signer: LocalSigner): Promise<Uint8Array | undefined> {
-  if (signer.publicKey) return base64url.toBuffer(signer.publicKey);
-  const stored = await storage.get(signer.value).catch(() => null);
-  return stored?.publicKey;
 }
 
 function requireConnected(): boolean {

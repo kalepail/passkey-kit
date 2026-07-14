@@ -256,13 +256,18 @@ export class MercuryIndexer implements SignerIndexer {
    * Harden the reverse lookup (#598 F3): keep a candidate only if it is either
    * the deterministic derivation of the keyId OR still holds the signer entry
    * on-chain — never trust an unverified indexer row.
+   *
+   * Fail-CLOSED: when candidates exist but no confirmation route
+   * does — no `rpc`, and no usable derivation (`hardening` only covers
+   * Secp256r1 keys) — this throws instead of returning unconfirmed rows. An
+   * unverifiable answer must never be handed to a caller that will route
+   * deposits or identity to it.
    */
   private async confirmCandidates(
     candidates: string[],
     key: SignerKey
   ): Promise<string[]> {
     const { rpc, hardening } = this.config;
-    if (!rpc && !hardening) return candidates; // nothing to verify with
 
     const derived =
       hardening && key.key === "Secp256r1"
@@ -272,6 +277,15 @@ export class MercuryIndexer implements SignerIndexer {
             hardening.networkPassphrase
           )
         : undefined;
+
+    if (candidates.length > 0 && !rpc && !derived) {
+      throw new IndexerError(
+        "Cannot confirm reverse-lookup candidates: configure `rpc` (any key type) " +
+          "or `hardening` (Secp256r1 derivation) — unconfirmed indexer rows are never returned",
+        PasskeyKitErrorCode.INDEXER_NOT_CONFIGURED,
+        { key: key.key, candidates: candidates.length }
+      );
+    }
 
     const confirmed: string[] = [];
     for (const candidate of candidates) {
