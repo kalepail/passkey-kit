@@ -1,5 +1,26 @@
 # Passkey Kit
 
+> [!CAUTION]
+> ## This repository has moved
+>
+> **Development of passkey-kit now happens at [stellar/passkey-kit](https://github.com/stellar/passkey-kit).**
+>
+> This repository is archived and read-only. Its full history and all tags were carried over to the new home — nothing was lost, but nothing further will land here.
+>
+> | | |
+> |---|---|
+> | **Source** | https://github.com/stellar/passkey-kit |
+> | **Issues / PRs** | https://github.com/stellar/passkey-kit/issues |
+> | **npm** | [`passkey-kit`](https://www.npmjs.com/package/passkey-kit) (unchanged) |
+>
+> Update your git remote:
+>
+> ```sh
+> git remote set-url origin https://github.com/stellar/passkey-kit.git
+> ```
+>
+> The README below is preserved as of the final commit in this repository.
+
 A TypeScript SDK for creating and using **smart-wallet accounts on Stellar with WebAuthn passkeys**. A wallet is a Soroban smart contract whose signers can be secp256r1 passkeys, Ed25519 keys, or policy contracts. The kit handles the WebAuthn ceremonies, deterministic wallet-address derivation, the flat multi-signer signing pipeline, fee-sponsored submission, and signer discovery.
 
 - **Client (`PasskeyKit`)** — runs in the browser: create/connect wallets, sign transactions, build signer-management transactions. Holds no secrets.
